@@ -51,6 +51,7 @@ _TOOL_MODULES = [
     ".clipboard_read",
     ".clipboard_write",
     ".get_table_info",
+    ".launch_app",
     ".scroll_to_item",
     ".multi_action",
 ]
@@ -69,6 +70,7 @@ _BACKEND_TOOL_MODULES: frozenset[str] = frozenset(
         ".clipboard_read",
         ".clipboard_write",
         ".get_table_info",
+        ".launch_app",
         ".scroll_to_item",
         ".multi_action",
     }

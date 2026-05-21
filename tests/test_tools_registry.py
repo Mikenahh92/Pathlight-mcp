@@ -27,6 +27,7 @@ EXPECTED_TOOL_NAMES = [
     "desktop.clipboard_read",
     "desktop.clipboard_write",
     "desktop.get_table_info",
+    "desktop.launch_app",
     "desktop.scroll_to_item",
     "desktop.multi_action",
 ]

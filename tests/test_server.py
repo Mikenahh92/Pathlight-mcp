@@ -131,6 +131,12 @@ EXPECTED_TOOLS = [
         "optional_params": ["max_rows", "max_columns"],
     },
     {
+        "name": "desktop.launch_app",
+        "description_pattern": "Launch a desktop application",
+        "required_params": ["app"],
+        "optional_params": ["args", "timeout"],
+    },
+    {
         "name": "desktop.scroll_to_item",
         "description_pattern": "virtualized list",
         "required_params": ["container_ref"],
