@@ -136,6 +136,12 @@ EXPECTED_TOOLS = [
         "required_params": ["container_ref"],
         "optional_params": ["item_name", "item_index", "max_retries"],
     },
+    {
+        "name": "desktop.multi_action",
+        "description_pattern": "batch",
+        "required_params": ["actions"],
+        "optional_params": [],
+    },
 ]
 
 
