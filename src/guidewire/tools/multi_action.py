@@ -14,9 +14,10 @@ Batch execution semantics:
 - Execute sequentially; stop on first failure.
 - Return per-action results with a batch-level summary.
 
-Design decisions (GW-065):
+Design decisions (GW-065 → GW-066):
 - Supported action types in v1: click, type, press_key, get_text, set_value,
-  toggle, expand, collapse, select, increment, decrement, scroll.
+  toggle, expand, collapse, select, select_item, deselect_item,
+  add_to_selection, increment, decrement, scroll.
 - press_key is special: it targets the focused window (no element_ref needed).
 - Actions that are not element-based (window management, clipboard, app_launch,
   snapshot, find, scroll_to_item, get_table_info, get_tree_info) are excluded
@@ -36,7 +37,7 @@ from guidewire.errors import (
 )
 from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
-from guidewire.safety import RiskLevel, RiskAssessment, classify, classify_system_action
+from guidewire.safety import RiskAssessment, RiskLevel, classify, classify_system_action
 
 if TYPE_CHECKING:
     from guidewire.backends.base import DesktopBackend

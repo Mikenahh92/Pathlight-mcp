@@ -1,4 +1,4 @@
-"""Tests for the desktop.multi_action tool handler (GW-065).
+"""Tests for the desktop.multi_action tool handler (GW-065 → GW-066).
 
 Validates:
 - Stub mode returns batch summary.
@@ -17,11 +17,9 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.backends import MockBackend
-from guidewire.backends.types import DesktopAction, NativeHandle
 from guidewire.errors import ActionNotSupportedError
 from guidewire.refs import ElementRefStore
 from guidewire.tools import register_all
-
 
 # -- Fixtures -----------------------------------------------------------------
 
