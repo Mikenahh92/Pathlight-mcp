@@ -148,6 +148,12 @@ EXPECTED_TOOLS = [
         "required_params": ["actions"],
         "optional_params": [],
     },
+    {
+        "name": "desktop.wait_for",
+        "description_pattern": "wait until a condition",
+        "required_params": ["condition"],
+        "optional_params": ["timeout_ms", "poll_interval_ms"],
+    },
 ]
 
 

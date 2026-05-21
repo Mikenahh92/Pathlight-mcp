@@ -30,6 +30,7 @@ EXPECTED_TOOL_NAMES = [
     "desktop.launch_app",
     "desktop.scroll_to_item",
     "desktop.multi_action",
+    "desktop.wait_for",
 ]
 
 

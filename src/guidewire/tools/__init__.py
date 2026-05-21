@@ -22,6 +22,7 @@ Tool set (architecture v2 §3.1):
     desktop.get_table_info — read table/grid data (dimensions, headers, cells)
     desktop.scroll_to_item — scroll a virtualized list to bring a target item into view
     desktop.multi_action   — execute a batch of desktop actions in a single call
+    desktop.wait_for       — async polling-based condition blocking
 """
 
 import importlib
@@ -54,6 +55,7 @@ _TOOL_MODULES = [
     ".launch_app",
     ".scroll_to_item",
     ".multi_action",
+    ".wait_for",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.
@@ -73,6 +75,7 @@ _BACKEND_TOOL_MODULES: frozenset[str] = frozenset(
         ".launch_app",
         ".scroll_to_item",
         ".multi_action",
+        ".wait_for",
     }
 )
 
