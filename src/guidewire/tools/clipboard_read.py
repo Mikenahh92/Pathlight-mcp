@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.errors import BackendUnavailableError
+from guidewire.hints import hints_for
 from guidewire.privacy import redact_clipboard_text
 from guidewire.safety import classify_system_action
 
@@ -56,11 +57,12 @@ def register(
         # --- Delegate to backend with structured error handling ---
         try:
             raw_text = backend.clipboard_read()
-        except BackendUnavailableError:
+        except BackendUnavailableError as exc:
             return json.dumps(
                 {
                     "error": "backend_unavailable",
                     "message": "Accessibility backend is not available",
+                    "hints": exc.hints,
                 }
             )
 

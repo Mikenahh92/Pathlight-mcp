@@ -23,6 +23,7 @@ from guidewire.errors import (
     StaleElementReferenceError,
     WindowNotFoundError,
 )
+from guidewire.hints import hints_for
 from guidewire.safety import classify_system_action
 
 if TYPE_CHECKING:
@@ -82,6 +83,7 @@ def register(
                     "error": "validation_error",
                     "message": "window_ref must be a non-empty string",
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -93,6 +95,7 @@ def register(
                         f"window_ref must start with 'w', got '{window_ref}'"
                     ),
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -105,6 +108,7 @@ def register(
                         f"got '{action}'"
                     ),
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -114,6 +118,7 @@ def register(
                     "error": "validation_error",
                     "message": "move action requires both x and y parameters",
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -123,6 +128,7 @@ def register(
                     "error": "validation_error",
                     "message": "resize action requires both width and height parameters",
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -138,6 +144,7 @@ def register(
                         f"in reference store"
                     ),
                     "ref": window_ref,
+                    "hints": hints_for("window_not_found"),
                 }
             )
 
@@ -150,6 +157,7 @@ def register(
                         f"Window reference '{window_ref}' is no longer valid"
                     ),
                     "ref": window_ref,
+                    "hints": hints_for("stale_element_reference"),
                 }
             )
 
@@ -169,7 +177,7 @@ def register(
                 backend.move_window(handle, x, y)  # type: ignore[arg-type]
             elif action == "resize":
                 backend.resize_window(handle, width, height)  # type: ignore[arg-type]
-        except WindowNotFoundError:
+        except WindowNotFoundError as exc:
             return json.dumps(
                 {
                     "error": "window_not_found",
@@ -177,9 +185,10 @@ def register(
                         f"Window reference '{window_ref}' is no longer valid"
                     ),
                     "ref": window_ref,
+                    "hints": exc.hints,
                 }
             )
-        except StaleElementReferenceError:
+        except StaleElementReferenceError as exc:
             return json.dumps(
                 {
                     "error": "stale_element_reference",
@@ -187,6 +196,7 @@ def register(
                         f"Window reference '{window_ref}' is stale"
                     ),
                     "ref": window_ref,
+                    "hints": exc.hints,
                 }
             )
         except ActionNotSupportedError as exc:
@@ -195,6 +205,7 @@ def register(
                     "error": "action_not_supported",
                     "message": str(exc),
                     "ref": window_ref,
+                    "hints": exc.hints,
                 }
             )
 

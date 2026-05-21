@@ -17,6 +17,7 @@ from guidewire.errors import (
     ActionNotSupportedError,
     BackendUnavailableError,
 )
+from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
 from guidewire.safety import classify
 
@@ -151,6 +152,7 @@ def register(
                     "error": "validation_error",
                     "message": "keys must be a non-empty string",
                     "keys": keys,
+                    "hints": [],
                 }
             )
 
@@ -164,6 +166,7 @@ def register(
                     "error": "backend_unavailable",
                     "message": "No windows available for key press",
                     "keys": keys,
+                    "hints": hints_for("backend_unavailable"),
                 }
             )
         target = windows[0]
@@ -175,20 +178,22 @@ def register(
                 DesktopAction.PRESS_KEY,
                 keys=normalised,
             )
-        except BackendUnavailableError:
+        except BackendUnavailableError as exc:
             return json.dumps(
                 {
                     "error": "backend_unavailable",
                     "message": "Accessibility backend is not available",
                     "keys": keys,
+                    "hints": exc.hints,
                 }
             )
-        except ActionNotSupportedError:
+        except ActionNotSupportedError as exc:
             return json.dumps(
                 {
                     "error": "action_not_supported",
                     "message": f"Press key action is not supported for '{keys}'",
                     "keys": keys,
+                    "hints": exc.hints,
                 }
             )
 

@@ -34,6 +34,7 @@ from guidewire.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
 )
+from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
 from guidewire.safety import RiskLevel, RiskAssessment, classify, classify_system_action
 
@@ -272,6 +273,7 @@ def _execute_single_action(
                     "error": "element_not_found",
                     "message": f"Element reference '{element_ref}' not found",
                     "ref": element_ref,
+                    "hints": hints_for("element_not_found"),
                 }
 
             # Staleness check.
@@ -281,6 +283,7 @@ def _execute_single_action(
                     "error": "stale_element_reference",
                     "message": f"Element reference '{element_ref}' is no longer valid",
                     "ref": element_ref,
+                    "hints": hints_for("stale_element_reference"),
                 }
 
             # Execute.
@@ -307,6 +310,7 @@ def _execute_single_action(
                     "success": False,
                     "error": "window_not_found",
                     "message": "No windows available for key press",
+                    "hints": hints_for("window_not_found"),
                 }
             target = windows[0]
 
@@ -325,28 +329,32 @@ def _execute_single_action(
             "success": False,
             "error": "action_not_supported",
             "message": f"Action '{desktop_action.value}' is not batchable",
+            "hints": hints_for("action_not_supported"),
         }
 
-    except ElementNotFoundError:
+    except ElementNotFoundError as exc:
         return {
             "success": False,
             "error": "element_not_found",
             "message": f"Element not found for action '{desktop_action.value}'",
             "ref": element_ref,
+            "hints": exc.hints,
         }
-    except StaleElementReferenceError:
+    except StaleElementReferenceError as exc:
         return {
             "success": False,
             "error": "stale_element_reference",
             "message": f"Element reference '{element_ref}' is stale",
             "ref": element_ref,
+            "hints": exc.hints,
         }
-    except ActionNotSupportedError:
+    except ActionNotSupportedError as exc:
         return {
             "success": False,
             "error": "action_not_supported",
             "message": f"Action '{desktop_action.value}' is not supported",
             "ref": element_ref,
+            "hints": exc.hints,
         }
 
 
@@ -421,6 +429,7 @@ def register(
                     "success": False,
                     "error": "validation_error",
                     "message": "'actions' must be a list",
+                    "hints": [],
                 }
             )
 
@@ -430,6 +439,7 @@ def register(
                     "success": False,
                     "error": "validation_error",
                     "message": "'actions' must not be empty",
+                    "hints": [],
                 }
             )
 
@@ -439,6 +449,7 @@ def register(
                     "success": False,
                     "error": "validation_error",
                     "message": f"Batch size {len(actions)} is below minimum of {MIN_BATCH_SIZE}",
+                    "hints": [],
                 }
             )
 
@@ -448,6 +459,7 @@ def register(
                     "success": False,
                     "error": "validation_error",
                     "message": f"Batch size {len(actions)} exceeds maximum of {MAX_BATCH_SIZE}",
+                    "hints": [],
                 }
             )
 
@@ -463,6 +475,7 @@ def register(
                         "success": False,
                         "error": "validation_error",
                         "message": error,
+                        "hints": [],
                     }
                 )
             validated.append((desktop_action, element_ref, kwargs))
@@ -475,6 +488,7 @@ def register(
                     "success": False,
                     "error": "sensitive_action_rejected",
                     "message": sensitive_error,
+                    "hints": [],
                 }
             )
 

@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.errors import BackendUnavailableError
+from guidewire.hints import hints_for
 from guidewire.safety import classify_system_action
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ def register(
                 {
                     "error": "validation_error",
                     "message": "text must be a string",
+                    "hints": [],
                 }
             )
 
@@ -68,6 +70,7 @@ def register(
                 {
                     "error": "validation_error",
                     "message": "text must not be empty or whitespace-only",
+                    "hints": [],
                 }
             )
 
@@ -78,6 +81,7 @@ def register(
                     "message": (
                         f"text exceeds maximum length of {_MAX_CLIPBOARD_LENGTH} characters"
                     ),
+                    "hints": [],
                 }
             )
 
@@ -87,11 +91,12 @@ def register(
         # --- Delegate to backend with structured error handling ---
         try:
             backend.clipboard_write(text)
-        except BackendUnavailableError:
+        except BackendUnavailableError as exc:
             return json.dumps(
                 {
                     "error": "backend_unavailable",
                     "message": "Accessibility backend is not available",
+                    "hints": exc.hints,
                 }
             )
         except Exception as exc:
@@ -99,6 +104,7 @@ def register(
                 {
                     "error": "backend_error",
                     "message": str(exc),
+                    "hints": [],
                 }
             )
 

@@ -25,6 +25,7 @@ from guidewire.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
 )
+from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
 from guidewire.privacy import redact_element
 from guidewire.safety import classify
@@ -178,6 +179,7 @@ def register(
                     "error": "validation_error",
                     "message": "element_ref must be a non-empty string",
                     "ref": element_ref,
+                    "hints": [],
                 }
             )
 
@@ -192,6 +194,7 @@ def register(
                         f"Element reference '{element_ref}' not found in reference store"
                     ),
                     "ref": element_ref,
+                    "hints": hints_for("element_not_found"),
                 }
             )
 
@@ -204,13 +207,14 @@ def register(
                         f"Element reference '{element_ref}' is no longer valid"
                     ),
                     "ref": element_ref,
+                    "hints": hints_for("stale_element_reference"),
                 }
             )
 
         # --- Retrieve element info with structured error handling ---
         try:
             info = backend.get_element_info(handle)
-        except ElementNotFoundError:
+        except ElementNotFoundError as exc:
             return json.dumps(
                 {
                     "error": "element_not_found",
@@ -218,9 +222,10 @@ def register(
                         f"Element reference '{element_ref}' not found in accessibility tree"
                     ),
                     "ref": element_ref,
+                    "hints": exc.hints,
                 }
             )
-        except StaleElementReferenceError:
+        except StaleElementReferenceError as exc:
             return json.dumps(
                 {
                     "error": "stale_element_reference",
@@ -228,6 +233,7 @@ def register(
                         f"Element reference '{element_ref}' is stale"
                     ),
                     "ref": element_ref,
+                    "hints": exc.hints,
                 }
             )
 
@@ -256,6 +262,7 @@ def register(
                     ),
                     "ref": element_ref,
                     "role": element_role,
+                    "hints": [],
                 }
             )
 

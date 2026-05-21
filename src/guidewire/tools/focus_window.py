@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.errors import StaleElementReferenceError, WindowNotFoundError
+from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
 from guidewire.safety import classify
 
@@ -57,6 +58,7 @@ def register(
                     "error": "validation_error",
                     "message": "window_ref must be a non-empty string",
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -68,6 +70,7 @@ def register(
                         f"window_ref must start with 'w', got '{window_ref}'"
                     ),
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -83,6 +86,7 @@ def register(
                         f"in reference store"
                     ),
                     "ref": window_ref,
+                    "hints": hints_for("window_not_found"),
                 }
             )
 
@@ -95,6 +99,7 @@ def register(
                         f"Window reference '{window_ref}' is no longer valid"
                     ),
                     "ref": window_ref,
+                    "hints": hints_for("stale_element_reference"),
                 }
             )
 
@@ -104,7 +109,7 @@ def register(
             info = backend.get_window_info(handle)
             title = info.get("title")
             backend.focus_window(handle)
-        except WindowNotFoundError:
+        except WindowNotFoundError as exc:
             return json.dumps(
                 {
                     "error": "stale_element_reference",
@@ -112,9 +117,10 @@ def register(
                         f"Window reference '{window_ref}' is no longer valid"
                     ),
                     "ref": window_ref,
+                    "hints": exc.hints,
                 }
             )
-        except StaleElementReferenceError:
+        except StaleElementReferenceError as exc:
             return json.dumps(
                 {
                     "error": "stale_element_reference",
@@ -122,6 +128,7 @@ def register(
                         f"Window reference '{window_ref}' is stale"
                     ),
                     "ref": window_ref,
+                    "hints": exc.hints,
                 }
             )
 

@@ -17,6 +17,7 @@ from guidewire.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
 )
+from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
 from guidewire.safety import classify
 
@@ -62,6 +63,7 @@ def register(
                     "error": "validation_error",
                     "message": "element_ref must be a non-empty string",
                     "ref": element_ref,
+                    "hints": [],
                 }
             )
 
@@ -74,6 +76,7 @@ def register(
                     "error": "element_not_found",
                     "message": (f"Element reference '{element_ref}' not found in reference store"),
                     "ref": element_ref,
+                    "hints": hints_for("element_not_found"),
                 }
             )
 
@@ -84,13 +87,14 @@ def register(
                     "error": "stale_element_reference",
                     "message": (f"Element reference '{element_ref}' is no longer valid"),
                     "ref": element_ref,
+                    "hints": hints_for("stale_element_reference"),
                 }
             )
 
         # --- Perform click with structured error handling ---
         try:
             backend.perform_action(handle, DesktopAction.CLICK)
-        except ElementNotFoundError:
+        except ElementNotFoundError as exc:
             return json.dumps(
                 {
                     "error": "element_not_found",
@@ -98,22 +102,25 @@ def register(
                         f"Element reference '{element_ref}' not found in accessibility tree"
                     ),
                     "ref": element_ref,
+                    "hints": exc.hints,
                 }
             )
-        except StaleElementReferenceError:
+        except StaleElementReferenceError as exc:
             return json.dumps(
                 {
                     "error": "stale_element_reference",
                     "message": (f"Element reference '{element_ref}' is stale"),
                     "ref": element_ref,
+                    "hints": exc.hints,
                 }
             )
-        except ActionNotSupportedError:
+        except ActionNotSupportedError as exc:
             return json.dumps(
                 {
                     "error": "action_not_supported",
                     "message": (f"Click action is not supported for element '{element_ref}'"),
                     "ref": element_ref,
+                    "hints": exc.hints,
                 }
             )
 

@@ -22,6 +22,7 @@ from guidewire.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
 )
+from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
 from guidewire.safety import classify
 
@@ -102,6 +103,7 @@ def register(
                 "error": "validation_error",
                 "message": "element_ref must be a non-empty string",
                 "ref": element_ref,
+                "hints": [],
             })
 
         if action not in _VALID_TABLE_ACTIONS:
@@ -112,6 +114,7 @@ def register(
                     f"got '{action}'"
                 ),
                 "ref": element_ref,
+                "hints": [],
             })
 
         if max_rows < 0:
@@ -119,6 +122,7 @@ def register(
                 "error": "validation_error",
                 "message": "max_rows must be a non-negative integer",
                 "ref": element_ref,
+                "hints": [],
             })
 
         if max_columns < 0:
@@ -126,6 +130,7 @@ def register(
                 "error": "validation_error",
                 "message": "max_columns must be a non-negative integer",
                 "ref": element_ref,
+                "hints": [],
             })
 
         if row < 0:
@@ -133,6 +138,7 @@ def register(
                 "error": "validation_error",
                 "message": "row must be a non-negative integer",
                 "ref": element_ref,
+                "hints": [],
             })
 
         if column < 0:
@@ -140,6 +146,7 @@ def register(
                 "error": "validation_error",
                 "message": "column must be a non-negative integer",
                 "ref": element_ref,
+                "hints": [],
             })
 
         # --- Resolve reference ---
@@ -152,6 +159,7 @@ def register(
                     f"Element reference '{element_ref}' not found in reference store"
                 ),
                 "ref": element_ref,
+                "hints": hints_for("element_not_found"),
             })
 
         # --- Staleness check ---
@@ -162,6 +170,7 @@ def register(
                     f"Element reference '{element_ref}' is no longer valid"
                 ),
                 "ref": element_ref,
+                "hints": hints_for("stale_element_reference"),
             })
 
         # --- Dispatch through perform_action ---
@@ -175,27 +184,30 @@ def register(
                 row=row,
                 column=column,
             )
-        except ElementNotFoundError:
+        except ElementNotFoundError as exc:
             return json.dumps({
                 "error": "element_not_found",
                 "message": (
                     f"Element reference '{element_ref}' not found in accessibility tree"
                 ),
                 "ref": element_ref,
+                "hints": exc.hints,
             })
-        except StaleElementReferenceError:
+        except StaleElementReferenceError as exc:
             return json.dumps({
                 "error": "stale_element_reference",
                 "message": f"Element reference '{element_ref}' is stale",
                 "ref": element_ref,
+                "hints": exc.hints,
             })
-        except ActionNotSupportedError:
+        except ActionNotSupportedError as exc:
             return json.dumps({
                 "error": "action_not_supported",
                 "message": (
                     f"Element '{element_ref}' does not support table/grid access"
                 ),
                 "ref": element_ref,
+                "hints": exc.hints,
             })
 
         # --- Retrieve element metadata for safety classification ---

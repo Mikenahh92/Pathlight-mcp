@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.errors import StaleElementReferenceError, WindowNotFoundError
+from guidewire.hints import hints_for
 from guidewire.safety import classify
 
 if TYPE_CHECKING:
@@ -64,6 +65,7 @@ def register(
                     "error": "validation_error",
                     "message": "window_ref must be a non-empty string",
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -73,6 +75,7 @@ def register(
                     "error": "validation_error",
                     "message": (f"window_ref must start with 'w', got '{window_ref}'"),
                     "ref": window_ref,
+                    "hints": [],
                 }
             )
 
@@ -85,6 +88,7 @@ def register(
                     "error": "window_not_found",
                     "message": (f"Window reference '{window_ref}' not found in reference store"),
                     "ref": window_ref,
+                    "hints": hints_for("window_not_found"),
                 }
             )
 
@@ -95,26 +99,29 @@ def register(
                     "error": "stale_element_reference",
                     "message": (f"Window reference '{window_ref}' is no longer valid"),
                     "ref": window_ref,
+                    "hints": hints_for("stale_element_reference"),
                 }
             )
 
         # --- Find elements via backend ---
         try:
             handles = backend.find_elements(handle, role=role, name=name)
-        except WindowNotFoundError:
+        except WindowNotFoundError as exc:
             return json.dumps(
                 {
                     "error": "window_not_found",
                     "message": (f"Window reference '{window_ref}' is no longer valid"),
                     "ref": window_ref,
+                    "hints": exc.hints,
                 }
             )
-        except StaleElementReferenceError:
+        except StaleElementReferenceError as exc:
             return json.dumps(
                 {
                     "error": "stale_element_reference",
                     "message": (f"Window reference '{window_ref}' is stale"),
                     "ref": window_ref,
+                    "hints": exc.hints,
                 }
             )
 

@@ -23,6 +23,7 @@ from guidewire.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
 )
+from guidewire.hints import hints_for
 from guidewire.models import ElementStates, NormalizedElement
 from guidewire.safety import classify
 
@@ -90,6 +91,7 @@ def register(
                 "error": "validation_error",
                 "message": "container_ref must be a non-empty string",
                 "ref": container_ref,
+                "hints": [],
             })
 
         if item_name is None and item_index is None:
@@ -97,6 +99,7 @@ def register(
                 "error": "validation_error",
                 "message": "Either item_name or item_index must be provided",
                 "ref": container_ref,
+                "hints": [],
             })
 
         if item_index is not None and item_index < 0:
@@ -104,6 +107,7 @@ def register(
                 "error": "validation_error",
                 "message": "item_index must be a non-negative integer",
                 "ref": container_ref,
+                "hints": [],
             })
 
         if max_retries < 1:
@@ -111,6 +115,7 @@ def register(
                 "error": "validation_error",
                 "message": "max_retries must be at least 1",
                 "ref": container_ref,
+                "hints": [],
             })
 
         # --- Resolve reference ---
@@ -123,6 +128,7 @@ def register(
                     f"Element reference '{container_ref}' not found in reference store"
                 ),
                 "ref": container_ref,
+                "hints": hints_for("element_not_found"),
             })
 
         # --- Staleness check ---
@@ -133,6 +139,7 @@ def register(
                     f"Element reference '{container_ref}' is no longer valid"
                 ),
                 "ref": container_ref,
+                "hints": hints_for("stale_element_reference"),
             })
 
         # --- Dispatch through scroll_to_item ---
@@ -143,25 +150,28 @@ def register(
                 item_index=item_index,
                 max_retries=max_retries,
             )
-        except ElementNotFoundError:
+        except ElementNotFoundError as exc:
             return json.dumps({
                 "error": "element_not_found",
                 "message": (
                     f"Container reference '{container_ref}' not found in accessibility tree"
                 ),
                 "ref": container_ref,
+                "hints": exc.hints,
             })
-        except StaleElementReferenceError:
+        except StaleElementReferenceError as exc:
             return json.dumps({
                 "error": "stale_element_reference",
                 "message": f"Container reference '{container_ref}' is stale",
                 "ref": container_ref,
+                "hints": exc.hints,
             })
         except ActionNotSupportedError as exc:
             return json.dumps({
                 "error": "action_not_supported",
                 "message": str(exc),
                 "ref": container_ref,
+                "hints": exc.hints,
             })
 
         if found_handle is None:
