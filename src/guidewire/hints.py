@@ -35,6 +35,17 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Use list_windows to see currently available windows",
         "The window may have been closed or renamed",
     ],
+    "launch_error": [
+        "The application may be missing shared libraries — try running it from a terminal",
+        "On Linux, verify DISPLAY is set and the display server is accessible",
+        "If the app is a snap package, try running 'snap run <app>' directly",
+        "For Electron/Chromium apps, ensure --no-sandbox is passed if not running as root",
+    ],
+    "app_not_found": [
+        "Check the application name or path for typos",
+        "Use 'which <app>' on Linux or 'where <app>' on Windows to locate the binary",
+        "Verify the application is installed and in your PATH",
+    ],
 }
 
 

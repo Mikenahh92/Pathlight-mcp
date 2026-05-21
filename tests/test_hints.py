@@ -11,7 +11,7 @@ from guidewire.hints import _HINT_REGISTRY, hints_for, register_hints
 
 
 class TestRegistryDefaults:
-    """All 7 PRD-mandated error codes have default hints registered."""
+    """All PRD-mandated + launch_app error codes have default hints registered."""
 
     @pytest.mark.parametrize(
         "error_code",
@@ -23,6 +23,8 @@ class TestRegistryDefaults:
             "permission_required",
             "ambiguous_selector",
             "window_not_found",
+            "launch_error",
+            "app_not_found",
         ],
     )
     def test_default_hints_exist(self, error_code: str) -> None:

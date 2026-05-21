@@ -1,4 +1,4 @@
-"""Tests for the desktop.launch_app tool handler (GW-054).
+"""Tests for the desktop.launch_app tool handler (GW-054, GW-068).
 
 Validates that the wired launch_app tool:
 - Launches an application via subprocess and returns pid.
@@ -8,20 +8,25 @@ Validates that the wired launch_app tool:
 - Falls back to static stub response when no backend is provided.
 - Handles readiness timeout gracefully (success with warning, no crash).
 - Supports optional args parameter.
+
+GW-068 additions:
+- Propagates DISPLAY environment variable on Linux.
+- Resolves snap-wrapped binaries to actual paths.
+- Detects immediate process crashes (liveness check) and reports error.
 """
 
 import json
+import os
 import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
 from guidewire.refs import ElementRefStore
 from guidewire.tools import register_all
-
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -52,6 +57,22 @@ def stub_mcp() -> FastMCP:
     mcp = FastMCP(name="test-launch-app-stub")
     register_all(mcp)
     return mcp
+
+
+def _make_live_proc(pid: int = 1234) -> MagicMock:
+    """Create a mock Popen process that appears alive (poll returns None)."""
+    mock_proc = MagicMock()
+    mock_proc.pid = pid
+    mock_proc.poll.return_value = None
+    return mock_proc
+
+
+def _make_dead_proc(pid: int = 1234, exit_code: int = 1) -> MagicMock:
+    """Create a mock Popen process that appears dead (poll returns exit code)."""
+    mock_proc = MagicMock()
+    mock_proc.pid = pid
+    mock_proc.poll.return_value = exit_code
+    return mock_proc
 
 
 # -- Stub mode tests ----------------------------------------------------------
@@ -88,10 +109,7 @@ class TestLaunchAppSuccess:
         self, mock_popen: MagicMock, mcp: FastMCP, backend: MockBackend
     ) -> None:
         """Should return JSON with success, ref, title, pid, and SENSITIVE risk."""
-        # Setup: Popen returns a process with pid 1234
-        mock_proc = MagicMock()
-        mock_proc.pid = 1234
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=1234)
 
         # Add a new window that will appear after launch
         # We need to simulate the window appearing after list_windows is called
@@ -128,40 +146,32 @@ class TestLaunchAppSuccess:
         self, mock_popen: MagicMock, mcp: FastMCP
     ) -> None:
         """Should call Popen with the app and args."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 5678
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=5678)
 
         await mcp.call_tool(
             "desktop.launch_app",
             arguments={"app": "notepad", "args": ["file.txt"], "timeout": 0},
         )
 
-        mock_popen.assert_called_once_with(
-            ["notepad", "file.txt"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        args, kwargs = mock_popen.call_args
+        assert args[0] == ["notepad", "file.txt"]
+        assert kwargs["stdout"] == subprocess.DEVNULL
+        assert kwargs["stderr"] == subprocess.DEVNULL
 
     @patch("guidewire.tools.launch_app.subprocess.Popen")
     async def test_launch_without_args(
         self, mock_popen: MagicMock, mcp: FastMCP
     ) -> None:
         """Should call Popen with just the app name when no args."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 9999
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=9999)
 
         await mcp.call_tool(
             "desktop.launch_app",
             arguments={"app": "calc", "timeout": 0},
         )
 
-        mock_popen.assert_called_once_with(
-            ["calc"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        args, _kwargs = mock_popen.call_args
+        assert args[0] == ["calc"]
 
 
 # -- Wired mode: readiness timeout -------------------------------------------
@@ -175,9 +185,7 @@ class TestLaunchAppTimeout:
         self, mock_popen: MagicMock, mcp: FastMCP, backend: MockBackend
     ) -> None:
         """When no matching window appears, should return success with warning."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 4321
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=4321)
 
         # Backend only has the pre-existing window, no new window will appear
         result, _meta = await mcp.call_tool(
@@ -197,9 +205,7 @@ class TestLaunchAppTimeout:
         self, mock_popen: MagicMock, mcp: FastMCP, backend: MockBackend
     ) -> None:
         """timeout=0 should skip readiness detection entirely."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 7777
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=7777)
 
         result, _meta = await mcp.call_tool(
             "desktop.launch_app",
@@ -296,9 +302,7 @@ class TestLaunchAppSafety:
         self, mock_popen: MagicMock, mcp: FastMCP
     ) -> None:
         """app_launch should be classified as SENSITIVE."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 1234
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=1234)
 
         result, _meta = await mcp.call_tool(
             "desktop.launch_app",
@@ -356,9 +360,7 @@ class TestLaunchAppWindowMatching:
         self, mock_popen: MagicMock, mcp: FastMCP, backend: MockBackend
     ) -> None:
         """Should match window by app_name containing the app stem."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 1111
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=1111)
 
         original_list_windows = backend.list_windows
         call_count = [0]
@@ -386,9 +388,7 @@ class TestLaunchAppWindowMatching:
         self, mock_popen: MagicMock, mcp: FastMCP, backend: MockBackend
     ) -> None:
         """Should match window by title containing the app stem."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 2222
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=2222)
 
         original_list_windows = backend.list_windows
         call_count = [0]
@@ -415,9 +415,7 @@ class TestLaunchAppWindowMatching:
         self, mock_popen: MagicMock, mcp: FastMCP, backend: MockBackend
     ) -> None:
         """Should match window when app is a full path and app_name matches."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 3333
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=3333)
 
         original_list_windows = backend.list_windows
         call_count = [0]
@@ -444,9 +442,7 @@ class TestLaunchAppWindowMatching:
         self, mock_popen: MagicMock, mcp: FastMCP, backend: MockBackend, ref_store: ElementRefStore
     ) -> None:
         """Should register the matched window handle with a w-prefixed ref."""
-        mock_proc = MagicMock()
-        mock_proc.pid = 4444
-        mock_popen.return_value = mock_proc
+        mock_popen.return_value = _make_live_proc(pid=4444)
 
         original_list_windows = backend.list_windows
         call_count = [0]
@@ -472,3 +468,427 @@ class TestLaunchAppWindowMatching:
         # The ref should be resolvable in the store
         handle = ref_store.resolve(ref)
         assert handle is not None
+
+
+# -- GW-068: Post-launch liveness check --------------------------------------
+
+
+class TestLaunchAppLivenessCheck:
+    """launch_app detects immediate crashes (GW-068)."""
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_immediate_crash_returns_error(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """When process exits immediately, should return launch_error."""
+        mock_popen.return_value = _make_dead_proc(pid=5555, exit_code=127)
+
+        result, _meta = await mcp.call_tool(
+            "desktop.launch_app",
+            arguments={"app": "crashing_app", "timeout": 3},
+        )
+        data = json.loads(result[0].text)
+
+        assert data.get("success") is None or data.get("success") is not True
+        assert data["error"] == "launch_error"
+        assert "exited immediately" in data["message"]
+        assert "127" in data["message"]
+        assert "hints" in data
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_immediate_crash_with_code_1(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """Crash with exit code 1 should be reported."""
+        mock_popen.return_value = _make_dead_proc(pid=6666, exit_code=1)
+
+        result, _meta = await mcp.call_tool(
+            "desktop.launch_app",
+            arguments={"app": "bad_app", "timeout": 0},
+        )
+        data = json.loads(result[0].text)
+
+        assert data["error"] == "launch_error"
+        assert "code 1" in data["message"]
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_live_process_succeeds(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """A process that stays alive should not trigger liveness error."""
+        mock_popen.return_value = _make_live_proc(pid=7777)
+
+        result, _meta = await mcp.call_tool(
+            "desktop.launch_app",
+            arguments={"app": "notepad", "timeout": 0},
+        )
+        data = json.loads(result[0].text)
+
+        assert data["success"] is True
+        assert data["pid"] == 7777
+
+
+# -- GW-068: DISPLAY propagation ---------------------------------------------
+
+
+class TestLaunchAppDisplayPropagation:
+    """launch_app propagates DISPLAY on Linux (GW-068)."""
+
+    def test_build_env_returns_none_on_non_linux(self) -> None:
+        """On non-Linux platforms, _build_env should return None."""
+        from guidewire.tools.launch_app import _build_env
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys:
+            mock_sys.platform = "win32"
+            assert _build_env() is None
+
+    def test_build_env_copies_display(self) -> None:
+        """_build_env should propagate DISPLAY from environment."""
+        from guidewire.tools.launch_app import _build_env
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch.dict(os.environ, {"DISPLAY": ":0", "PATH": "/usr/bin"}):
+            mock_sys.platform = "linux"
+            env = _build_env()
+            assert env is not None
+            assert env["DISPLAY"] == ":0"
+
+    def test_build_env_defaults_display_if_missing(self) -> None:
+        """_build_env should default DISPLAY to :0 if not set."""
+        from guidewire.tools.launch_app import _build_env
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch.dict(os.environ, {"PATH": "/usr/bin"}, clear=True):
+            mock_sys.platform = "linux"
+            env = _build_env()
+            assert env is not None
+            assert env["DISPLAY"] == ":0"
+
+    def test_build_env_defaults_display_if_empty(self) -> None:
+        """_build_env should default DISPLAY to :0 if empty string."""
+        from guidewire.tools.launch_app import _build_env
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch.dict(os.environ, {"DISPLAY": "", "PATH": "/usr/bin"}):
+            mock_sys.platform = "linux"
+            env = _build_env()
+            assert env is not None
+            assert env["DISPLAY"] == ":0"
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_env_passed_to_popen(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """Popen should receive an env dict on the current platform."""
+        mock_popen.return_value = _make_live_proc(pid=8888)
+
+        await mcp.call_tool(
+            "desktop.launch_app",
+            arguments={"app": "notepad", "timeout": 0},
+        )
+
+        _, kwargs = mock_popen.call_args
+        # On Linux, env should be a dict with DISPLAY; on other platforms, None
+        if sys.platform == "linux":
+            assert kwargs["env"] is not None
+            assert "DISPLAY" in kwargs["env"]
+        else:
+            # On non-Linux, _build_env returns None which means Popen inherits
+            assert kwargs["env"] is None
+
+
+# -- GW-068: Snap binary resolution ------------------------------------------
+
+
+class TestLaunchAppSnapResolution:
+    """launch_app resolves snap-wrapped binaries on Linux (GW-068)."""
+
+    def test_resolve_snap_binary_non_linux(self) -> None:
+        """On non-Linux, _resolve_snap_binary returns app unchanged."""
+        from guidewire.tools.launch_app import _resolve_snap_binary
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys:
+            mock_sys.platform = "win32"
+            assert _resolve_snap_binary("/snap/bin/firefox") == "/snap/bin/firefox"
+
+    def test_resolve_snap_binary_non_snap_path(self) -> None:
+        """Non-snap paths should be returned unchanged."""
+        from guidewire.tools.launch_app import _resolve_snap_binary
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch("os.path.isfile", return_value=False):
+            mock_sys.platform = "linux"
+            assert _resolve_snap_binary("/usr/bin/firefox") == "/usr/bin/firefox"
+
+    def test_resolve_snap_binary_snap_prefix(self) -> None:
+        """Snap prefix path should trigger resolution."""
+        from guidewire.tools.launch_app import _resolve_snap_binary
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch(
+                 "guidewire.tools.launch_app._try_resolve_snap",
+                 return_value="/usr/bin/firefox",
+             ) as mock_resolve:
+            mock_sys.platform = "linux"
+            result = _resolve_snap_binary("/snap/bin/firefox")
+            assert result == "/usr/bin/firefox"
+            mock_resolve.assert_called_once_with("firefox", "/snap/bin/firefox")
+
+    def test_resolve_snap_binary_bare_name_with_snap(self) -> None:
+        """Bare name that has a snap wrapper should trigger resolution."""
+        from guidewire.tools.launch_app import _resolve_snap_binary
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch("os.path.isfile", return_value=True), \
+             patch("os.access", return_value=True), \
+             patch(
+                 "guidewire.tools.launch_app._try_resolve_snap",
+                 return_value="/snap/bin/firefox",
+             ) as mock_resolve:
+            mock_sys.platform = "linux"
+            _resolve_snap_binary("firefox")
+            mock_resolve.assert_called_once_with("firefox", "/snap/bin/firefox")
+
+    def test_resolve_snap_binary_bare_name_no_snap(self) -> None:
+        """Bare name without snap wrapper should be returned unchanged."""
+        from guidewire.tools.launch_app import _resolve_snap_binary
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch("os.path.isfile", return_value=False):
+            mock_sys.platform = "linux"
+            result = _resolve_snap_binary("notepad")
+            assert result == "notepad"
+
+    def test_try_resolve_snap_which_succeeds(self) -> None:
+        """_try_resolve_snap should use which to find the binary."""
+        from guidewire.tools.launch_app import _try_resolve_snap
+
+        mock_result = MagicMock()
+        mock_result.stdout = "/usr/bin/firefox\n"
+        with patch("subprocess.run", return_value=mock_result):
+            result = _try_resolve_snap("firefox", "/snap/bin/firefox")
+            assert result == "/usr/bin/firefox"
+
+    def test_try_resolve_snap_which_returns_snap_path(self) -> None:
+        """If which returns a snap path, should fall through to wrapper reading."""
+        from guidewire.tools.launch_app import _try_resolve_snap
+
+        mock_result = MagicMock()
+        mock_result.stdout = "/snap/bin/firefox\n"
+        with patch("subprocess.run", return_value=mock_result), \
+             patch("builtins.open", side_effect=OSError("no file")):
+            result = _try_resolve_snap("firefox", "/snap/bin/firefox")
+            # Should return fallback since both strategies fail
+            assert result == "/snap/bin/firefox"
+
+    def test_try_resolve_snap_wrapper_exec(self) -> None:
+        """_try_resolve_snap should parse exec line from wrapper script."""
+        from guidewire.tools.launch_app import _try_resolve_snap
+
+        wrapper_content = (
+            '#!/bin/sh\n'
+            'exec /snap/firefox/current/usr/lib/firefox/firefox "$@"\n'
+        )
+        mock_result = MagicMock()
+        mock_result.stdout = "/snap/bin/firefox\n"
+
+        mock_file = MagicMock()
+        mock_file.__enter__ = lambda s: s
+        mock_file.__exit__ = MagicMock(return_value=False)
+        mock_file.read.return_value = wrapper_content
+
+        with patch("subprocess.run", return_value=mock_result), \
+             patch("guidewire.tools.launch_app.open", return_value=mock_file), \
+             patch("os.path.isfile", return_value=True), \
+             patch("os.access", return_value=True):
+            result = _try_resolve_snap("firefox", "/snap/bin/firefox")
+            assert result == "/snap/firefox/current/usr/lib/firefox/firefox"
+
+    def test_try_resolve_snap_fallback(self) -> None:
+        """When all resolution strategies fail, should return fallback."""
+        from guidewire.tools.launch_app import _try_resolve_snap
+
+        with patch("subprocess.run", side_effect=OSError("no which")), \
+             patch("builtins.open", side_effect=OSError("no file")):
+            result = _try_resolve_snap("myapp", "/snap/bin/myapp")
+            assert result == "/snap/bin/myapp"
+
+
+# -- GW-068: Error hints ------------------------------------------------------
+
+
+class TestLaunchAppErrorHints:
+    """launch_app includes hints from registry in error responses (GW-068)."""
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_app_not_found_includes_hints(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """app_not_found error should include hints from registry."""
+        mock_popen.side_effect = FileNotFoundError("not found")
+
+        result, _meta = await mcp.call_tool(
+            "desktop.launch_app",
+            arguments={"app": "missing_app"},
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "app_not_found"
+        assert "hints" in data
+        assert len(data["hints"]) > 0
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_os_error_includes_hints(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """launch_error from OSError should include hints from registry."""
+        mock_popen.side_effect = OSError("permission denied")
+
+        result, _meta = await mcp.call_tool(
+            "desktop.launch_app",
+            arguments={"app": "someapp"},
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "launch_error"
+        assert "hints" in data
+        assert len(data["hints"]) > 0
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_crash_liveness_includes_hints(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """Crash detected by liveness check should include hints from registry."""
+        mock_popen.return_value = _make_dead_proc(pid=1234, exit_code=1)
+
+        result, _meta = await mcp.call_tool(
+            "desktop.launch_app",
+            arguments={"app": "crashing_app"},
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "launch_error"
+        assert "hints" in data
+        assert len(data["hints"]) > 0
+
+
+# -- GW-068: Electron detection -----------------------------------------------
+
+
+class TestLaunchAppElectronDetection:
+    """Electron/Chromium detection and --no-sandbox injection (GW-068)."""
+
+    def test_is_electron_binary_code(self) -> None:
+        """VS Code binary should be detected as Electron."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        assert _is_electron_binary("/snap/code/current/usr/share/code/code") is True
+
+    def test_is_electron_binary_chrome(self) -> None:
+        """Google Chrome should be detected as Electron/Chromium."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        assert _is_electron_binary("/usr/bin/google-chrome-stable") is True
+
+    def test_is_electron_binary_electron_named(self) -> None:
+        """Binary named 'electron' should be detected."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        assert _is_electron_binary("/usr/bin/electron") is True
+
+    def test_is_electron_binary_electron_versioned(self) -> None:
+        """Versioned electron binary like 'electron25' should be detected."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        assert _is_electron_binary("/usr/bin/electron25") is True
+
+    def test_is_electron_binary_regular_app(self) -> None:
+        """Regular app like gedit should NOT be detected as Electron."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        assert _is_electron_binary("/usr/bin/gedit") is False
+
+    def test_is_electron_binary_firefox(self) -> None:
+        """Firefox should NOT be detected as Electron."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        assert _is_electron_binary("/usr/bin/firefox") is False
+
+    def test_is_electron_binary_chrome_sandbox_sibling(self) -> None:
+        """Binary with chrome-sandbox sibling should be detected as Electron/Chromium."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        with patch("os.path.isfile", return_value=True):
+            assert _is_electron_binary("/opt/myapp/myapp-bin") is True
+
+    def test_is_electron_binary_no_sandbox_sibling(self) -> None:
+        """Binary without chrome-sandbox sibling should not be detected via sibling check."""
+        from guidewire.tools.launch_app import _is_electron_binary
+
+        with patch("os.path.isfile", return_value=False):
+            assert _is_electron_binary("/usr/bin/gedit") is False
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_no_sandbox_injected_on_linux_electron(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """On Linux, Electron app should get --no-sandbox auto-injected."""
+        mock_popen.return_value = _make_live_proc(pid=9901)
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch(
+                 "guidewire.tools.launch_app._is_electron_binary",
+                 return_value=True,
+             ):
+            mock_sys.platform = "linux"
+            # Need to also make _build_env work
+            with patch.dict(os.environ, {"DISPLAY": ":0", "PATH": "/usr/bin"}):
+                await mcp.call_tool(
+                    "desktop.launch_app",
+                    arguments={"app": "code", "timeout": 0},
+                )
+
+        # Check that --no-sandbox was appended
+        args, _ = mock_popen.call_args
+        assert "--no-sandbox" in args[0]
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_no_sandbox_not_injected_on_non_linux(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """On non-Linux, Electron app should NOT get --no-sandbox auto-injected."""
+        mock_popen.return_value = _make_live_proc(pid=9902)
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch(
+                 "guidewire.tools.launch_app._is_electron_binary",
+                 return_value=True,
+             ):
+            mock_sys.platform = "win32"
+            await mcp.call_tool(
+                "desktop.launch_app",
+                arguments={"app": "code", "timeout": 0},
+            )
+
+        args, _ = mock_popen.call_args
+        assert "--no-sandbox" not in args[0]
+
+    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    async def test_no_sandbox_not_doubled_if_already_in_args(
+        self, mock_popen: MagicMock, mcp: FastMCP
+    ) -> None:
+        """If --no-sandbox is already in args, it should not be added again."""
+        mock_popen.return_value = _make_live_proc(pid=9903)
+
+        with patch("guidewire.tools.launch_app.sys") as mock_sys, \
+             patch(
+                 "guidewire.tools.launch_app._is_electron_binary",
+                 return_value=True,
+             ):
+            mock_sys.platform = "linux"
+            with patch.dict(os.environ, {"DISPLAY": ":0", "PATH": "/usr/bin"}):
+                await mcp.call_tool(
+                    "desktop.launch_app",
+                    arguments={"app": "code", "args": ["--no-sandbox"], "timeout": 0},
+                )
+
+        args, _ = mock_popen.call_args
+        # Should appear exactly once (from the user's args, not duplicated)
+        assert args[0].count("--no-sandbox") == 1
