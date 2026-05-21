@@ -1,4 +1,4 @@
-"""Tests for guidewire.errors — PRD R14 structured error codes."""
+"""Tests for guidewire.errors — PRD R14 structured error codes + hint infrastructure."""
 
 import pytest
 
@@ -11,7 +11,10 @@ from guidewire.errors import (
     PermissionRequiredError,
     StaleElementReferenceError,
     WindowNotFoundError,
+    hints_for,
+    register_hints,
 )
+from guidewire.hints import _HINT_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Hierarchy
@@ -203,21 +206,181 @@ class TestConstruction:
 
 
 # ---------------------------------------------------------------------------
+# Error hints — instance attribute
+# ---------------------------------------------------------------------------
+
+
+class TestHintsAttribute:
+    """Every error instance carries a hints list auto-populated from the registry."""
+
+    def test_base_class_hints_empty(self) -> None:
+        """GuidewireError base has no registry entry so defaults to empty."""
+        err = GuidewireError()
+        assert err.hints == []
+
+    @pytest.mark.parametrize(
+        "cls",
+        [
+            BackendUnavailableError,
+            ElementNotFoundError,
+            StaleElementReferenceError,
+            ActionNotSupportedError,
+            PermissionRequiredError,
+            AmbiguousSelectorError,
+            WindowNotFoundError,
+        ],
+    )
+    def test_concrete_errors_auto_populate_hints(self, cls: type[GuidewireError]) -> None:
+        err = cls()
+        assert len(err.hints) > 0, f"{cls.__name__} should have auto-populated hints"
+        assert all(isinstance(h, str) for h in err.hints)
+
+    @pytest.mark.parametrize(
+        "cls",
+        [
+            BackendUnavailableError,
+            ElementNotFoundError,
+        ],
+    )
+    def test_with_hints_adds_to_auto_populated(self, cls: type[GuidewireError]) -> None:
+        err = cls("msg").with_hints("extra hint")
+        assert "extra hint" in err.hints
+        # Auto-populated hints should still be present
+        assert len(err.hints) > 1
+
+    def test_hints_are_independent_copies(self) -> None:
+        """Each instance gets its own list, not a shared reference."""
+        a = ElementNotFoundError()
+        b = ElementNotFoundError()
+        a.hints.append("extra")
+        assert "extra" not in b.hints
+
+
+# ---------------------------------------------------------------------------
+# with_hints builder
+# ---------------------------------------------------------------------------
+
+
+class TestWithHints:
+    """with_hints appends hints and returns self for chaining."""
+
+    def test_returns_self(self) -> None:
+        err = ElementNotFoundError("button")
+        result = err.with_hints("try find")
+        assert result is err
+
+    def test_appends_single_hint(self) -> None:
+        err = ElementNotFoundError("button").with_hints("try find")
+        assert "try find" in err.hints
+
+    def test_appends_multiple_hints(self) -> None:
+        err = ElementNotFoundError("button").with_hints("hint a", "hint b")
+        assert "hint a" in err.hints
+        assert "hint b" in err.hints
+
+    def test_chaining_with_auto_populated_hints(self) -> None:
+        err = ElementNotFoundError("button").with_hints("added")
+        assert "added" in err.hints
+        # Auto-populated hints should also be present
+        assert len(err.hints) > 1
+
+    def test_chained_calls(self) -> None:
+        err = ElementNotFoundError("button").with_hints("a").with_hints("b")
+        assert "a" in err.hints
+        assert "b" in err.hints
+
+    def test_works_in_raise_expression(self) -> None:
+        with pytest.raises(ElementNotFoundError) as exc_info:
+            raise ElementNotFoundError("button").with_hints("use snapshot")
+        assert "use snapshot" in exc_info.value.hints
+
+
+# ---------------------------------------------------------------------------
+# Hint registry
+# ---------------------------------------------------------------------------
+
+
+class TestHintRegistry:
+    """hints_for and register_hints manage the global hint registry."""
+
+    def test_known_error_code_returns_hints(self) -> None:
+        hints = hints_for("element_not_found")
+        assert len(hints) > 0
+        assert all(isinstance(h, str) for h in hints)
+
+    def test_all_concrete_codes_have_registered_hints(self) -> None:
+        codes = [
+            "backend_unavailable",
+            "element_not_found",
+            "stale_element_reference",
+            "action_not_supported",
+            "permission_required",
+            "ambiguous_selector",
+            "window_not_found",
+        ]
+        for code in codes:
+            hints = hints_for(code)
+            assert len(hints) > 0, f"{code} has no registered hints"
+
+    def test_unknown_code_returns_empty(self) -> None:
+        assert hints_for("totally_unknown_code") == []
+
+    def test_returns_copy(self) -> None:
+        """Mutating the returned list should not affect the registry."""
+        hints = hints_for("element_not_found")
+        hints.append("mutated")
+        assert "mutated" not in hints_for("element_not_found")
+
+    def test_register_overwrites_existing(self) -> None:
+        original = hints_for("element_not_found")
+        register_hints("element_not_found", ["new hint"])
+        assert hints_for("element_not_found") == ["new hint"]
+        # Restore original
+        register_hints("element_not_found", original)
+
+    def test_register_new_code(self) -> None:
+        register_hints("custom_error", ["custom hint"])
+        assert hints_for("custom_error") == ["custom hint"]
+        # Cleanup
+        del _HINT_REGISTRY["custom_error"]
+
+    def test_register_makes_copy(self) -> None:
+        """register_hints should store a copy, not the original reference."""
+        original = ["mutable"]
+        register_hints("test_copy_code", original)
+        original.append("mutated")
+        assert hints_for("test_copy_code") == ["mutable"]
+        # Cleanup
+        del _HINT_REGISTRY["test_copy_code"]
+
+
+# ---------------------------------------------------------------------------
 # Module exports
 # ---------------------------------------------------------------------------
 
 
 class TestExports:
-    """All error classes and the base must be importable from errors."""
+    """All error classes, base, and registry functions must be importable."""
 
-    def test_all_contains_eight_entries(self) -> None:
+    def test_all_contains_ten_entries(self) -> None:
         from guidewire import errors
 
-        assert len(errors.__all__) == 8
+        assert len(errors.__all__) == 10
 
-    def test_all_entries_are_error_classes(self) -> None:
+    def test_all_entries_importable(self) -> None:
         from guidewire import errors
 
         for name in errors.__all__:
+            obj = getattr(errors, name)
+            assert obj is not None, f"{name} is None"
+
+    def test_all_error_classes_are_guidewire_subclasses(self) -> None:
+        from guidewire import errors
+
+        error_names = [
+            n for n in errors.__all__
+            if n not in ("hints_for", "register_hints")
+        ]
+        for name in error_names:
             obj = getattr(errors, name)
             assert issubclass(obj, GuidewireError), f"{name} is not a GuidewireError subclass"
