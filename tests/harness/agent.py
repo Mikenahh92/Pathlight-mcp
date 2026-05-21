@@ -44,12 +44,16 @@ class AgentResult:
     Attributes:
         text: Concatenated text content blocks from the final response.
         tool_calls: All tool invocations recorded across the conversation.
-        stop_reason: The Anthropic stop reason (``"end_turn"`` or ``"tool_use"``).
+        stop_reason: The Anthropic stop reason (``"end_turn"``, ``"max_turns"``,
+            ``"loop_detected"``).
+        loop_detected: True if the agent was stopped because the loop detector
+            fired (same tool called repeatedly with identical input).
     """
 
     text: str
     tool_calls: list[ToolCallRecord]
     stop_reason: str | None = None
+    loop_detected: bool = False
 
 
 class AgentClient:
@@ -68,6 +72,8 @@ class AgentClient:
         max_turns: Maximum tool-use rounds before stopping (default 5).
         replay_script: Optional pre-scripted responses for dry-run/replay
             mode.  When set, bypasses the Anthropic API entirely.
+        loop_threshold: Number of consecutive identical tool calls before
+            the loop detector breaks the agent loop (default 3).
     """
 
     def __init__(
@@ -79,6 +85,7 @@ class AgentClient:
         api_key: str | None = None,
         max_turns: int = 5,
         replay_script: list[dict[str, Any]] | None = None,
+        loop_threshold: int = 3,
     ) -> None:
         self._server = server
         self._model = model or os.environ.get(
@@ -90,6 +97,7 @@ class AgentClient:
         self._max_turns = max_turns
         self._replay_script = replay_script
         self._replay_index = 0
+        self._loop_threshold = loop_threshold
         self._anthropic_client: anthropic.AsyncAnthropic | None = None
         self._mcp_tools: list[dict[str, Any]] = []
         self._tool_handlers: dict[str, Any] = {}
@@ -202,7 +210,37 @@ class AgentClient:
             for tu in tool_use_blocks:
                 tool_calls.append(ToolCallRecord(name=tu["name"], input=tu["input"]))
 
+            # Loop detection: if the same tool is called repeatedly with
+            # identical input, inject a break-hint into the conversation and
+            # stop the agent if the pattern persists beyond the threshold.
             stop_reason = frame["stop_reason"] if frame is not None else response.stop_reason
+            if (
+                tool_use_blocks
+                and len(tool_calls) >= self._loop_threshold
+                and stop_reason != "end_turn"
+            ):
+                recent_names = [tc.name for tc in tool_calls[-self._loop_threshold:]]
+                if len(set(recent_names)) == 1 and tool_calls[-1].input == tool_calls[-2].input:
+                    # Inject a hint telling the model to move on, then stop
+                    messages.append({"role": "assistant", "content": content_blocks})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                f"You have called {recent_names[0]} {self._loop_threshold} "
+                                f"times in a row with the same input. This is a loop. "
+                                f"STOP repeating this tool call and move on to the next step "
+                                f"in the task. If you are stuck, report what you have "
+                                f"accomplished so far and end your turn."
+                            ),
+                        }
+                    )
+                    return AgentResult(
+                        text="\n".join(text_parts),
+                        tool_calls=tool_calls,
+                        stop_reason="loop_detected",
+                        loop_detected=True,
+                    )
             if stop_reason == "end_turn" or not tool_use_blocks:
                 return AgentResult(
                     text="\n".join(text_parts),
