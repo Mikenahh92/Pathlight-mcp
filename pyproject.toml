@@ -9,19 +9,35 @@ description = "Desktop Accessibility MCP — a Playwright-like MCP for non-brows
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
+authors = [
+    { name = "Mikenahh92" },
+]
 keywords = ["mcp", "accessibility", "desktop-automation", "uia", "a11y"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Desktop Environment",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Accessibility",
+    "Framework :: MCP",
+    "Typing :: Typed",
 ]
+
 dependencies = [
     "mcp",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Mikenahh92/Guidewire"
+Documentation = "https://github.com/Mikenahh92/Guidewire#readme"
+Changelog = "https://github.com/Mikenahh92/Guidewire/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Mikenahh92/Guidewire/issues"
+"Source Code" = "https://github.com/Mikenahh92/Guidewire"
 
 [project.optional-dependencies]
 dev = [

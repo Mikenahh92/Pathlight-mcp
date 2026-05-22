@@ -1,13 +1,29 @@
 """Sanity checks for the guidewire package."""
 
-from guidewire import __version__
+from importlib.metadata import PackageNotFoundError, version
+
+import packaging.version
+
+
+def _get_version() -> str:
+    """Return the package version, with fallback for uninstalled development."""
+    try:
+        return version("guidewire")
+    except PackageNotFoundError:
+        return "0.0.0"
+
+
+def test_version_is_string() -> None:
+    """Version should be a non-empty string."""
+    v = _get_version()
+    assert isinstance(v, str)
+    assert len(v) > 0
 
 
 def test_version_is_pep440() -> None:
-    """Version should follow PEP 440 format (e.g. 0.0.1.dev0)."""
-    import re
-
-    assert re.match(r"\d+\.\d+\.\d+(?:\.dev\d+)?", __version__)
+    """Version should follow PEP 440 format."""
+    v = _get_version()
+    packaging.version.Version(v)  # raises InvalidVersion if not PEP 440
 
 
 def test_package_importable() -> None:

@@ -1,3 +1,8 @@
 """Guidewire — Desktop Accessibility MCP server."""
 
-__version__ = "0.0.1.dev0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("guidewire")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
