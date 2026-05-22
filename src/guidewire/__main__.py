@@ -34,13 +34,33 @@ def _create_backend(backend_name: str):
         backend_name: ``"mock"`` for MockBackend, ``"auto"`` for platform.
 
     Returns:
-        A DesktopBackend instance, or ``None`` for stub mode.
+        A DesktopBackend instance, or ``None`` for stub mode (when the
+        platform backend is not available).
     """
     if backend_name == "mock":
         from guidewire.backends import MockBackend
 
         return MockBackend()
-    # "auto" — let GuidewireServer default to stub mode (no backend).
+
+    # "auto" — try the platform-specific backend; fall back to stub mode
+    # when the platform backend is unavailable (wrong OS, missing deps).
+    import sys
+
+    if sys.platform == "linux":
+        try:
+            from guidewire.backends import LinuxBackend
+
+            return LinuxBackend()
+        except Exception:
+            pass
+    elif sys.platform == "win32":
+        try:
+            from guidewire.backends import WindowsBackend
+
+            return WindowsBackend()
+        except Exception:
+            pass
+
     return None
 
 

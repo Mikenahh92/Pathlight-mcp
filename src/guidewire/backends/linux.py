@@ -124,26 +124,51 @@ class LinuxBackend(DesktopBackend):
         }
 
         result: list[NativeHandle] = []
-        for child in self._desktop.children:
+
+        def _collect_windows(accessible: Any) -> None:
+            """Recursively collect windows from accessible children."""
             try:
-                state_set = child.getState()
-                if not state_set.contains(pyatspi.STATE_SHOWING):
-                    continue
-                role = child.get_role()
-                if role not in _valid_roles:
-                    continue
-                if role == pyatspi.ROLE_DESKTOP_FRAME and not (child.get_name() or "").strip():
-                    continue
-                result.append(NativeHandle(child))
+                child_count = accessible.childCount
             except Exception:
-                logger.debug("Skipping inaccessible desktop child", exc_info=True)
-                continue
+                return
+            for i in range(child_count):
+                try:
+                    child = accessible.getChildAtIndex(i)
+                except Exception:
+                    logger.debug("Skipping inaccessible child %d", i, exc_info=True)
+                    continue
+                if child is None:
+                    continue
+                try:
+                    role = child.get_role()
+                    # Desktop → Application → Window nesting: applications
+                    # have ROLE_APPLICATION.  Recurse into them to find their
+                    # windows.  Desktop frames (e.g. the desktop background)
+                    # are also traversed so that top-level panels are found.
+                    if role in (
+                        pyatspi.ROLE_APPLICATION,
+                        pyatspi.ROLE_DESKTOP_FRAME,
+                    ):
+                        _collect_windows(child)
+                        continue
+                    state_set = child.getState()
+                    if not state_set.contains(pyatspi.STATE_SHOWING):
+                        continue
+                    if role not in _valid_roles:
+                        continue
+                    result.append(NativeHandle(child))
+                except Exception:
+                    logger.debug("Skipping inaccessible child %d", i, exc_info=True)
+                    continue
+
+        _collect_windows(self._desktop)
         return result
 
     def get_window_info(self, window: NativeHandle) -> dict[str, Any]:
         """Return window metadata as a dict.
 
-        .. todo:: Implement via ``pyatspi.Accessible`` properties.
+        Reads the accessible name, application name, focus state, and
+        bounding box from the underlying ``pyatspi.Accessible``.
 
         Args:
             window: Opaque native window handle.
@@ -154,7 +179,49 @@ class LinuxBackend(DesktopBackend):
         Raises:
             WindowNotFoundError: If the handle is invalid.
         """
-        raise NotImplementedError("get_window_info not yet implemented")
+        import pyatspi
+
+        accessible = self._resolve_accessible(window)
+
+        # Title — accessible name
+        title = ""
+        with contextlib.suppress(Exception):
+            title = accessible.get_name() or ""
+
+        # Application name — from the Application accessible
+        app_name = ""
+        with contextlib.suppress(Exception):
+            app = accessible.getApplication()
+            if app is not None:
+                app_name = app.get_name() or ""
+
+        # Focused — check STATE_ACTIVE or STATE_FOCUSED
+        focused = False
+        with contextlib.suppress(Exception):
+            state_set = accessible.getState()
+            focused = (
+                state_set.contains(pyatspi.STATE_ACTIVE)
+                or state_set.contains(pyatspi.STATE_FOCUSED)
+            )
+
+        # Bounds — from getExtent
+        bounds: dict[str, int] | None = None
+        with contextlib.suppress(Exception):
+            ext = accessible.getExtent(0)
+            if ext and hasattr(ext, "x"):
+                bounds = {
+                    "x": int(ext.x),
+                    "y": int(ext.y),
+                    "width": int(ext.width),
+                    "height": int(ext.height),
+                }
+
+        return {
+            "title": title,
+            "app_name": app_name,
+            "focused": focused,
+            "bounds": bounds,
+        }
 
     def focus_window(self, window: NativeHandle) -> None:
         """Bring a window to the foreground.
@@ -855,14 +922,17 @@ class LinuxBackend(DesktopBackend):
 
         Args:
             accessible: A ``pyatspi.Accessible`` object.
-            **kwargs: Must contain ``key`` (str).
+            **kwargs: Must contain ``keys`` (str) — normalised key combo
+                from the press_key tool layer (e.g. ``"ctrl+s"``,
+                ``"enter"``).
 
         Raises:
-            ActionNotSupportedError: If key parameter is missing.
+            ActionNotSupportedError: If keys parameter is missing.
         """
-        key = kwargs.get("key")
+        # Accept both "keys" (tool-layer contract) and "key" (legacy)
+        key = kwargs.get("keys") or kwargs.get("key")
         if key is None:
-            raise ActionNotSupportedError("PRESS_KEY action requires a 'key' parameter")
+            raise ActionNotSupportedError("PRESS_KEY action requires a 'keys' parameter")
 
         # Set focus on the element
         self._grab_focus(accessible)

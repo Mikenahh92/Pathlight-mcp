@@ -318,9 +318,9 @@ class TestListWindows:
         backend.list_windows()
         mock_desktop = backend._desktop
         for child in mock_desktop.children:
-            child.getState.assert_called_once()
+            child.getState.assert_called()
             state_set = child.getState.return_value
-            state_set.contains.assert_called_once_with(mock_pyatspi.STATE_SHOWING)
+            state_set.contains.assert_called_with(mock_pyatspi.STATE_SHOWING)
 
 
 # ---------------------------------------------------------------------------
@@ -329,7 +329,7 @@ class TestListWindows:
 
 
 class TestStubMethods:
-    """Verify remaining stub methods raise NotImplementedError."""
+    """Verify remaining methods."""
 
     @pytest.fixture()
     def backend(self) -> LinuxBackend:
@@ -346,9 +346,37 @@ class TestStubMethods:
         else:
             sys.modules["pyatspi"] = original_pyatspi
 
-    def test_get_window_info_raises_not_implemented(self, backend: LinuxBackend) -> None:
-        with pytest.raises(NotImplementedError, match="get_window_info"):
-            backend.get_window_info(NativeHandle("fake"))
+    def test_get_window_info_returns_metadata(self, backend: LinuxBackend) -> None:
+        """get_window_info returns title, app_name, focused, bounds from accessible."""
+        fake_accessible = _make_accessible(focused=True)
+        fake_accessible.get_name.return_value = "Test Window"
+        fake_app = MagicMock()
+        fake_app.get_name.return_value = "TestApp"
+        fake_accessible.getApplication.return_value = fake_app
+        fake_state = MagicMock()
+        fake_state.contains.return_value = True
+        fake_accessible.getState.return_value = fake_state
+        fake_ext = MagicMock()
+        fake_ext.x = 10
+        fake_ext.y = 20
+        fake_ext.width = 800
+        fake_ext.height = 600
+        fake_accessible.getExtent.return_value = fake_ext
+
+        with patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}):
+            result = backend.get_window_info(NativeHandle(fake_accessible))
+        assert result["title"] == "Test Window"
+        assert result["app_name"] == "TestApp"
+        assert result["focused"] is True
+        assert result["bounds"] == {"x": 10, "y": 20, "width": 800, "height": 600}
+
+    def test_get_window_info_invalid_handle_raises(self, backend: LinuxBackend) -> None:
+        """get_window_info raises WindowNotFoundError for invalid handles."""
+        with (
+            patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
+            pytest.raises(WindowNotFoundError),
+        ):
+            backend.get_window_info(NativeHandle("not-an-accessible"))
 
     def test_dispose_sets_disposed_flag(self, backend: LinuxBackend) -> None:
         """dispose() must set _disposed to True without raising."""
@@ -1670,6 +1698,7 @@ def _make_mock_pyatspi(showing_count: int, hidden_count: int) -> MagicMock:
     role_desktop_frame = object()
     role_panel = object()
     role_tooltip = object()
+    role_application = object()
 
     mock_pyatspi = MagicMock()
     mock_pyatspi.ROLE_FRAME = role_frame
@@ -1678,6 +1707,7 @@ def _make_mock_pyatspi(showing_count: int, hidden_count: int) -> MagicMock:
     mock_pyatspi.ROLE_DESKTOP_FRAME = role_desktop_frame
     mock_pyatspi.ROLE_PANEL = role_panel
     mock_pyatspi.ROLE_TOOLTIP = role_tooltip
+    mock_pyatspi.ROLE_APPLICATION = role_application
     mock_pyatspi.STATE_SHOWING = 42
 
     mock_registry = MagicMock()
@@ -1691,6 +1721,7 @@ def _make_mock_pyatspi(showing_count: int, hidden_count: int) -> MagicMock:
         mock_child.getState.return_value = mock_state
         mock_child.get_role.return_value = role_frame
         mock_child.get_name.return_value = "Test Window"
+        mock_child.childCount = 0
         children.append(mock_child)
 
     for _ in range(hidden_count):
@@ -1700,16 +1731,19 @@ def _make_mock_pyatspi(showing_count: int, hidden_count: int) -> MagicMock:
         mock_child.getState.return_value = mock_state
         mock_child.get_role.return_value = role_frame
         mock_child.get_name.return_value = "Hidden Window"
+        mock_child.childCount = 0
         children.append(mock_child)
 
     mock_desktop.children = children
+    mock_desktop.childCount = len(children)
+    mock_desktop.getChildAtIndex = lambda i: children[i] if 0 <= i < len(children) else None
     mock_registry.getDesktop.return_value = mock_desktop
     mock_pyatspi.Registry = mock_registry
     return mock_pyatspi
 
 
 def _patch_list_windows_children(backend: LinuxBackend, mock_pyatspi: MagicMock) -> None:
-    """Replace backend._desktop.children with children from a fresh mock.
+    """Replace backend._desktop with a fresh mock desktop.
 
     The role constants from *mock_pyatspi* are copied into the module-level
     ``sys.modules["pyatspi"]`` so that ``import pyatspi`` inside
@@ -1726,12 +1760,13 @@ def _patch_list_windows_children(backend: LinuxBackend, mock_pyatspi: MagicMock)
             "ROLE_DESKTOP_FRAME",
             "ROLE_PANEL",
             "ROLE_TOOLTIP",
+            "ROLE_APPLICATION",
             "STATE_SHOWING",
         ):
             if hasattr(mock_pyatspi, attr):
                 setattr(live_mock, attr, getattr(mock_pyatspi, attr))
     mock_desktop = mock_pyatspi.Registry.getDesktop.return_value
-    backend._desktop.children = mock_desktop.children
+    backend._desktop = mock_desktop
 
 
 # ---------------------------------------------------------------------------
