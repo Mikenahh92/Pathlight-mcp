@@ -15,13 +15,10 @@ import json
 import time
 
 import pytest
-
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
 from guidewire.refs import ElementRefStore
-
 
 # ---------------------------------------------------------------------------
 # Spike 1: Async handler support validation
@@ -154,9 +151,9 @@ class TestSyncVsAsyncBenchmark:
 
         expected_ms = poll_interval_ms * max_polls
         # Allow 20% tolerance for timer slack
-        assert (
-            abs(elapsed_ms - expected_ms) < expected_ms * 0.3
-        ), f"Drift: expected ~{expected_ms}ms, got {elapsed_ms:.1f}ms"
+        assert abs(elapsed_ms - expected_ms) < expected_ms * 0.3, (
+            f"Drift: expected ~{expected_ms}ms, got {elapsed_ms:.1f}ms"
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -149,9 +149,7 @@ class TestListWindowsDirect:
 
     async def test_empty_backend_returns_empty_windows(self, empty_server):
         """Backend with no windows should return empty windows list."""
-        result, _meta = await empty_server.mcp.call_tool(
-            "desktop.list_windows", arguments={}
-        )
+        result, _meta = await empty_server.mcp.call_tool("desktop.list_windows", arguments={})
         data = _parse_result(result)
         assert data["windows"] == []
         assert data["count"] == 0
@@ -175,9 +173,7 @@ class TestListWindowsStubMode:
 
     async def test_stub_returns_wrapped_empty_dict(self, stub_server):
         """Without a backend, list_windows should return wrapped dict with empty windows."""
-        result, _meta = await stub_server.mcp.call_tool(
-            "desktop.list_windows", arguments={}
-        )
+        result, _meta = await stub_server.mcp.call_tool("desktop.list_windows", arguments={})
         data = _parse_result(result)
         assert data["windows"] == []
         assert data["count"] == 0
@@ -205,14 +201,14 @@ class TestListWindowsServerIntegration:
         assert "window" in tool.description.lower()
 
     async def test_server_without_backend_still_registers_all_tools(self, stub_server):
-        """All 16 tools should be registered even without a backend."""
+        """All tools should be registered even without a backend."""
         tools = await stub_server.mcp.list_tools()
-        assert len(tools) == 16
+        assert len(tools) == 17
 
     async def test_server_with_backend_registers_all_tools(self, server):
-        """All 16 tools should be registered with a backend."""
+        """All tools should be registered with a backend."""
         tools = await server.mcp.list_tools()
-        assert len(tools) == 16
+        assert len(tools) == 17
 
 
 # -- Error handling tests -----------------------------------------------------
@@ -225,17 +221,18 @@ class TestListWindowsErrorHandling:
         """BackendUnavailableError should propagate (not be swallowed)."""
         from unittest.mock import MagicMock
 
+        from mcp.server.fastmcp.exceptions import ToolError
+
         failing_backend = MagicMock()
         failing_backend.list_windows.side_effect = BackendUnavailableError("Not available")
         srv = GuidewireServer(backend=failing_backend)
         srv.register_tools()
 
-        with pytest.raises(Exception):
+        with pytest.raises(ToolError, match="Not available"):
             await srv.mcp.call_tool("desktop.list_windows", arguments={})
 
     async def test_stale_window_skipped_gracefully(self):
         """A stale window (get_window_info raises) should be skipped, others returned."""
-        from unittest.mock import MagicMock
 
         backend = MockBackend()
         backend.add_window(title="Good", app="good.exe")
@@ -297,9 +294,7 @@ class TestListWindowsRefStore:
         srv = GuidewireServer(backend=backend)
         srv.register_tools()
 
-        result, _meta = await srv.mcp.call_tool(
-            "desktop.list_windows", arguments={}
-        )
+        result, _meta = await srv.mcp.call_tool("desktop.list_windows", arguments={})
         data = _parse_result(result)
         assert len(data["windows"]) == 1
         assert data["windows"][0]["ref"] == "w1"
@@ -315,9 +310,7 @@ class TestListWindowsRefStore:
         srv = GuidewireServer(backend=backend)
         srv.register_tools()
 
-        result, _meta = await srv.mcp.call_tool(
-            "desktop.list_windows", arguments={}
-        )
+        result, _meta = await srv.mcp.call_tool("desktop.list_windows", arguments={})
         data = _parse_result(result)
         refs = [w["ref"] for w in data["windows"]]
         assert refs == ["w1", "w2", "w3"]
@@ -378,18 +371,14 @@ class TestListWindowsRiskMetadata:
 
     async def test_stub_mode_has_risk_metadata(self, stub_server):
         """Stub mode should also include risk metadata."""
-        result, _meta = await stub_server.mcp.call_tool(
-            "desktop.list_windows", arguments={}
-        )
+        result, _meta = await stub_server.mcp.call_tool("desktop.list_windows", arguments={})
         data = _parse_result(result)
         assert data["risk"] == "read"
         assert data["target_summary"] == "desktop windows"
 
     async def test_empty_backend_has_risk_metadata(self, empty_server):
         """Empty backend should still include risk metadata."""
-        result, _meta = await empty_server.mcp.call_tool(
-            "desktop.list_windows", arguments={}
-        )
+        result, _meta = await empty_server.mcp.call_tool("desktop.list_windows", arguments={})
         data = _parse_result(result)
         assert data["risk"] == "read"
         assert data["target_summary"] == "desktop windows"
@@ -410,8 +399,6 @@ class TestListWindowsBoundsOmission:
 
     async def test_bounds_key_absent_when_none(self):
         """Bounds key should be omitted when backend returns None bounds."""
-        # MockBackend with windows that have no bounds
-        backend = MockBackend()
         # add_window without bounds parameter uses default bounds (0,0,800,600),
         # so we need to directly test with a mock that returns None
         from unittest.mock import MagicMock

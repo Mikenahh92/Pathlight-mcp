@@ -219,7 +219,7 @@ class AgentClient:
                 and len(tool_calls) >= self._loop_threshold
                 and stop_reason != "end_turn"
             ):
-                recent_names = [tc.name for tc in tool_calls[-self._loop_threshold:]]
+                recent_names = [tc.name for tc in tool_calls[-self._loop_threshold :]]
                 if len(set(recent_names)) == 1 and tool_calls[-1].input == tool_calls[-2].input:
                     # Inject a hint telling the model to move on, then stop
                     messages.append({"role": "assistant", "content": content_blocks})

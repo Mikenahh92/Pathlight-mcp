@@ -72,9 +72,7 @@ _WINDOW_BATCH_ACTIONS: frozenset[DesktopAction] = frozenset(
     }
 )
 
-SUPPORTED_BATCH_ACTIONS: frozenset[DesktopAction] = (
-    _ELEMENT_BATCH_ACTIONS | _WINDOW_BATCH_ACTIONS
-)
+SUPPORTED_BATCH_ACTIONS: frozenset[DesktopAction] = _ELEMENT_BATCH_ACTIONS | _WINDOW_BATCH_ACTIONS
 
 # Minimum batch size per architecture §2.
 MIN_BATCH_SIZE = 2
@@ -407,11 +405,7 @@ def register(
                         {
                             "success": True,
                             "tool": a.get("action", "unknown"),
-                            "arguments": {
-                                k: v
-                                for k, v in a.items()
-                                if k != "action"
-                            },
+                            "arguments": {k: v for k, v in a.items() if k != "action"},
                         }
                         for a in actions
                     ],
@@ -467,9 +461,7 @@ def register(
         # --- Per-action descriptor validation ---
         validated: list[tuple[DesktopAction, str | None, dict[str, Any]]] = []
         for i, action in enumerate(actions):
-            desktop_action, element_ref, kwargs, error = _validate_action_descriptor(
-                action, i
-            )
+            desktop_action, element_ref, kwargs, error = _validate_action_descriptor(action, i)
             if error is not None:
                 return json.dumps(
                     {
@@ -497,9 +489,7 @@ def register(
         results: list[dict[str, Any]] = []
         batch_aborted: int | None = None
         for i, (desktop_action, element_ref, kwargs) in enumerate(validated):
-            result = _execute_single_action(
-                desktop_action, element_ref, kwargs, backend, ref_store
-            )
+            result = _execute_single_action(desktop_action, element_ref, kwargs, backend, ref_store)
             results.append(result)
             if not result.get("success", False):
                 batch_aborted = i

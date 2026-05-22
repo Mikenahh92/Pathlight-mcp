@@ -8,7 +8,6 @@ invoke them through stdio transport.
 """
 
 import asyncio
-from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 

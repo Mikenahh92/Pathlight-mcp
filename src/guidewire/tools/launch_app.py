@@ -55,6 +55,7 @@ _LIVENESS_CHECK_DELAY = 0.5
 # Linux helpers
 # ---------------------------------------------------------------------------
 
+
 def _build_env() -> dict[str, str] | None:
     """Build a child-process environment with ``DISPLAY`` propagated.
 
@@ -105,7 +106,7 @@ def _resolve_snap_binary(app: str) -> str:
 
     # Check if the app is already a /snap/bin/ path
     if app.startswith(snap_bin_dir):
-        snap_name = app[len(snap_bin_dir):]
+        snap_name = app[len(snap_bin_dir) :]
         return _try_resolve_snap(snap_name, app)
 
     # Check if /snap/bin/<app> exists for a bare name
@@ -189,17 +190,49 @@ def _is_electron_binary(binary_path: str) -> bool:
 
     # Direct binary name matches for common Electron/Chromium apps
     electron_names = {
-        "electron", "electron4", "electron5", "electron6",
-        "electron7", "electron8", "electron9", "electron10",
-        "electron11", "electron12", "electron13", "electron14",
-        "electron15", "electron16", "electron17", "electron18",
-        "electron19", "electron20", "electron21", "electron22",
-        "electron23", "electron24", "electron25", "electron26",
-        "electron27", "electron28", "electron29", "electron30",
-        "chrome", "chromium", "chromium-browser", "google-chrome",
-        "google-chrome-stable", "microsoft-edge", "brave-browser",
-        "code", "codium", "slack", "discord", "signal-desktop",
-        "whatsapp", "teams", "spotify",
+        "electron",
+        "electron4",
+        "electron5",
+        "electron6",
+        "electron7",
+        "electron8",
+        "electron9",
+        "electron10",
+        "electron11",
+        "electron12",
+        "electron13",
+        "electron14",
+        "electron15",
+        "electron16",
+        "electron17",
+        "electron18",
+        "electron19",
+        "electron20",
+        "electron21",
+        "electron22",
+        "electron23",
+        "electron24",
+        "electron25",
+        "electron26",
+        "electron27",
+        "electron28",
+        "electron29",
+        "electron30",
+        "chrome",
+        "chromium",
+        "chromium-browser",
+        "google-chrome",
+        "google-chrome-stable",
+        "microsoft-edge",
+        "brave-browser",
+        "code",
+        "codium",
+        "slack",
+        "discord",
+        "signal-desktop",
+        "whatsapp",
+        "teams",
+        "spotify",
     }
     # Match by exact name or name starting with "electron"
     if name in electron_names or name.startswith("electron"):
@@ -208,15 +241,13 @@ def _is_electron_binary(binary_path: str) -> bool:
     # Check for chrome-sandbox sibling file — a hallmark of Chromium-based apps
     parent_dir = os.path.dirname(binary_path)
     sandbox_path = os.path.join(parent_dir, "chrome-sandbox")
-    if os.path.isfile(sandbox_path):
-        return True
-
-    return False
+    return bool(os.path.isfile(sandbox_path))
 
 
 # ---------------------------------------------------------------------------
 # Tool registration
 # ---------------------------------------------------------------------------
+
 
 def register(
     mcp: FastMCP,
@@ -323,10 +354,7 @@ def register(
             return json.dumps(
                 {
                     "error": "launch_error",
-                    "message": (
-                        f"Application '{app}' exited immediately "
-                        f"with code {exit_code}"
-                    ),
+                    "message": (f"Application '{app}' exited immediately with code {exit_code}"),
                     "hints": hints_for("launch_error"),
                 }
             )

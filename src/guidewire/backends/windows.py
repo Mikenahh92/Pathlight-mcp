@@ -1364,9 +1364,7 @@ class WindowsBackend(DesktopBackend):
                     try:
                         header_item = grid.GetItem(0, c)
                         if header_item:
-                            header_name = header_item.GetCurrentPropertyValue(
-                                _UIA_NAME_PROPERTY_ID
-                            )
+                            header_name = header_item.GetCurrentPropertyValue(_UIA_NAME_PROPERTY_ID)
                             headers.append(str(header_name) if header_name else None)
                         else:
                             headers.append(None)
@@ -1392,10 +1390,7 @@ class WindowsBackend(DesktopBackend):
                 effective_rows = min(row_count - data_start_row, max_rows)
                 result_rows: list[list[dict[str, Any]]] = []
                 for r in range(effective_rows):
-                    row_cells = [
-                        _read_cell(r, c)
-                        for c in range(min(column_count, max_columns))
-                    ]
+                    row_cells = [_read_cell(r, c) for c in range(min(column_count, max_columns))]
                     result_rows.append(row_cells)
                 return {
                     "row_count": row_count - data_start_row,
@@ -1406,10 +1401,7 @@ class WindowsBackend(DesktopBackend):
             elif table_action == "read_cell":
                 return _read_cell(row_idx, col_idx)
             elif table_action == "read_row":
-                cells = [
-                    _read_cell(row_idx, c)
-                    for c in range(min(column_count, max_columns))
-                ]
+                cells = [_read_cell(row_idx, c) for c in range(min(column_count, max_columns))]
                 return {"row": row_idx, "cells": cells}
             elif table_action == "read_column":
                 effective_rows = min(row_count - data_start_row, max_rows)
@@ -1417,9 +1409,7 @@ class WindowsBackend(DesktopBackend):
                 header = headers[col_idx] if col_idx < len(headers) else None
                 return {"column": col_idx, "header": header, "cells": col_cells}
             else:
-                raise ActionNotSupportedError(
-                    f"Unknown table_action: {table_action!r}"
-                )
+                raise ActionNotSupportedError(f"Unknown table_action: {table_action!r}")
         except ActionNotSupportedError:
             raise
         except Exception as exc:
@@ -1528,7 +1518,8 @@ class WindowsBackend(DesktopBackend):
 
         # Allocate and copy text to global memory
         text_bytes = text.encode("utf-16-le") + b"\x00\x00"
-        h_mem = kernel32.GlobalAlloc(_CLIPBOARD_GMEM_MOVEABLE, len(text_bytes))
+        gmem_moveable = 0x0002  # GMEM_MOVEABLE
+        h_mem = kernel32.GlobalAlloc(gmem_moveable, len(text_bytes))
         if not h_mem:
             raise BackendUnavailableError("Failed to allocate clipboard memory")
 
@@ -1549,7 +1540,8 @@ class WindowsBackend(DesktopBackend):
 
         try:
             user32.EmptyClipboard()
-            if not user32.SetClipboardData(_CLIPBOARD_CF_UNICODETEXT, h_mem):
+            cf_unicode_text = 13  # Win32 CF_UNICODETEXT format
+            if not user32.SetClipboardData(cf_unicode_text, h_mem):
                 raise BackendUnavailableError("Failed to set clipboard data")
         finally:
             user32.CloseClipboard()
@@ -1623,9 +1615,7 @@ class WindowsBackend(DesktopBackend):
         element = self._unwrap_element(container)
 
         if item_name is None and item_index is None:
-            raise ActionNotSupportedError(
-                "scroll_to_item requires either item_name or item_index"
-            )
+            raise ActionNotSupportedError("scroll_to_item requires either item_name or item_index")
 
         # --- Primary path: ItemContainerPattern.FindItemByProperty ---
         try:
@@ -1636,9 +1626,7 @@ class WindowsBackend(DesktopBackend):
                 if found is not None:
                     # Realize the virtualized item
                     try:
-                        vi_pattern = found.GetCurrentPattern(
-                            self._UIA_VIRTUALIZED_ITEM_PATTERN_ID
-                        )
+                        vi_pattern = found.GetCurrentPattern(self._UIA_VIRTUALIZED_ITEM_PATTERN_ID)
                         if vi_pattern is not None:
                             vi_pattern.Realize()
                     except Exception:
@@ -1660,18 +1648,21 @@ class WindowsBackend(DesktopBackend):
                 while child is not None:
                     try:
                         child_name = child.CurrentName
-                        if item_name is not None and child_name is not None:
-                            if item_name.lower() in child_name.lower():
-                                # Found by name
-                                try:
-                                    vi_pattern = child.GetCurrentPattern(
-                                        self._UIA_VIRTUALIZED_ITEM_PATTERN_ID
-                                    )
-                                    if vi_pattern is not None:
-                                        vi_pattern.Realize()
-                                except Exception:
-                                    pass
-                                return NativeHandle(child)
+                        if (
+                            item_name is not None
+                            and child_name is not None
+                            and item_name.lower() in child_name.lower()
+                        ):
+                            # Found by name
+                            try:
+                                vi_pattern = child.GetCurrentPattern(
+                                    self._UIA_VIRTUALIZED_ITEM_PATTERN_ID
+                                )
+                                if vi_pattern is not None:
+                                    vi_pattern.Realize()
+                            except Exception:
+                                pass
+                            return NativeHandle(child)
                         if item_index is not None and visible_index == item_index:
                             try:
                                 vi_pattern = child.GetCurrentPattern(
@@ -1720,9 +1711,7 @@ class WindowsBackend(DesktopBackend):
         try:
             hwnd = self._extract_hwnd(window)
         except TypeError as exc:
-            raise WindowNotFoundError(
-                f"Window handle is not a valid HWND: {exc}"
-            ) from exc
+            raise WindowNotFoundError(f"Window handle is not a valid HWND: {exc}") from exc
 
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
         if not user32.IsWindow(hwnd):  # type: ignore[attr-defined]

@@ -199,9 +199,8 @@ class LinuxBackend(DesktopBackend):
         focused = False
         with contextlib.suppress(Exception):
             state_set = accessible.getState()
-            focused = (
-                state_set.contains(pyatspi.STATE_ACTIVE)
-                or state_set.contains(pyatspi.STATE_FOCUSED)
+            focused = state_set.contains(pyatspi.STATE_ACTIVE) or state_set.contains(
+                pyatspi.STATE_FOCUSED
             )
 
         # Bounds — from getExtent
@@ -1013,9 +1012,7 @@ class LinuxBackend(DesktopBackend):
             index = accessible.getIndexInParent()
             selection.selectChild(index)
         except Exception as exc:
-            raise ActionNotSupportedError(
-                f"selectChild failed: {exc}"
-            ) from exc
+            raise ActionNotSupportedError(f"selectChild failed: {exc}") from exc
 
     def _action_deselect_item(self, accessible: Any) -> None:
         """Deselect an item via the AT-SPI Selection interface.
@@ -1039,9 +1036,7 @@ class LinuxBackend(DesktopBackend):
             index = accessible.getIndexInParent()
             selection.deselectChild(index)
         except Exception as exc:
-            raise ActionNotSupportedError(
-                f"deselectChild failed: {exc}"
-            ) from exc
+            raise ActionNotSupportedError(f"deselectChild failed: {exc}") from exc
 
     def _action_add_to_selection(self, accessible: Any) -> None:
         """Add an item to the current selection via the AT-SPI Selection interface.
@@ -1066,9 +1061,7 @@ class LinuxBackend(DesktopBackend):
             index = accessible.getIndexInParent()
             selection.selectChild(index)
         except Exception as exc:
-            raise ActionNotSupportedError(
-                f"selectChild (add-to-selection) failed: {exc}"
-            ) from exc
+            raise ActionNotSupportedError(f"selectChild (add-to-selection) failed: {exc}") from exc
 
     def _action_scroll(self, accessible: Any) -> None:
         """Scroll an element via AT-SPI action.
@@ -1405,10 +1398,7 @@ class LinuxBackend(DesktopBackend):
                 effective_rows = min(n_rows - data_start_row, max_rows)
                 result_rows: list[list[dict[str, Any]]] = []
                 for r in range(effective_rows):
-                    row_cells = [
-                        _read_cell(r, c)
-                        for c in range(min(n_cols, max_columns))
-                    ]
+                    row_cells = [_read_cell(r, c) for c in range(min(n_cols, max_columns))]
                     result_rows.append(row_cells)
                 return {
                     "row_count": n_rows - data_start_row,
@@ -1419,10 +1409,7 @@ class LinuxBackend(DesktopBackend):
             elif table_action == "read_cell":
                 return _read_cell(row_idx, col_idx)
             elif table_action == "read_row":
-                cells = [
-                    _read_cell(row_idx, c)
-                    for c in range(min(n_cols, max_columns))
-                ]
+                cells = [_read_cell(row_idx, c) for c in range(min(n_cols, max_columns))]
                 return {"row": row_idx, "cells": cells}
             elif table_action == "read_column":
                 effective_rows = min(n_rows - data_start_row, max_rows)
@@ -1430,9 +1417,7 @@ class LinuxBackend(DesktopBackend):
                 header = headers[col_idx] if col_idx < len(headers) else None
                 return {"column": col_idx, "header": header, "cells": col_cells}
             else:
-                raise ActionNotSupportedError(
-                    f"Unknown table_action: {table_action!r}"
-                )
+                raise ActionNotSupportedError(f"Unknown table_action: {table_action!r}")
         except ActionNotSupportedError:
             raise
         except Exception as exc:
@@ -1508,15 +1493,11 @@ class LinuxBackend(DesktopBackend):
                 )
             return result.stdout
         except subprocess.TimeoutExpired as exc:
-            raise BackendUnavailableError(
-                "xclip timed out while reading the clipboard"
-            ) from exc
+            raise BackendUnavailableError("xclip timed out while reading the clipboard") from exc
         except BackendUnavailableError:
             raise
         except Exception as exc:
-            raise BackendUnavailableError(
-                f"Failed to read clipboard via xclip: {exc}"
-            ) from exc
+            raise BackendUnavailableError(f"Failed to read clipboard via xclip: {exc}") from exc
 
     def clipboard_write(self, text: str) -> None:
         """Write text to the system clipboard using xclip.
@@ -1599,9 +1580,7 @@ class LinuxBackend(DesktopBackend):
         accessible = self._unwrap_element(container)
 
         if item_name is None and item_index is None:
-            raise ActionNotSupportedError(
-                "scroll_to_item requires either item_name or item_index"
-            )
+            raise ActionNotSupportedError("scroll_to_item requires either item_name or item_index")
 
         # Track seen names to detect when scrolling stops producing new items
         seen_names: set[str] = set()
@@ -1622,9 +1601,12 @@ class LinuxBackend(DesktopBackend):
                         new_names.add(child_name)
 
                         # Match by name
-                        if item_name is not None and child_name:
-                            if item_name.lower() in child_name.lower():
-                                return NativeHandle(child)
+                        if (
+                            item_name is not None
+                            and child_name
+                            and item_name.lower() in child_name.lower()
+                        ):
+                            return NativeHandle(child)
 
                         # Match by index
                         if item_index is not None and visible_index == item_index:
@@ -1632,16 +1614,12 @@ class LinuxBackend(DesktopBackend):
 
                         visible_index += 1
                     except Exception:
-                        logger.debug(
-                            "Skipping inaccessible child %d in scroll_to_item", i
-                        )
+                        logger.debug("Skipping inaccessible child %d in scroll_to_item", i)
                         continue
 
                 # If no new items appeared, stop scrolling
                 if new_names and new_names.issubset(seen_names):
-                    logger.debug(
-                        "No new items after scroll at attempt %d, stopping", attempt
-                    )
+                    logger.debug("No new items after scroll at attempt %d, stopping", attempt)
                     break
                 seen_names.update(new_names)
 
@@ -1705,8 +1683,7 @@ class LinuxBackend(DesktopBackend):
             logger.debug("xlib minimize failed: %s", exc)
 
         raise ActionNotSupportedError(
-            "minimize_window requires python-xlib "
-            "(install via: pip install python-xlib)"
+            "minimize_window requires python-xlib (install via: pip install python-xlib)"
         )
 
     def maximize_window(self, window: NativeHandle) -> None:
@@ -1730,8 +1707,7 @@ class LinuxBackend(DesktopBackend):
             logger.debug("xlib maximize failed: %s", exc)
 
         raise ActionNotSupportedError(
-            "maximize_window requires python-xlib "
-            "(install via: pip install python-xlib)"
+            "maximize_window requires python-xlib (install via: pip install python-xlib)"
         )
 
     def restore_window(self, window: NativeHandle) -> None:
@@ -1755,8 +1731,7 @@ class LinuxBackend(DesktopBackend):
             logger.debug("xlib restore failed: %s", exc)
 
         raise ActionNotSupportedError(
-            "restore_window requires python-xlib "
-            "(install via: pip install python-xlib)"
+            "restore_window requires python-xlib (install via: pip install python-xlib)"
         )
 
     def move_window(self, window: NativeHandle, x: int, y: int) -> None:
@@ -1782,8 +1757,7 @@ class LinuxBackend(DesktopBackend):
             logger.debug("xlib move failed: %s", exc)
 
         raise ActionNotSupportedError(
-            "move_window requires python-xlib "
-            "(install via: pip install python-xlib)"
+            "move_window requires python-xlib (install via: pip install python-xlib)"
         )
 
     def resize_window(self, window: NativeHandle, width: int, height: int) -> None:
@@ -1809,8 +1783,7 @@ class LinuxBackend(DesktopBackend):
             logger.debug("xlib resize failed: %s", exc)
 
         raise ActionNotSupportedError(
-            "resize_window requires python-xlib "
-            "(install via: pip install python-xlib)"
+            "resize_window requires python-xlib (install via: pip install python-xlib)"
         )
 
     # -- xlib helpers for window state management (GW-055) -------------------
@@ -1829,7 +1802,6 @@ class LinuxBackend(DesktopBackend):
         Uses the AT-SPI application's D-Bus path to find the X window ID,
         then queries the X display for the corresponding window object.
         """
-        import pyatspi
 
         # Try to get the X window ID from the accessible's attributes
         try:
@@ -1837,7 +1809,6 @@ class LinuxBackend(DesktopBackend):
             for attr in attrs:
                 if attr.startswith("xwindow:"):
                     xid = int(attr.split(":")[1])
-                    from Xlib.xobject.drawable import Window  # type: ignore[import-untyped]
 
                     return display.create_resource_object("window", xid)
         except Exception:
@@ -1848,8 +1819,6 @@ class LinuxBackend(DesktopBackend):
             app = accessible.getApplication()
             pid = app.get_attributes().get("pid")
             if pid is not None:
-                from Xlib import X  # type: ignore[import-untyped]
-
                 root = display.screen().root
                 pid_atom = display.get_atom("_NET_WM_PID", only_if_exists=True)
                 if pid_atom:
@@ -1863,9 +1832,7 @@ class LinuxBackend(DesktopBackend):
         except Exception:
             pass
 
-        raise ActionNotSupportedError(
-            "Could not map AT-SPI accessible to an X11 window"
-        )
+        raise ActionNotSupportedError("Could not map AT-SPI accessible to an X11 window")
 
     @classmethod
     def _xlib_minimize(cls, accessible: Any) -> None:
@@ -1945,13 +1912,10 @@ class LinuxBackend(DesktopBackend):
         height: int | None,
     ) -> None:
         """Move and/or resize a window via EWMH _NET_MOVERESIZE_WINDOW."""
-        from Xlib import X  # type: ignore[import-untyped]
-        from Xlib.protocol import event  # type: ignore[import-untyped]
 
         display = cls._get_xlib_display()
         try:
             window = cls._accessible_to_xlib_window(accessible, display)
-            root = display.screen().root
 
             # Get current geometry for unspecified values
             geometry = window.get_geometry()

@@ -35,10 +35,7 @@ from guidewire.tools import register_all
 @pytest.fixture()
 def backend() -> MockBackend:
     """Return a MockBackend with a window and tree elements."""
-    b = (
-        MockBackend()
-        .add_window(title="Explorer", app="explorer.exe", focused=True)
-    )
+    b = MockBackend().add_window(title="Explorer", app="explorer.exe", focused=True)
     window_handle = b.list_windows()[0]
     # Add a tree container
     b.add_element(
@@ -266,9 +263,7 @@ class TestGetTreeInfoHierarchy:
 class TestGetTreeInfoWindowRef:
     """get_tree_info supports window_ref dual-ref pattern."""
 
-    async def test_window_ref_scopes_traversal(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_window_ref_scopes_traversal(self, mcp: FastMCP, backend: MockBackend) -> None:
         """window_ref should scope the snapshot traversal."""
         result, _meta = await mcp.call_tool(
             "desktop.get_tree_info",
@@ -277,9 +272,7 @@ class TestGetTreeInfoWindowRef:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_without_window_ref_finds_window(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_without_window_ref_finds_window(self, mcp: FastMCP) -> None:
         """Should auto-discover window from ref store when window_ref omitted."""
         result, _meta = await mcp.call_tool(
             "desktop.get_tree_info",
@@ -408,9 +401,7 @@ class TestGetTreeInfoValidation:
 
     async def test_empty_string_returns_validation_error(self, mcp: FastMCP) -> None:
         """Empty string should return validation error JSON."""
-        result, _meta = await mcp.call_tool(
-            "desktop.get_tree_info", arguments={"element_ref": ""}
-        )
+        result, _meta = await mcp.call_tool("desktop.get_tree_info", arguments={"element_ref": ""})
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
         assert "non-empty" in data["message"]

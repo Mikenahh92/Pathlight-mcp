@@ -66,17 +66,17 @@ VSCODE_LIVE_PROMPT = (
     "- Do NOT call list_windows more than once.\n"
     "- Do NOT call launch_app more than once.\n"
     "- If a tool returns an error, report it and move to the next step.\n\n"
-    "Step 1: Call desktop.launch_app with app=\"code\" to launch VS Code.\n"
+    'Step 1: Call desktop.launch_app with app="code" to launch VS Code.\n'
     "Step 2: Call desktop.list_windows (no parameters) to discover the VS Code window.\n"
     "Step 3: Call desktop.snapshot on the VS Code window to capture its accessibility tree.\n"
     "Step 4: Call desktop.find to locate a text editor or editable text area in the VS Code UI.\n"
     "Step 5: Call desktop.click on the text editor element to focus it.\n"
-    "Step 6: Call desktop.type_text with text=\"Hello from live Guidewire test!\" "
+    'Step 6: Call desktop.type_text with text="Hello from live Guidewire test!" '
     "to type into the editor.\n"
     "Step 7: Call desktop.get_text on the editor element to read back the text you just typed.\n"
-    "Step 8: Call desktop.press_key with key=\"ctrl+a\" to select all text.\n"
-    "Step 9: Call desktop.press_key with key=\"delete\" to clear the text.\n"
-    "Step 10: Call desktop.press_key with key=\"alt+f4\" to close VS Code.\n\n"
+    'Step 8: Call desktop.press_key with key="ctrl+a" to select all text.\n'
+    'Step 9: Call desktop.press_key with key="delete" to clear the text.\n'
+    'Step 10: Call desktop.press_key with key="alt+f4" to close VS Code.\n\n'
     "After completing all steps, report what you did at each step."
 )
 

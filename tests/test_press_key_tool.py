@@ -127,16 +127,12 @@ class TestPressKeyStub:
 
     async def test_stub_returns_static_message(self, stub_mcp: FastMCP) -> None:
         """Without a backend, press_key should return a static string."""
-        result, _meta = await stub_mcp.call_tool(
-            "desktop.press_key", arguments={"keys": "Enter"}
-        )
+        result, _meta = await stub_mcp.call_tool("desktop.press_key", arguments={"keys": "Enter"})
         assert result[0].text == 'Pressed "Enter"'
 
     async def test_stub_contains_key_in_text(self, stub_mcp: FastMCP) -> None:
         """Stub response should contain the keys value."""
-        result, _meta = await stub_mcp.call_tool(
-            "desktop.press_key", arguments={"keys": "Ctrl+S"}
-        )
+        result, _meta = await stub_mcp.call_tool("desktop.press_key", arguments={"keys": "Ctrl+S"})
         assert "Ctrl+S" in result[0].text
         assert "Pressed" in result[0].text
 
@@ -149,9 +145,7 @@ class TestPressKeySuccess:
 
     async def test_returns_json_success(self, mcp: FastMCP) -> None:
         """Should return JSON with success=True, keys, risk, target_summary."""
-        result, _meta = await mcp.call_tool(
-            "desktop.press_key", arguments={"keys": "Enter"}
-        )
+        result, _meta = await mcp.call_tool("desktop.press_key", arguments={"keys": "Enter"})
         data = json.loads(result[0].text)
         assert data["success"] is True
         assert data["keys"] == "enter"
@@ -160,15 +154,11 @@ class TestPressKeySuccess:
 
     async def test_success_response_has_interaction_risk(self, mcp: FastMCP) -> None:
         """Press key on a generic element should return interaction risk."""
-        result, _meta = await mcp.call_tool(
-            "desktop.press_key", arguments={"keys": "Tab"}
-        )
+        result, _meta = await mcp.call_tool("desktop.press_key", arguments={"keys": "Tab"})
         data = json.loads(result[0].text)
         assert data["risk"] == "interaction"
 
-    async def test_press_key_delegates_to_backend(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_press_key_delegates_to_backend(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Pressing Enter should record a PRESS_KEY action in the backend action log."""
         await mcp.call_tool("desktop.press_key", arguments={"keys": "Enter"})
         assert len(backend.action_log) >= 1
@@ -184,9 +174,7 @@ class TestPressKeySuccess:
 
     async def test_target_summary_contains_key(self, mcp: FastMCP) -> None:
         """Target summary should describe the key press."""
-        result, _meta = await mcp.call_tool(
-            "desktop.press_key", arguments={"keys": "Alt+Tab"}
-        )
+        result, _meta = await mcp.call_tool("desktop.press_key", arguments={"keys": "Alt+Tab"})
         data = json.loads(result[0].text)
         assert "alt+tab" in data["target_summary"]
 
@@ -205,9 +193,7 @@ class TestPressKeyErrors:
 
     async def test_empty_string_returns_validation_error(self, mcp: FastMCP) -> None:
         """Empty string should return validation error JSON."""
-        result, _meta = await mcp.call_tool(
-            "desktop.press_key", arguments={"keys": ""}
-        )
+        result, _meta = await mcp.call_tool("desktop.press_key", arguments={"keys": ""})
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
         assert "non-empty" in data["message"]
@@ -215,9 +201,7 @@ class TestPressKeyErrors:
 
     async def test_whitespace_only_returns_validation_error(self, mcp: FastMCP) -> None:
         """Whitespace-only string should return validation error JSON."""
-        result, _meta = await mcp.call_tool(
-            "desktop.press_key", arguments={"keys": "   "}
-        )
+        result, _meta = await mcp.call_tool("desktop.press_key", arguments={"keys": "   "})
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
         assert "non-empty" in data["message"]
@@ -231,9 +215,7 @@ class TestPressKeyErrors:
             "perform_action",
             side_effect=BackendUnavailableError("Backend not connected"),
         ):
-            result, _meta = await mcp.call_tool(
-                "desktop.press_key", arguments={"keys": "Enter"}
-            )
+            result, _meta = await mcp.call_tool("desktop.press_key", arguments={"keys": "Enter"})
         data = json.loads(result[0].text)
         assert data["error"] == "backend_unavailable"
         assert "Enter" in data["keys"]
@@ -247,9 +229,7 @@ class TestPressKeyErrors:
             "perform_action",
             side_effect=ActionNotSupportedError("Press key not supported"),
         ):
-            result, _meta = await mcp.call_tool(
-                "desktop.press_key", arguments={"keys": "Ctrl+S"}
-            )
+            result, _meta = await mcp.call_tool("desktop.press_key", arguments={"keys": "Ctrl+S"})
         data = json.loads(result[0].text)
         assert data["error"] == "action_not_supported"
         assert "Ctrl+S" in data["message"]

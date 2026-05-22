@@ -62,9 +62,7 @@ class TestLinuxRoleCoverage:
         list(_LINUX_ROLES.items()),
         ids=lambda pair: f"{pair[0]!r} -> {pair[1]!r}",
     )
-    def test_normalize_element_role(
-        self, atspi_role: str, expected: str
-    ) -> None:
+    def test_normalize_element_role(self, atspi_role: str, expected: str) -> None:
         """``normalize_element`` produces a NormalizedElement with the
         correct normalized role for every AT-SPI role."""
         element = normalize_element(
@@ -378,9 +376,7 @@ class TestLinuxActionNormalization:
         list(_LINUX_ACTIONS.items()),
         ids=lambda pair: f"{pair[0]!r} -> {pair[1]!r}",
     )
-    def test_normalize_actions_single(
-        self, atspi_action: str, expected: str
-    ) -> None:
+    def test_normalize_actions_single(self, atspi_action: str, expected: str) -> None:
         """Each AT-SPI action normalizes correctly through the pipeline."""
         element = normalize_element(
             platform="linux",
@@ -974,87 +970,149 @@ class TestGtkTextEditorNormalization:
         """Full GTK Text Editor tree normalizes to correct structure."""
         # Build menu items
         file_mi = normalize_element(
-            platform="linux", ref="e1", backend_id="0",
-            role="menu item", name="File", raw_actions=["activate"],
+            platform="linux",
+            ref="e1",
+            backend_id="0",
+            role="menu item",
+            name="File",
+            raw_actions=["activate"],
         )
         edit_mi = normalize_element(
-            platform="linux", ref="e2", backend_id="0",
-            role="menu item", name="Edit", raw_actions=["activate"],
+            platform="linux",
+            ref="e2",
+            backend_id="0",
+            role="menu item",
+            name="Edit",
+            raw_actions=["activate"],
         )
         view_mi = normalize_element(
-            platform="linux", ref="e3", backend_id="0",
-            role="menu item", name="View", raw_actions=["activate"],
+            platform="linux",
+            ref="e3",
+            backend_id="0",
+            role="menu item",
+            name="View",
+            raw_actions=["activate"],
         )
         help_mi = normalize_element(
-            platform="linux", ref="e4", backend_id="0",
-            role="menu item", name="Help", raw_actions=["activate"],
+            platform="linux",
+            ref="e4",
+            backend_id="0",
+            role="menu item",
+            name="Help",
+            raw_actions=["activate"],
         )
         menu_bar = normalize_element(
-            platform="linux", ref="e5", backend_id="0",
-            role="menu bar", children=[file_mi, edit_mi, view_mi, help_mi],
+            platform="linux",
+            ref="e5",
+            backend_id="0",
+            role="menu bar",
+            children=[file_mi, edit_mi, view_mi, help_mi],
         )
 
         # Build toolbar buttons
         new_btn = normalize_element(
-            platform="linux", ref="e6", backend_id="0",
-            role="push button", name="New", raw_actions=["click"],
+            platform="linux",
+            ref="e6",
+            backend_id="0",
+            role="push button",
+            name="New",
+            raw_actions=["click"],
         )
         open_btn = normalize_element(
-            platform="linux", ref="e7", backend_id="0",
-            role="push button", name="Open", raw_actions=["click"],
+            platform="linux",
+            ref="e7",
+            backend_id="0",
+            role="push button",
+            name="Open",
+            raw_actions=["click"],
         )
         save_btn = normalize_element(
-            platform="linux", ref="e8", backend_id="0",
-            role="push button", name="Save", raw_actions=["click"],
+            platform="linux",
+            ref="e8",
+            backend_id="0",
+            role="push button",
+            name="Save",
+            raw_actions=["click"],
         )
         find_btn = normalize_element(
-            platform="linux", ref="e9", backend_id="0",
-            role="toggle button", name="Find", raw_actions=["toggle"],
+            platform="linux",
+            ref="e9",
+            backend_id="0",
+            role="toggle button",
+            name="Find",
+            raw_actions=["toggle"],
         )
         sep = normalize_element(
-            platform="linux", ref="e10", backend_id="0",
+            platform="linux",
+            ref="e10",
+            backend_id="0",
             role="separator",
         )
         toolbar = normalize_element(
-            platform="linux", ref="e11", backend_id="0",
+            platform="linux",
+            ref="e11",
+            backend_id="0",
             role="tool bar",
             children=[new_btn, open_btn, save_btn, find_btn, sep],
         )
 
         # Build tab / editor area
         tab = normalize_element(
-            platform="linux", ref="e12", backend_id="0",
-            role="page tab", name="Document 1",
+            platform="linux",
+            ref="e12",
+            backend_id="0",
+            role="page tab",
+            name="Document 1",
             raw_states={"selected": True},
         )
         tab_list = normalize_element(
-            platform="linux", ref="e13", backend_id="0",
-            role="page tab list", children=[tab],
+            platform="linux",
+            ref="e13",
+            backend_id="0",
+            role="page tab list",
+            children=[tab],
         )
         line1 = normalize_element(
-            platform="linux", ref="e14", backend_id="0",
-            role="text", text="Hello, world!",
+            platform="linux",
+            ref="e14",
+            backend_id="0",
+            role="text",
+            text="Hello, world!",
         )
         line2 = normalize_element(
-            platform="linux", ref="e15", backend_id="0",
-            role="text", text="Second line",
+            platform="linux",
+            ref="e15",
+            backend_id="0",
+            role="text",
+            text="Second line",
         )
         editor_panel = normalize_element(
-            platform="linux", ref="e16", backend_id="0",
-            role="panel", children=[line1, line2],
+            platform="linux",
+            ref="e16",
+            backend_id="0",
+            role="panel",
+            children=[line1, line2],
         )
         scroll_pane = normalize_element(
-            platform="linux", ref="e17", backend_id="0",
-            role="panel", children=[editor_panel],
+            platform="linux",
+            ref="e17",
+            backend_id="0",
+            role="panel",
+            children=[editor_panel],
         )
         notebook = normalize_element(
-            platform="linux", ref="e18", backend_id="0",
-            role="panel", children=[tab_list, scroll_pane],
+            platform="linux",
+            ref="e18",
+            backend_id="0",
+            role="panel",
+            children=[tab_list, scroll_pane],
         )
 
         # Status bar
         status = normalize_element(
-            platform="linux", ref="e19", backend_id="0",
+            platform="linux",
+            ref="e19",
+            backend_id="0",
             role="status bar",
         )
 
@@ -1178,79 +1236,128 @@ class TestQtVlcNormalization:
         """Full VLC media player tree normalizes to correct structure."""
         # Menu bar
         media_mi = normalize_element(
-            platform="linux", ref="e1", backend_id="0",
-            role="menu item", name="Media", raw_actions=["activate"],
+            platform="linux",
+            ref="e1",
+            backend_id="0",
+            role="menu item",
+            name="Media",
+            raw_actions=["activate"],
         )
         playback_mi = normalize_element(
-            platform="linux", ref="e2", backend_id="0",
-            role="menu item", name="Playback", raw_actions=["activate"],
+            platform="linux",
+            ref="e2",
+            backend_id="0",
+            role="menu item",
+            name="Playback",
+            raw_actions=["activate"],
         )
         view_mi = normalize_element(
-            platform="linux", ref="e3", backend_id="0",
-            role="menu item", name="View", raw_actions=["activate"],
+            platform="linux",
+            ref="e3",
+            backend_id="0",
+            role="menu item",
+            name="View",
+            raw_actions=["activate"],
         )
         help_mi = normalize_element(
-            platform="linux", ref="e4", backend_id="0",
-            role="menu item", name="Help", raw_actions=["activate"],
+            platform="linux",
+            ref="e4",
+            backend_id="0",
+            role="menu item",
+            name="Help",
+            raw_actions=["activate"],
         )
         menu_bar = normalize_element(
-            platform="linux", ref="e5", backend_id="0",
-            role="menu bar", children=[media_mi, playback_mi, view_mi, help_mi],
+            platform="linux",
+            ref="e5",
+            backend_id="0",
+            role="menu bar",
+            children=[media_mi, playback_mi, view_mi, help_mi],
         )
 
         # Toolbar controls
         play_btn = normalize_element(
-            platform="linux", ref="e6", backend_id="0",
-            role="push button", name="Play",
-            raw_actions=["click"], raw_states={"enabled": True},
+            platform="linux",
+            ref="e6",
+            backend_id="0",
+            role="push button",
+            name="Play",
+            raw_actions=["click"],
+            raw_states={"enabled": True},
         )
         stop_btn = normalize_element(
-            platform="linux", ref="e7", backend_id="0",
-            role="push button", name="Stop",
-            raw_actions=["click"], raw_states={"enabled": True},
+            platform="linux",
+            ref="e7",
+            backend_id="0",
+            role="push button",
+            name="Stop",
+            raw_actions=["click"],
+            raw_states={"enabled": True},
         )
         prev_btn = normalize_element(
-            platform="linux", ref="e8", backend_id="0",
-            role="push button", name="Previous",
-            raw_actions=["click"], raw_states={"enabled": True},
+            platform="linux",
+            ref="e8",
+            backend_id="0",
+            role="push button",
+            name="Previous",
+            raw_actions=["click"],
+            raw_states={"enabled": True},
         )
         next_btn = normalize_element(
-            platform="linux", ref="e9", backend_id="0",
-            role="push button", name="Next",
-            raw_actions=["click"], raw_states={"enabled": True},
+            platform="linux",
+            ref="e9",
+            backend_id="0",
+            role="push button",
+            name="Next",
+            raw_actions=["click"],
+            raw_states={"enabled": True},
         )
         position_slider = normalize_element(
-            platform="linux", ref="e10", backend_id="0",
-            role="slider", name="Position",
+            platform="linux",
+            ref="e10",
+            backend_id="0",
+            role="slider",
+            name="Position",
             raw_states={"value": 0.35, "min-value": 0.0, "max-value": 1.0},
             raw_actions=["increment", "decrement"],
         )
         volume_slider = normalize_element(
-            platform="linux", ref="e11", backend_id="0",
-            role="slider", name="Volume",
+            platform="linux",
+            ref="e11",
+            backend_id="0",
+            role="slider",
+            name="Volume",
             raw_states={"value": 80, "min-value": 0, "max-value": 100},
         )
         toolbar = normalize_element(
-            platform="linux", ref="e12", backend_id="0",
+            platform="linux",
+            ref="e12",
+            backend_id="0",
             role="tool bar",
-            children=[play_btn, stop_btn, prev_btn, next_btn,
-                      position_slider, volume_slider],
+            children=[play_btn, stop_btn, prev_btn, next_btn, position_slider, volume_slider],
         )
 
         # Video area
         canvas = normalize_element(
-            platform="linux", ref="e13", backend_id="0",
+            platform="linux",
+            ref="e13",
+            backend_id="0",
             role="canvas",
             bounds=(0, 40, 800, 400),
         )
         video_panel = normalize_element(
-            platform="linux", ref="e14", backend_id="0",
-            role="panel", children=[canvas],
+            platform="linux",
+            ref="e14",
+            backend_id="0",
+            role="panel",
+            children=[canvas],
         )
 
         # Status bar
         status = normalize_element(
-            platform="linux", ref="e15", backend_id="0",
+            platform="linux",
+            ref="e15",
+            backend_id="0",
             role="status bar",
         )
 
@@ -1360,8 +1467,7 @@ class TestLinuxMappingCompleteness:
         valid_actions = set(DesktopAction.__args__)  # type: ignore[attr-defined]
         for atspi_action, normalized in _LINUX_ACTIONS.items():
             assert normalized in valid_actions, (
-                f"_LINUX_ACTIONS[{atspi_action!r}] = {normalized!r} "
-                f"is not a valid DesktopAction"
+                f"_LINUX_ACTIONS[{atspi_action!r}] = {normalized!r} is not a valid DesktopAction"
             )
 
     def test_no_linux_role_collisions(self) -> None:
@@ -1374,31 +1480,30 @@ class TestLinuxMappingCompleteness:
         # Check that multi-mapped roles are intentional
         intentional_multi = {
             "text_input",  # entry, terminal, password text, editable text
-            "text",        # text, paragraph, heading, label
-            "pane",        # frame, panel, page, split pane, layered pane,
-                           # root pane, glass pane, internal frame
-            "group",       # filler, grouping, section
-            "image",       # image, icon, chart
-            "dialog",      # dialog, alert, file chooser, font chooser,
-                           # option pane
-            "window",      # window, desktop frame
-            "custom",      # unknown, canvas, embedded component, animation
-            "document",    # document frame, document web
-            "list",        # list, list box
-            "slider",      # slider, dial
-            "menu_bar",    # menu, menu bar
-            "menu_item",   # menu item, tearoff menu item
-            "radio_button",# radio button, radio menu item
-            "header_item", # table column header, table row header
-            "button",      # push button, desktop icon
-            "tree",        # tree, tree table
-            "combobox",    # combo box, color chooser
+            "text",  # text, paragraph, heading, label
+            "pane",  # frame, panel, page, split pane, layered pane,
+            # root pane, glass pane, internal frame
+            "group",  # filler, grouping, section
+            "image",  # image, icon, chart
+            "dialog",  # dialog, alert, file chooser, font chooser,
+            # option pane
+            "window",  # window, desktop frame
+            "custom",  # unknown, canvas, embedded component, animation
+            "document",  # document frame, document web
+            "list",  # list, list box
+            "slider",  # slider, dial
+            "menu_bar",  # menu, menu bar
+            "menu_item",  # menu item, tearoff menu item
+            "radio_button",  # radio button, radio menu item
+            "header_item",  # table column header, table row header
+            "button",  # push button, desktop icon
+            "tree",  # tree, tree table
+            "combobox",  # combo box, color chooser
         }
         for normalized, atspi_roles in by_value.items():
             if len(atspi_roles) > 1:
                 assert normalized in intentional_multi, (
-                    f"Unexpected collision: {atspi_roles} all map to "
-                    f"{normalized!r}"
+                    f"Unexpected collision: {atspi_roles} all map to {normalized!r}"
                 )
 
     def test_linux_role_map_keys_do_not_overlap_with_windows(self) -> None:
@@ -1411,8 +1516,7 @@ class TestLinuxMappingCompleteness:
         # both platforms happen to use. Check that any overlap is intentional.
         # Currently there should be no raw key overlap.
         assert overlap == set(), (
-            f"Unexpected raw key overlap between Linux and Windows roles: "
-            f"{overlap}"
+            f"Unexpected raw key overlap between Linux and Windows roles: {overlap}"
         )
 
     def test_state_map_values_are_valid_element_states_fields(self) -> None:
@@ -1426,14 +1530,20 @@ class TestLinuxMappingCompleteness:
         # These fields are in _LINUX_STATES but NOT on ElementStates yet;
         # they are silently filtered by normalize_states.
         extra_fields = {
-            "focusable", "selectable", "multi_selectable",
-            "modal", "horizontal", "vertical",
-            "value", "min_value", "max_value", "step",
+            "focusable",
+            "selectable",
+            "multi_selectable",
+            "modal",
+            "horizontal",
+            "vertical",
+            "value",
+            "min_value",
+            "max_value",
+            "step",
         }
         for atspi_state, (field_name, _transform) in _LINUX_STATES.items():
             assert field_name in valid_fields or field_name in extra_fields, (
-                f"_LINUX_STATES[{atspi_state!r}] targets unknown field "
-                f"{field_name!r}"
+                f"_LINUX_STATES[{atspi_state!r}] targets unknown field {field_name!r}"
             )
 
 

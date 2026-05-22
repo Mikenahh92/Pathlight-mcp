@@ -24,10 +24,7 @@ from guidewire.tools import register_all
 @pytest.fixture()
 def backend() -> MockBackend:
     """Return a MockBackend with a window and preset clipboard content."""
-    return (
-        MockBackend()
-        .add_window(title="Test Window", app="TestApp", focused=True)
-    )
+    return MockBackend().add_window(title="Test Window", app="TestApp", focused=True)
 
 
 @pytest.fixture()
@@ -54,17 +51,13 @@ class TestClipboardReadStub:
 
     async def test_stub_returns_static_message(self, stub_mcp: FastMCP) -> None:
         """Without a backend, clipboard_read should return a static string."""
-        result, _meta = await stub_mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await stub_mcp.call_tool("desktop.clipboard_read", arguments={})
         assert "Clipboard" in result[0].text
         assert "stub" in result[0].text
 
     async def test_stub_no_arguments_required(self, stub_mcp: FastMCP) -> None:
         """Stub mode should not require any arguments."""
-        result, _meta = await stub_mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await stub_mcp.call_tool("desktop.clipboard_read", arguments={})
         assert result[0].text is not None
 
 
@@ -77,9 +70,7 @@ class TestClipboardReadSuccess:
     async def test_returns_json_success(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Should return JSON with success=True, text, length, risk, confirmation_required."""
         backend._clipboard_content = "hello world"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["success"] is True
         assert "text" in data
@@ -92,21 +83,15 @@ class TestClipboardReadSuccess:
     ) -> None:
         """The length field should match the (redacted) text length."""
         backend._clipboard_content = "hello world"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["length"] == len(data["text"])
         assert data["length"] == 11
 
-    async def test_success_response_length_empty(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_success_response_length_empty(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Empty clipboard should report length=0."""
         backend._clipboard_content = ""
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["length"] == 0
 
@@ -115,9 +100,7 @@ class TestClipboardReadSuccess:
     ) -> None:
         """clipboard_read should return INTERACTION risk level."""
         backend._clipboard_content = "hello"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["risk"] == "interaction"
 
@@ -126,27 +109,21 @@ class TestClipboardReadSuccess:
     ) -> None:
         """clipboard_read should NOT require user confirmation."""
         backend._clipboard_content = "hello"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["confirmation_required"] is False
 
     async def test_clipboard_read_returns_text(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Reading clipboard should return the current text content."""
         backend._clipboard_content = "test clipboard content"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["text"] == "test clipboard content"
 
     async def test_clipboard_read_empty_string(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Reading an empty clipboard should succeed."""
         backend._clipboard_content = ""
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["success"] is True
         assert data["text"] == ""
@@ -155,9 +132,7 @@ class TestClipboardReadSuccess:
         """Reading Unicode text should succeed."""
         unicode_text = "Hello 🌍 こんにちは"
         backend._clipboard_content = unicode_text
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["text"] == unicode_text
 
@@ -165,9 +140,7 @@ class TestClipboardReadSuccess:
         """Reading multiline text should succeed."""
         multiline = "line1\nline2\nline3"
         backend._clipboard_content = multiline
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["text"] == multiline
 
@@ -181,9 +154,7 @@ class TestClipboardReadPrivacy:
     async def test_redacts_password_line(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Lines containing 'password' should be redacted."""
         backend._clipboard_content = "my password is secret123"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert "[REDACTED]" in data["text"]
         assert "secret123" not in data["text"]
@@ -191,9 +162,7 @@ class TestClipboardReadPrivacy:
     async def test_redacts_pwd_line(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Lines containing 'pwd' should be redacted."""
         backend._clipboard_content = "pwd=hunter2"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert "[REDACTED]" in data["text"]
         assert "hunter2" not in data["text"]
@@ -201,9 +170,7 @@ class TestClipboardReadPrivacy:
     async def test_preserves_non_sensitive_lines(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Non-sensitive lines should be preserved as-is."""
         backend._clipboard_content = "hello\npassword=secret\nworld"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         lines = data["text"].split("\n")
         assert lines[0] == "hello"
@@ -213,9 +180,7 @@ class TestClipboardReadPrivacy:
     async def test_no_redaction_for_clean_text(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Clean text should pass through unmodified."""
         backend._clipboard_content = "Hello, world!"
-        result, _meta = await mcp.call_tool(
-            "desktop.clipboard_read", arguments={}
-        )
+        result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["text"] == "Hello, world!"
 
@@ -235,9 +200,7 @@ class TestClipboardReadErrors:
             "clipboard_read",
             side_effect=BackendUnavailableError("Clipboard not available"),
         ):
-            result, _meta = await mcp.call_tool(
-                "desktop.clipboard_read", arguments={}
-            )
+            result, _meta = await mcp.call_tool("desktop.clipboard_read", arguments={})
         data = json.loads(result[0].text)
         assert data["error"] == "backend_unavailable"
         assert "not available" in data["message"]
@@ -303,28 +266,24 @@ class TestMockBackendClipboardRead:
 
 
 class TestMockBackendSetClipboardText:
-    """MockBackend.set_clipboard_text() builder method."""
+    """MockBackend.set_clipboard() builder method."""
 
     def test_set_clipboard_text_returns_self(self) -> None:
         backend = MockBackend()
-        result = backend.set_clipboard_text("hello")
+        result = backend.set_clipboard("hello")
         assert result is backend
 
     def test_set_clipboard_text_sets_content(self) -> None:
         backend = MockBackend()
-        backend.set_clipboard_text("test content")
+        backend.set_clipboard("test content")
         assert backend.clipboard_read() == "test content"
 
     def test_set_clipboard_text_fluent_chaining(self) -> None:
-        backend = (
-            MockBackend()
-            .add_window(title="Test", app="App")
-            .set_clipboard_text("chained")
-        )
+        backend = MockBackend().add_window(title="Test", app="App").set_clipboard("chained")
         assert backend.clipboard_read() == "chained"
 
     def test_set_clipboard_text_overwrite(self) -> None:
         backend = MockBackend()
-        backend.set_clipboard_text("first")
-        backend.set_clipboard_text("second")
+        backend.set_clipboard("first")
+        backend.set_clipboard("second")
         assert backend.clipboard_read() == "second"

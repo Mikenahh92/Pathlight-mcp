@@ -66,9 +66,7 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        f"window_ref must start with 'w', got '{window_ref}'"
-                    ),
+                    "message": (f"window_ref must start with 'w', got '{window_ref}'"),
                     "ref": window_ref,
                     "hints": [],
                 }
@@ -81,10 +79,7 @@ def register(
             return json.dumps(
                 {
                     "error": "window_not_found",
-                    "message": (
-                        f"Window reference '{window_ref}' not found "
-                        f"in reference store"
-                    ),
+                    "message": (f"Window reference '{window_ref}' not found in reference store"),
                     "ref": window_ref,
                     "hints": hints_for("window_not_found"),
                 }
@@ -95,9 +90,7 @@ def register(
             return json.dumps(
                 {
                     "error": "stale_element_reference",
-                    "message": (
-                        f"Window reference '{window_ref}' is no longer valid"
-                    ),
+                    "message": (f"Window reference '{window_ref}' is no longer valid"),
                     "ref": window_ref,
                     "hints": hints_for("stale_element_reference"),
                 }
@@ -113,9 +106,7 @@ def register(
             return json.dumps(
                 {
                     "error": "stale_element_reference",
-                    "message": (
-                        f"Window reference '{window_ref}' is no longer valid"
-                    ),
+                    "message": (f"Window reference '{window_ref}' is no longer valid"),
                     "ref": window_ref,
                     "hints": exc.hints,
                 }
@@ -124,9 +115,7 @@ def register(
             return json.dumps(
                 {
                     "error": "stale_element_reference",
-                    "message": (
-                        f"Window reference '{window_ref}' is stale"
-                    ),
+                    "message": (f"Window reference '{window_ref}' is stale"),
                     "ref": window_ref,
                     "hints": exc.hints,
                 }
@@ -148,6 +137,6 @@ def register(
                 "ref": window_ref,
                 "title": title,
                 "risk": assessment.risk_level.lower(),
-                "target_summary": f"window focus",
+                "target_summary": "window focus",
             }
         )

@@ -84,11 +84,12 @@ class TestRefsModelsIntegration:
         children = []
         for i in range(3):
             ref = store.store(f"h-{i}")
-            children.append(
-                NormalizedElement(ref=ref, backend_id=f"h-{i}", role="label")
-            )
+            children.append(NormalizedElement(ref=ref, backend_id=f"h-{i}", role="label"))
         root = NormalizedElement(
-            ref="w1", backend_id="hw", role="window", children=children,
+            ref="w1",
+            backend_id="hw",
+            role="window",
+            children=children,
         )
         walked = root.walk()
         # store has 3 elements + 1 window = 4 refs stored

@@ -272,10 +272,7 @@ def redact_clipboard_text(
     placeholder = config.redaction_placeholder
 
     lines = text.split("\n")
-    result_lines = [
-        placeholder if _CLIPBOARD_KEYWORD_RE.search(line) else line
-        for line in lines
-    ]
+    result_lines = [placeholder if _CLIPBOARD_KEYWORD_RE.search(line) else line for line in lines]
     return "\n".join(result_lines)
 
 
@@ -285,11 +282,11 @@ def _is_denylisted(
     app_name: str | None,
 ) -> bool:
     """Check whether an application name is on the denylist."""
-    if app_name and app_name.lower() in {a.lower() for a in config.denylist_apps}:
-        return True
-    if name and name.lower() in {a.lower() for a in config.denylist_apps}:
-        return True
-    return False
+    denylist_lower = {a.lower() for a in config.denylist_apps}
+    return bool(
+        (app_name and app_name.lower() in denylist_lower)
+        or (name and name.lower() in denylist_lower)
+    )
 
 
 def _redact_tree(

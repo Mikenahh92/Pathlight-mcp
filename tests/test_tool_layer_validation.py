@@ -771,9 +771,7 @@ class TestAllToolsRiskMetadata:
 class TestRiskValuesAreValid:
     """All tool success responses return valid risk levels from the three-tier model."""
 
-    VALID_RISKS: ClassVar = frozenset(
-        {"read_only", "interaction", "sensitive", "read"}
-    )
+    VALID_RISKS: ClassVar = frozenset({"read_only", "interaction", "sensitive", "read"})
 
     @pytest.mark.parametrize(
         "tool_name,arguments",

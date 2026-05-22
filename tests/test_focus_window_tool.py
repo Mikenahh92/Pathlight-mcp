@@ -21,7 +21,6 @@ from guidewire.backends.types import NativeHandle
 from guidewire.refs import ElementRefStore
 from guidewire.tools import register_all
 
-
 # -- Fixtures -----------------------------------------------------------------
 
 
@@ -91,9 +90,7 @@ class TestFocusWindowSuccess:
 
     async def test_returns_json_success(self, mcp: FastMCP) -> None:
         """Should return JSON with success=True, ref, title, risk, target_summary."""
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w1"}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w1"})
         data = json.loads(result[0].text)
         assert data["success"] is True
         assert data["ref"] == "w1"
@@ -101,21 +98,15 @@ class TestFocusWindowSuccess:
         assert "risk" in data
         assert "target_summary" in data
 
-    async def test_success_response_has_risk_read_only(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_success_response_has_risk_read_only(self, mcp: FastMCP) -> None:
         """Focus action should always return read_only risk."""
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w1"}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w1"})
         data = json.loads(result[0].text)
         assert data["risk"] == "read_only"
 
     async def test_focuses_second_window(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Focusing w2 should update backend state."""
-        await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w2"}
-        )
+        await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w2"})
         windows = backend.list_windows()
         info_w2 = backend.get_window_info(windows[1])
         info_w1 = backend.get_window_info(windows[0])
@@ -124,12 +115,8 @@ class TestFocusWindowSuccess:
 
     async def test_focus_same_window_idempotent(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Focusing an already-focused window should succeed."""
-        await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w1"}
-        )
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w1"}
-        )
+        await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w1"})
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w1"})
         data = json.loads(result[0].text)
         assert data["success"] is True
         assert data["ref"] == "w1"
@@ -143,9 +130,7 @@ class TestFocusWindowErrors:
 
     async def test_unknown_ref_returns_error_json(self, mcp: FastMCP) -> None:
         """Should return structured JSON error for unknown refs, not raise."""
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w99"}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w99"})
         data = json.loads(result[0].text)
         assert data["error"] == "window_not_found"
         assert "w99" in data["message"]
@@ -162,9 +147,7 @@ class TestFocusWindowErrors:
         ref_store.store(ghost, prefix="w")
         # w3 resolves to a valid ref_store entry but backend.is_valid returns
         # False because the handle is not in _windows or _elements.
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w3"}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w3"})
         data = json.loads(result[0].text)
         assert data["error"] == "stale_element_reference"
         assert data["ref"] == "w3"
@@ -175,13 +158,10 @@ class TestFocusWindowErrors:
         backend: MockBackend,
     ) -> None:
         """Should return stale error after backend window is removed."""
-        windows = backend.list_windows()
-        handle = windows[0]
+        backend.list_windows()
         # Dispose removes all windows, making the handle invalid
         backend.dispose()
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "w1"}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "w1"})
         data = json.loads(result[0].text)
         assert data["error"] == "stale_element_reference"
         assert data["ref"] == "w1"
@@ -193,35 +173,23 @@ class TestFocusWindowErrors:
 class TestFocusWindowValidation:
     """focus_window input validation (AC-6)."""
 
-    async def test_empty_string_returns_validation_error(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_empty_string_returns_validation_error(self, mcp: FastMCP) -> None:
         """Empty string should return validation error JSON."""
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": ""}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": ""})
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
         assert "non-empty" in data["message"]
 
-    async def test_whitespace_only_returns_validation_error(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_whitespace_only_returns_validation_error(self, mcp: FastMCP) -> None:
         """Whitespace-only string should return validation error JSON."""
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "   "}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "   "})
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
         assert "non-empty" in data["message"]
 
-    async def test_non_w_prefix_returns_validation_error(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_non_w_prefix_returns_validation_error(self, mcp: FastMCP) -> None:
         """Non-w-prefixed ref should return validation error JSON."""
-        result, _meta = await mcp.call_tool(
-            "desktop.focus_window", arguments={"window_ref": "e1"}
-        )
+        result, _meta = await mcp.call_tool("desktop.focus_window", arguments={"window_ref": "e1"})
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
         assert "w" in data["message"]

@@ -415,83 +415,63 @@ class TestPerformActionSelectItem:
         )
         mock_pattern.Select.assert_called_once()
 
-    def test_select_item_pattern_unavailable_raises(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_select_item_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """SELECT_ITEM must raise ActionNotSupportedError when pattern absent."""
         mock_element = MagicMock()
         backend._uia.GetPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="SelectionItem"):
-            backend.perform_action(
-                NativeHandle(mock_element), DesktopAction.SELECT_ITEM
-            )
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.SELECT_ITEM)
 
 
 class TestPerformActionDeselectItem:
     """Verify DESELECT_ITEM action dispatches to SelectionItemPattern.RemoveFromSelection()."""
 
-    def test_deselect_item_calls_remove_from_selection(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_deselect_item_calls_remove_from_selection(self, backend: WindowsBackend) -> None:
         """DESELECT_ITEM must call SelectionItemPattern.RemoveFromSelection()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
         backend._uia.GetPattern.return_value = mock_pattern
 
-        backend.perform_action(
-            NativeHandle(mock_element), DesktopAction.DESELECT_ITEM
-        )
+        backend.perform_action(NativeHandle(mock_element), DesktopAction.DESELECT_ITEM)
 
         backend._uia.GetPattern.assert_called_once_with(
             mock_element, _UIA_SELECTION_ITEM_PATTERN_ID
         )
         mock_pattern.RemoveFromSelection.assert_called_once()
 
-    def test_deselect_item_pattern_unavailable_raises(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_deselect_item_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """DESELECT_ITEM must raise ActionNotSupportedError when pattern absent."""
         mock_element = MagicMock()
         backend._uia.GetPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="SelectionItem"):
-            backend.perform_action(
-                NativeHandle(mock_element), DesktopAction.DESELECT_ITEM
-            )
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.DESELECT_ITEM)
 
 
 class TestPerformActionAddToSelection:
     """Verify ADD_TO_SELECTION action dispatches to SelectionItemPattern.AddToSelection()."""
 
-    def test_add_to_selection_calls_add_to_selection(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_add_to_selection_calls_add_to_selection(self, backend: WindowsBackend) -> None:
         """ADD_TO_SELECTION must call SelectionItemPattern.AddToSelection()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
         backend._uia.GetPattern.return_value = mock_pattern
 
-        backend.perform_action(
-            NativeHandle(mock_element), DesktopAction.ADD_TO_SELECTION
-        )
+        backend.perform_action(NativeHandle(mock_element), DesktopAction.ADD_TO_SELECTION)
 
         backend._uia.GetPattern.assert_called_once_with(
             mock_element, _UIA_SELECTION_ITEM_PATTERN_ID
         )
         mock_pattern.AddToSelection.assert_called_once()
 
-    def test_add_to_selection_pattern_unavailable_raises(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_add_to_selection_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """ADD_TO_SELECTION must raise ActionNotSupportedError when pattern absent."""
         mock_element = MagicMock()
         backend._uia.GetPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="SelectionItem"):
-            backend.perform_action(
-                NativeHandle(mock_element), DesktopAction.ADD_TO_SELECTION
-            )
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.ADD_TO_SELECTION)
 
 
 # ---------------------------------------------------------------------------

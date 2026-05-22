@@ -17,7 +17,7 @@ function looks up registered default hints from the standalone
 :mod:`guidewire.hints` module.
 """
 
-from guidewire.hints import hints_for, register_hints  # noqa: F401 — re-export
+from guidewire.hints import hints_for, register_hints
 
 
 class GuidewireError(Exception):

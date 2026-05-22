@@ -25,10 +25,9 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.backends import MockBackend
-from guidewire.backends.types import ElementState, NativeHandle
+from guidewire.backends.types import ElementState
 from guidewire.refs import ElementRefStore
 from guidewire.tools import register_all
-
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -106,9 +105,7 @@ class TestWaitForStub:
 class TestElementAppearsCondition:
     """element_appears: True when element is valid, False when not."""
 
-    async def test_element_appears_true_immediately(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_element_appears_true_immediately(self, mcp: FastMCP) -> None:
         """Element exists — returns success immediately."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -134,7 +131,7 @@ class TestElementAppearsCondition:
             await asyncio.sleep(0.05)
             backend.invalidate(elements[0])
 
-        asyncio.create_task(invalidate_after_delay())
+        _task = asyncio.create_task(invalidate_after_delay())  # noqa: RUF006
 
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -156,9 +153,7 @@ class TestElementAppearsCondition:
 class TestElementDisappearsCondition:
     """element_disappears: True when element is no longer valid."""
 
-    async def test_element_disappears_immediate(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_element_disappears_immediate(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Element already invalidated — disappears condition is True immediately."""
         window = backend.list_windows()[0]
         elements = backend.find_elements(window)
@@ -176,9 +171,7 @@ class TestElementDisappearsCondition:
         assert data["success"] is True
         assert data["polls"] == 1
 
-    async def test_element_disappears_after_delay(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_element_disappears_after_delay(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Element invalidated mid-wait — disappears detects it."""
         window = backend.list_windows()[0]
         elements = backend.find_elements(window)
@@ -187,7 +180,7 @@ class TestElementDisappearsCondition:
             await asyncio.sleep(0.05)
             backend.invalidate(elements[0])
 
-        asyncio.create_task(invalidate_after_delay())
+        _task = asyncio.create_task(invalidate_after_delay())  # noqa: RUF006
 
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -201,9 +194,7 @@ class TestElementDisappearsCondition:
         assert data["success"] is True
         assert data["elapsed_ms"] < 200
 
-    async def test_element_disappears_timeout(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_element_disappears_timeout(self, mcp: FastMCP) -> None:
         """Element stays valid — disappears times out."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -224,9 +215,7 @@ class TestElementDisappearsCondition:
 class TestTextEqualsCondition:
     """text_equals: True when element text matches expected value."""
 
-    async def test_text_equals_exact(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_text_equals_exact(self, mcp: FastMCP) -> None:
         """Text equals — matches exact text."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -243,9 +232,7 @@ class TestTextEqualsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_text_equals_contains(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_text_equals_contains(self, mcp: FastMCP) -> None:
         """Text contains — matches substring."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -263,9 +250,7 @@ class TestTextEqualsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_text_equals_not_empty(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_text_equals_not_empty(self, mcp: FastMCP) -> None:
         """Text not_empty — matches non-empty text."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -283,9 +268,7 @@ class TestTextEqualsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_text_equals_timeout(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_text_equals_timeout(self, mcp: FastMCP) -> None:
         """Text doesn't match — times out."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -302,9 +285,7 @@ class TestTextEqualsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is False
 
-    async def test_text_equals_detects_change(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_text_equals_detects_change(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Text changes mid-wait — polling detects the change."""
         window = backend.list_windows()[0]
         elements = backend.find_elements(window, role="text")
@@ -314,7 +295,7 @@ class TestTextEqualsCondition:
             await asyncio.sleep(0.05)
             backend._elements[elem].value = "Ready"
 
-        asyncio.create_task(change_text())
+        _task = asyncio.create_task(change_text())  # noqa: RUF006
 
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -339,9 +320,7 @@ class TestTextEqualsCondition:
 class TestStateChangeCondition:
     """state_change: True when element state matches expected value."""
 
-    async def test_state_change_enabled_true(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_state_change_enabled_true(self, mcp: FastMCP) -> None:
         """Element has enabled=True — matches immediately."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -359,9 +338,7 @@ class TestStateChangeCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_state_change_focused_false(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_state_change_focused_false(self, mcp: FastMCP) -> None:
         """Element has focused=False — matches immediately."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -379,9 +356,7 @@ class TestStateChangeCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_state_change_timeout_when_not_matching(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_state_change_timeout_when_not_matching(self, mcp: FastMCP) -> None:
         """Element state doesn't match — times out."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -407,9 +382,7 @@ class TestStateChangeCondition:
 class TestWaitForTimeout:
     """Timeout behavior when condition is never met."""
 
-    async def test_timeout_returns_failure(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_timeout_returns_failure(self, mcp: FastMCP) -> None:
         """Condition never met — returns success=False with timeout details."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -430,9 +403,7 @@ class TestWaitForTimeout:
         assert "polls" in data
         assert "not met" in data["message"].lower()
 
-    async def test_timeout_includes_poll_count(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_timeout_includes_poll_count(self, mcp: FastMCP) -> None:
         """Timeout response includes number of polls performed."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -457,9 +428,7 @@ class TestWaitForTimeout:
 class TestWaitForImmediateReturn:
     """Returns immediately when condition is already true."""
 
-    async def test_returns_immediately_when_true(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_returns_immediately_when_true(self, mcp: FastMCP) -> None:
         """Condition already true — returns in first poll."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -485,9 +454,7 @@ class TestWaitForAsyncNonBlocking:
     proving that asyncio.sleep() keeps the event loop responsive.
     """
 
-    async def test_concurrent_wait_for_calls(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_concurrent_wait_for_calls(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Two wait_for calls run concurrently — both complete."""
         window = backend.list_windows()[0]
         elements = backend.find_elements(window, role="text")
@@ -497,7 +464,7 @@ class TestWaitForAsyncNonBlocking:
             await asyncio.sleep(0.05)
             backend._elements[elem].value = "Ready"
 
-        asyncio.create_task(change_text())
+        _bg_task = asyncio.create_task(change_text())  # noqa: RUF006
 
         # Run two wait_for calls concurrently
         results = await asyncio.gather(
@@ -566,9 +533,7 @@ class TestWaitForStaleDuringPoll:
     timing out or raising an unhandled exception.
     """
 
-    async def test_stale_ref_returns_error(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_stale_ref_returns_error(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Stale reference during polling returns stale error."""
         window = backend.list_windows()[0]
         elements = backend.find_elements(window)
@@ -586,12 +551,17 @@ class TestWaitForStaleDuringPoll:
             await asyncio.sleep(0.05)
             backend.invalidate(elem)
 
-        asyncio.create_task(make_stale())
+        _task = asyncio.create_task(make_stale())  # noqa: RUF006
 
         result, _ = await stale_mcp.call_tool(
             "desktop.wait_for",
             arguments={
-                "condition": {"type": "state_change", "ref": ref, "state": "enabled", "value": False},
+                "condition": {
+                    "type": "state_change",
+                    "ref": ref,
+                    "state": "enabled",
+                    "value": False,
+                },
                 "timeout_ms": 500,
                 "poll_interval_ms": 20,
             },
@@ -608,9 +578,7 @@ class TestWaitForStaleDuringPoll:
 class TestDurationCondition:
     """duration: waits for a fixed duration_ms, no element ref needed."""
 
-    async def test_duration_waits_specified_time(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_duration_waits_specified_time(self, mcp: FastMCP) -> None:
         """duration waits approximately duration_ms and returns success."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -624,9 +592,7 @@ class TestDurationCondition:
         assert data["elapsed_ms"] >= 80  # allow timing slack
         assert data["elapsed_ms"] < 300
 
-    async def test_duration_zero_ms(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_duration_zero_ms(self, mcp: FastMCP) -> None:
         """duration with duration_ms=0 returns immediately."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -640,9 +606,7 @@ class TestDurationCondition:
         assert data["elapsed_ms"] < 50
         assert data["polls"] == 1
 
-    async def test_duration_capped_by_timeout(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_duration_capped_by_timeout(self, mcp: FastMCP) -> None:
         """duration waits min(duration_ms, timeout_ms)."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -656,9 +620,7 @@ class TestDurationCondition:
         # Should be capped at timeout_ms (80ms), not wait the full 5000ms
         assert data["elapsed_ms"] < 200
 
-    async def test_duration_no_ref_required(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_duration_no_ref_required(self, mcp: FastMCP) -> None:
         """duration condition does not require a ref key."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -670,9 +632,7 @@ class TestDurationCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_duration_missing_duration_ms(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_duration_missing_duration_ms(self, mcp: FastMCP) -> None:
         """duration without duration_ms returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -685,9 +645,7 @@ class TestDurationCondition:
         assert data["error"] == "validation_error"
         assert "duration_ms" in data["message"]
 
-    async def test_duration_negative_duration_ms(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_duration_negative_duration_ms(self, mcp: FastMCP) -> None:
         """duration with negative duration_ms returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -707,9 +665,7 @@ class TestDurationCondition:
 class TestWindowAppearsCondition:
     """window_appears: waits for a window with matching title, no element ref."""
 
-    async def test_window_appears_immediate_match(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_immediate_match(self, mcp: FastMCP) -> None:
         """Window already exists with matching title — returns success immediately."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -723,9 +679,7 @@ class TestWindowAppearsCondition:
         assert data["success"] is True
         assert data["polls"] == 1
 
-    async def test_window_appears_case_insensitive(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_case_insensitive(self, mcp: FastMCP) -> None:
         """Title match is case-insensitive."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -738,9 +692,7 @@ class TestWindowAppearsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_window_appears_substring_match(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_substring_match(self, mcp: FastMCP) -> None:
         """Title match uses substring matching."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -753,9 +705,7 @@ class TestWindowAppearsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_window_appears_timeout(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_timeout(self, mcp: FastMCP) -> None:
         """No window with matching title — times out."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -769,9 +719,7 @@ class TestWindowAppearsCondition:
         assert data["success"] is False
         assert "not met" in data["message"].lower()
 
-    async def test_window_appears_no_ref_required(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_no_ref_required(self, mcp: FastMCP) -> None:
         """window_appears does not require a ref key."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -783,9 +731,7 @@ class TestWindowAppearsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_window_appears_missing_title(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_missing_title(self, mcp: FastMCP) -> None:
         """window_appears without title returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -802,11 +748,12 @@ class TestWindowAppearsCondition:
         self, mcp: FastMCP, backend: MockBackend
     ) -> None:
         """Window appears mid-wait — polling detects the new window."""
+
         async def add_window_after_delay():
             await asyncio.sleep(0.05)
             backend.add_window(title="New Dialog", app="TestApp")
 
-        asyncio.create_task(add_window_after_delay())
+        _task = asyncio.create_task(add_window_after_delay())  # noqa: RUF006
 
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -820,9 +767,7 @@ class TestWindowAppearsCondition:
         assert data["success"] is True
         assert data["elapsed_ms"] < 300
 
-    async def test_window_appears_regex_match(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_regex_match(self, mcp: FastMCP) -> None:
         """window_appears with match='regex' matches using regex pattern."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -840,9 +785,7 @@ class TestWindowAppearsCondition:
         assert data["success"] is True
         assert data["polls"] == 1
 
-    async def test_window_appears_regex_no_match(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_regex_no_match(self, mcp: FastMCP) -> None:
         """window_appears with match='regex' and no matching window times out."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -859,9 +802,7 @@ class TestWindowAppearsCondition:
         data = json.loads(result[0].text)
         assert data["success"] is False
 
-    async def test_window_appears_returns_window_ref(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_returns_window_ref(self, mcp: FastMCP) -> None:
         """window_appears registers matched window in ref_store and returns window_ref."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -878,9 +819,7 @@ class TestWindowAppearsCondition:
         assert "matched_title" in data
         assert data["matched_title"] == "Test Window"
 
-    async def test_window_appears_regex_returns_window_ref(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_regex_returns_window_ref(self, mcp: FastMCP) -> None:
         """window_appears with regex returns window_ref on match."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -899,9 +838,7 @@ class TestWindowAppearsCondition:
         assert "window_ref" in data
         assert data["window_ref"].startswith("w")
 
-    async def test_window_appears_default_match_is_substring(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_default_match_is_substring(self, mcp: FastMCP) -> None:
         """window_appears without match key defaults to substring matching."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -921,9 +858,7 @@ class TestWindowAppearsCondition:
 class TestWaitForValidation:
     """Input validation returns structured JSON errors."""
 
-    async def test_missing_type_key(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_missing_type_key(self, mcp: FastMCP) -> None:
         """Condition without type key returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -936,9 +871,7 @@ class TestWaitForValidation:
         assert data["error"] == "validation_error"
         assert "type" in data["message"].lower()
 
-    async def test_unknown_condition_type(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_unknown_condition_type(self, mcp: FastMCP) -> None:
         """Unknown condition type returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -951,9 +884,7 @@ class TestWaitForValidation:
         assert data["error"] == "validation_error"
         assert "unknown_type" in data["message"]
 
-    async def test_element_appears_missing_ref(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_element_appears_missing_ref(self, mcp: FastMCP) -> None:
         """element_appears without ref returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -965,9 +896,7 @@ class TestWaitForValidation:
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
 
-    async def test_state_change_missing_state(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_state_change_missing_state(self, mcp: FastMCP) -> None:
         """state_change without state key returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -980,9 +909,7 @@ class TestWaitForValidation:
         assert data["error"] == "validation_error"
         assert "state" in data["message"]
 
-    async def test_text_equals_missing_value(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_text_equals_missing_value(self, mcp: FastMCP) -> None:
         """text_equals without value returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -998,9 +925,7 @@ class TestWaitForValidation:
         assert data["error"] == "validation_error"
         assert "value" in data["message"]
 
-    async def test_negative_timeout(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_negative_timeout(self, mcp: FastMCP) -> None:
         """Negative timeout returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1012,9 +937,7 @@ class TestWaitForValidation:
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
 
-    async def test_negative_poll_interval(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_negative_poll_interval(self, mcp: FastMCP) -> None:
         """Negative poll interval returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1027,9 +950,7 @@ class TestWaitForValidation:
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
 
-    async def test_unknown_ref_returns_error(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_unknown_ref_returns_error(self, mcp: FastMCP) -> None:
         """Unknown reference returns element_not_found error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1042,9 +963,7 @@ class TestWaitForValidation:
         assert data["error"] == "element_not_found"
         assert "e99" in data["message"]
 
-    async def test_window_appears_invalid_match_mode(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_invalid_match_mode(self, mcp: FastMCP) -> None:
         """window_appears with invalid match mode returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1061,9 +980,7 @@ class TestWaitForValidation:
         assert data["error"] == "validation_error"
         assert "match" in data["message"]
 
-    async def test_window_appears_invalid_regex(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_window_appears_invalid_regex(self, mcp: FastMCP) -> None:
         """window_appears with invalid regex returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1087,9 +1004,7 @@ class TestWaitForValidation:
 class TestWaitForRangeValidation:
     """Timeout and poll interval range validation."""
 
-    async def test_timeout_exceeds_max(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_timeout_exceeds_max(self, mcp: FastMCP) -> None:
         """Timeout exceeding 60s returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1102,9 +1017,7 @@ class TestWaitForRangeValidation:
         assert data["error"] == "validation_error"
         assert "60000" in data["message"] or "60" in data["message"]
 
-    async def test_timeout_at_max_is_accepted(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_timeout_at_max_is_accepted(self, mcp: FastMCP) -> None:
         """Timeout at exactly 60s is accepted (condition met immediately)."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1116,9 +1029,7 @@ class TestWaitForRangeValidation:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_poll_interval_below_min(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_poll_interval_below_min(self, mcp: FastMCP) -> None:
         """Poll interval below 10ms returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1132,9 +1043,7 @@ class TestWaitForRangeValidation:
         assert data["error"] == "validation_error"
         assert "10" in data["message"]
 
-    async def test_poll_interval_above_max(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_poll_interval_above_max(self, mcp: FastMCP) -> None:
         """Poll interval above 5000ms returns validation error."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1148,9 +1057,7 @@ class TestWaitForRangeValidation:
         assert data["error"] == "validation_error"
         assert "5000" in data["message"]
 
-    async def test_poll_interval_at_min_is_accepted(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_poll_interval_at_min_is_accepted(self, mcp: FastMCP) -> None:
         """Poll interval at exactly 10ms is accepted."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1163,9 +1070,7 @@ class TestWaitForRangeValidation:
         data = json.loads(result[0].text)
         assert data["success"] is True
 
-    async def test_poll_interval_at_max_is_accepted(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_poll_interval_at_max_is_accepted(self, mcp: FastMCP) -> None:
         """Poll interval at exactly 5000ms is accepted."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",
@@ -1191,9 +1096,7 @@ class TestWaitForSchema:
         names = {t.name for t in tools}
         assert "desktop.wait_for" in names
 
-    async def test_condition_parameter_required(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_condition_parameter_required(self, mcp: FastMCP) -> None:
         """condition parameter should be required."""
         tools = await mcp.list_tools()
         tool = next(t for t in tools if t.name == "desktop.wait_for")
@@ -1232,9 +1135,7 @@ class TestWaitForSchema:
 class TestWaitForSafety:
     """wait_for is READ_ONLY — passive observation only."""
 
-    async def test_risk_is_read_only(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_risk_is_read_only(self, mcp: FastMCP) -> None:
         """Success response should report read_only risk."""
         result, _ = await mcp.call_tool(
             "desktop.wait_for",

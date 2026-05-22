@@ -79,68 +79,80 @@ def register(
             and metadata, or a structured error payload on failure.
         """
         if backend is None or ref_store is None:
-            return json.dumps({
-                "success": False,
-                "container_ref": container_ref,
-                "message": "scroll_to_item not available (no backend)",
-            })
+            return json.dumps(
+                {
+                    "success": False,
+                    "container_ref": container_ref,
+                    "message": "scroll_to_item not available (no backend)",
+                }
+            )
 
         # --- Input validation ---
         if not container_ref or not container_ref.strip():
-            return json.dumps({
-                "error": "validation_error",
-                "message": "container_ref must be a non-empty string",
-                "ref": container_ref,
-                "hints": [],
-            })
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": "container_ref must be a non-empty string",
+                    "ref": container_ref,
+                    "hints": [],
+                }
+            )
 
         if item_name is None and item_index is None:
-            return json.dumps({
-                "error": "validation_error",
-                "message": "Either item_name or item_index must be provided",
-                "ref": container_ref,
-                "hints": [],
-            })
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": "Either item_name or item_index must be provided",
+                    "ref": container_ref,
+                    "hints": [],
+                }
+            )
 
         if item_index is not None and item_index < 0:
-            return json.dumps({
-                "error": "validation_error",
-                "message": "item_index must be a non-negative integer",
-                "ref": container_ref,
-                "hints": [],
-            })
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": "item_index must be a non-negative integer",
+                    "ref": container_ref,
+                    "hints": [],
+                }
+            )
 
         if max_retries < 1:
-            return json.dumps({
-                "error": "validation_error",
-                "message": "max_retries must be at least 1",
-                "ref": container_ref,
-                "hints": [],
-            })
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": "max_retries must be at least 1",
+                    "ref": container_ref,
+                    "hints": [],
+                }
+            )
 
         # --- Resolve reference ---
         handle = ref_store.resolve(container_ref)
 
         if handle is None:
-            return json.dumps({
-                "error": "element_not_found",
-                "message": (
-                    f"Element reference '{container_ref}' not found in reference store"
-                ),
-                "ref": container_ref,
-                "hints": hints_for("element_not_found"),
-            })
+            return json.dumps(
+                {
+                    "error": "element_not_found",
+                    "message": (
+                        f"Element reference '{container_ref}' not found in reference store"
+                    ),
+                    "ref": container_ref,
+                    "hints": hints_for("element_not_found"),
+                }
+            )
 
         # --- Staleness check ---
         if not backend.is_valid(handle):
-            return json.dumps({
-                "error": "stale_element_reference",
-                "message": (
-                    f"Element reference '{container_ref}' is no longer valid"
-                ),
-                "ref": container_ref,
-                "hints": hints_for("stale_element_reference"),
-            })
+            return json.dumps(
+                {
+                    "error": "stale_element_reference",
+                    "message": (f"Element reference '{container_ref}' is no longer valid"),
+                    "ref": container_ref,
+                    "hints": hints_for("stale_element_reference"),
+                }
+            )
 
         # --- Dispatch through scroll_to_item ---
         try:
@@ -151,35 +163,43 @@ def register(
                 max_retries=max_retries,
             )
         except ElementNotFoundError as exc:
-            return json.dumps({
-                "error": "element_not_found",
-                "message": (
-                    f"Container reference '{container_ref}' not found in accessibility tree"
-                ),
-                "ref": container_ref,
-                "hints": exc.hints,
-            })
+            return json.dumps(
+                {
+                    "error": "element_not_found",
+                    "message": (
+                        f"Container reference '{container_ref}' not found in accessibility tree"
+                    ),
+                    "ref": container_ref,
+                    "hints": exc.hints,
+                }
+            )
         except StaleElementReferenceError as exc:
-            return json.dumps({
-                "error": "stale_element_reference",
-                "message": f"Container reference '{container_ref}' is stale",
-                "ref": container_ref,
-                "hints": exc.hints,
-            })
+            return json.dumps(
+                {
+                    "error": "stale_element_reference",
+                    "message": f"Container reference '{container_ref}' is stale",
+                    "ref": container_ref,
+                    "hints": exc.hints,
+                }
+            )
         except ActionNotSupportedError as exc:
-            return json.dumps({
-                "error": "action_not_supported",
-                "message": str(exc),
-                "ref": container_ref,
-                "hints": exc.hints,
-            })
+            return json.dumps(
+                {
+                    "error": "action_not_supported",
+                    "message": str(exc),
+                    "ref": container_ref,
+                    "hints": exc.hints,
+                }
+            )
 
         if found_handle is None:
-            return json.dumps({
-                "success": False,
-                "container_ref": container_ref,
-                "message": "Target item not found after scrolling",
-            })
+            return json.dumps(
+                {
+                    "success": False,
+                    "container_ref": container_ref,
+                    "message": "Target item not found after scrolling",
+                }
+            )
 
         # --- Register the found item in the ref store ---
         found_ref = ref_store.store(found_handle)

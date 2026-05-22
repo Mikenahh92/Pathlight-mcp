@@ -15,7 +15,6 @@ Tests are gated by:
 """
 
 import json
-import os
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -85,9 +84,7 @@ class TestLaunchAppLinuxIntegration:
     """
 
     @patch("guidewire.tools.launch_app.subprocess.Popen")
-    async def test_display_propagated_to_child(
-        self, mock_popen: MagicMock, mcp: FastMCP
-    ) -> None:
+    async def test_display_propagated_to_child(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """On Linux, Popen should receive an env dict containing DISPLAY."""
         mock_popen.return_value = _make_live_proc(pid=9001)
 
@@ -121,9 +118,7 @@ class TestLaunchAppLinuxIntegration:
             assert args[0][0] == "/usr/bin/firefox"
 
     @patch("guidewire.tools.launch_app.subprocess.Popen")
-    async def test_electron_app_gets_no_sandbox(
-        self, mock_popen: MagicMock, mcp: FastMCP
-    ) -> None:
+    async def test_electron_app_gets_no_sandbox(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """Electron apps should automatically receive --no-sandbox flag.
 
         When the resolved binary is detected as an Electron/Chromium app
@@ -132,12 +127,15 @@ class TestLaunchAppLinuxIntegration:
         """
         mock_popen.return_value = _make_live_proc(pid=9003)
 
-        with patch(
-            "guidewire.tools.launch_app._resolve_snap_binary",
-            return_value="/snap/code/current/usr/share/code/code",
-        ), patch(
-            "guidewire.tools.launch_app._is_electron_binary",
-            return_value=True,
+        with (
+            patch(
+                "guidewire.tools.launch_app._resolve_snap_binary",
+                return_value="/snap/code/current/usr/share/code/code",
+            ),
+            patch(
+                "guidewire.tools.launch_app._is_electron_binary",
+                return_value=True,
+            ),
         ):
             result, _meta = await mcp.call_tool(
                 "desktop.launch_app",
@@ -151,18 +149,19 @@ class TestLaunchAppLinuxIntegration:
             assert data["success"] is True
 
     @patch("guidewire.tools.launch_app.subprocess.Popen")
-    async def test_non_electron_app_no_sandbox(
-        self, mock_popen: MagicMock, mcp: FastMCP
-    ) -> None:
+    async def test_non_electron_app_no_sandbox(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """Non-Electron apps should NOT receive --no-sandbox."""
         mock_popen.return_value = _make_live_proc(pid=9004)
 
-        with patch(
-            "guidewire.tools.launch_app._resolve_snap_binary",
-            return_value="/usr/bin/gedit",
-        ), patch(
-            "guidewire.tools.launch_app._is_electron_binary",
-            return_value=False,
+        with (
+            patch(
+                "guidewire.tools.launch_app._resolve_snap_binary",
+                return_value="/usr/bin/gedit",
+            ),
+            patch(
+                "guidewire.tools.launch_app._is_electron_binary",
+                return_value=False,
+            ),
         ):
             await mcp.call_tool(
                 "desktop.launch_app",
@@ -174,9 +173,7 @@ class TestLaunchAppLinuxIntegration:
             assert "--no-sandbox" not in cmd
 
     @patch("guidewire.tools.launch_app.subprocess.Popen")
-    async def test_liveness_check_detects_crash(
-        self, mock_popen: MagicMock, mcp: FastMCP
-    ) -> None:
+    async def test_liveness_check_detects_crash(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """Post-launch liveness check should detect immediate crash."""
         mock_popen.return_value = _make_dead_proc(pid=9005, exit_code=127)
 
@@ -193,9 +190,7 @@ class TestLaunchAppLinuxIntegration:
         assert "hints" in data
 
     @patch("guidewire.tools.launch_app.subprocess.Popen")
-    async def test_live_process_succeeds(
-        self, mock_popen: MagicMock, mcp: FastMCP
-    ) -> None:
+    async def test_live_process_succeeds(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """A process that stays alive after liveness check should succeed."""
         mock_popen.return_value = _make_live_proc(pid=9006)
 

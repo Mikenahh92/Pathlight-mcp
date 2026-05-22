@@ -219,7 +219,8 @@ class TestFocusWindow:
         call_order: list[str] = []
         mock_user32.IsWindow.side_effect = lambda h: (call_order.append("IsWindow"), True)[-1]
         mock_user32.SetForegroundWindow.side_effect = lambda h: (
-            call_order.append("SetForegroundWindow"), 1
+            call_order.append("SetForegroundWindow"),
+            1,
         )[-1]
 
         with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)):

@@ -377,10 +377,7 @@ class TestExports:
     def test_all_error_classes_are_guidewire_subclasses(self) -> None:
         from guidewire import errors
 
-        error_names = [
-            n for n in errors.__all__
-            if n not in ("hints_for", "register_hints")
-        ]
+        error_names = [n for n in errors.__all__ if n not in ("hints_for", "register_hints")]
         for name in error_names:
             obj = getattr(errors, name)
             assert issubclass(obj, GuidewireError), f"{name} is not a GuidewireError subclass"

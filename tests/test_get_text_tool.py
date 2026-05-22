@@ -76,14 +76,16 @@ class TestGetTextStub:
     async def test_stub_returns_static_message(self, stub_mcp: FastMCP) -> None:
         """Without a backend, get_text should return a static string."""
         result, _meta = await stub_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         assert result[0].text == "Text for e1"
 
     async def test_stub_returns_element_ref_in_text(self, stub_mcp: FastMCP) -> None:
         """Stub response should contain the element_ref value."""
         result, _meta = await stub_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e99"},
+            "desktop.get_text",
+            arguments={"element_ref": "e99"},
         )
         assert "e99" in result[0].text
         assert "Text" in result[0].text
@@ -98,7 +100,8 @@ class TestGetTextSuccess:
     async def test_returns_json_success(self, mcp: FastMCP) -> None:
         """Should return JSON with success=True, ref, text, role, risk, target_summary."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -111,7 +114,8 @@ class TestGetTextSuccess:
     async def test_returns_element_text(self, mcp: FastMCP) -> None:
         """Should return the element's text value from the backend."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "john_doe"
@@ -119,7 +123,8 @@ class TestGetTextSuccess:
     async def test_returns_second_element_text(self, mcp: FastMCP) -> None:
         """Should return text for the second element."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e2"},
+            "desktop.get_text",
+            arguments={"element_ref": "e2"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "Hello, World!"
@@ -127,7 +132,8 @@ class TestGetTextSuccess:
     async def test_returns_empty_string_for_no_value(self, mcp: FastMCP) -> None:
         """Should return empty string for elements without a value."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e3"},
+            "desktop.get_text",
+            arguments={"element_ref": "e3"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == ""
@@ -142,7 +148,8 @@ class TestGetTextSuccess:
     async def test_success_response_has_risk_level(self, mcp: FastMCP) -> None:
         """get_text action should return a risk level from safety classification."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["risk"] in ("read_only", "interaction", "sensitive")
@@ -150,7 +157,8 @@ class TestGetTextSuccess:
     async def test_target_summary_describes_action(self, mcp: FastMCP) -> None:
         """target_summary should describe the action performed."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert "text retrieval" in data["target_summary"]
@@ -165,7 +173,8 @@ class TestGetTextErrors:
     async def test_unknown_ref_returns_error_json(self, mcp: FastMCP) -> None:
         """Should return structured JSON error for unknown refs, not raise."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e99"},
+            "desktop.get_text",
+            arguments={"element_ref": "e99"},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "element_not_found"
@@ -181,7 +190,8 @@ class TestGetTextErrors:
         ghost = NativeHandle("ghost-element-handle")
         ref_store.store(ghost, prefix="e")
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e4"},
+            "desktop.get_text",
+            arguments={"element_ref": "e4"},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "stale_element_reference"
@@ -197,7 +207,8 @@ class TestGetTextErrors:
         elements = backend.find_elements(window_handle)
         backend.invalidate(elements[0])
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "stale_element_reference"
@@ -215,7 +226,8 @@ class TestGetTextErrors:
             side_effect=ActionNotSupportedError("Get text not supported for this element"),
         ):
             result, _meta = await mcp.call_tool(
-                "desktop.get_text", arguments={"element_ref": "e1"},
+                "desktop.get_text",
+                arguments={"element_ref": "e1"},
             )
         data = json.loads(result[0].text)
         assert data["error"] == "action_not_supported"
@@ -232,7 +244,8 @@ class TestGetTextValidation:
     async def test_empty_string_returns_validation_error(self, mcp: FastMCP) -> None:
         """Empty string should return validation error JSON."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": ""},
+            "desktop.get_text",
+            arguments={"element_ref": ""},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
@@ -241,7 +254,8 @@ class TestGetTextValidation:
     async def test_whitespace_only_returns_validation_error(self, mcp: FastMCP) -> None:
         """Whitespace-only string should return validation error JSON."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "   "},
+            "desktop.get_text",
+            arguments={"element_ref": "   "},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
@@ -257,7 +271,8 @@ class TestGetTextPrivacy:
     async def test_text_returned_for_non_password_element(self, mcp: FastMCP) -> None:
         """Text from a non-password field should not be redacted."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -271,7 +286,8 @@ class TestGetTextPrivacy:
         """Verify is_password_field is called as part of the handler pipeline."""
         with patch("guidewire.tools.get_text.is_password_field", return_value=True):
             result, _meta = await mcp.call_tool(
-                "desktop.get_text", arguments={"element_ref": "e1"},
+                "desktop.get_text",
+                arguments={"element_ref": "e1"},
             )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -317,45 +333,50 @@ class TestGetTextPrivacyReal:
         register_all(mcp, backend=pw_backend, ref_store=pw_ref_store)
         return mcp
 
-    async def test_TC_P01_password_name_redacted(self, pw_mcp: FastMCP) -> None:
+    async def test_tc_p01_password_name_redacted(self, pw_mcp: FastMCP) -> None:
         """TC-P01: text_input with 'Password' name should be redacted."""
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "[REDACTED]"
         assert data["role"] == "text_input"
         assert data["name"] == "Password"
 
-    async def test_TC_P02_non_password_not_redacted(self, pw_mcp: FastMCP) -> None:
+    async def test_tc_p02_non_password_not_redacted(self, pw_mcp: FastMCP) -> None:
         """TC-P02: text_input with non-password name should NOT be redacted."""
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e2"},
+            "desktop.get_text",
+            arguments={"element_ref": "e2"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "john"
         assert data["text"] != "[REDACTED]"
 
-    async def test_TC_P03_passwd_pattern_redacted(self, pw_mcp: FastMCP) -> None:
+    async def test_tc_p03_passwd_pattern_redacted(self, pw_mcp: FastMCP) -> None:
         """TC-P03: text_input with 'PWD' in name should be redacted."""
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e3"},
+            "desktop.get_text",
+            arguments={"element_ref": "e3"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "[REDACTED]"
 
-    async def test_TC_P04_pin_pattern_redacted(self, pw_mcp: FastMCP) -> None:
+    async def test_tc_p04_pin_pattern_redacted(self, pw_mcp: FastMCP) -> None:
         """TC-P04: text_input with 'PIN' in name should be redacted."""
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e4"},
+            "desktop.get_text",
+            arguments={"element_ref": "e4"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "[REDACTED]"
 
-    async def test_TC_P05_credential_pattern_redacted(self, pw_mcp: FastMCP) -> None:
+    async def test_tc_p05_credential_pattern_redacted(self, pw_mcp: FastMCP) -> None:
         """TC-P05: text_input with 'Credential' in name should be redacted."""
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e5"},
+            "desktop.get_text",
+            arguments={"element_ref": "e5"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "[REDACTED]"
@@ -363,7 +384,8 @@ class TestGetTextPrivacyReal:
     async def test_non_text_input_never_redacted(self, pw_mcp: FastMCP) -> None:
         """A label with 'Password' in name should NOT be redacted (not text_input)."""
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e6"},
+            "desktop.get_text",
+            arguments={"element_ref": "e6"},
         )
         data = json.loads(result[0].text)
         assert data["text"] == "Enter password"
@@ -403,52 +425,59 @@ class TestGetTextSafetyReal:
 
     @pytest.fixture()
     def safety_mcp(
-        self, safety_backend: MockBackend, safety_ref_store: ElementRefStore,
+        self,
+        safety_backend: MockBackend,
+        safety_ref_store: ElementRefStore,
     ) -> FastMCP:
         """FastMCP wired to safety backend."""
         mcp = FastMCP(name="test-safety")
         register_all(mcp, backend=safety_backend, ref_store=safety_ref_store)
         return mcp
 
-    async def test_TC_R01_label_is_read_only(self, safety_mcp: FastMCP) -> None:
+    async def test_tc_r01_label_is_read_only(self, safety_mcp: FastMCP) -> None:
         """TC-R01: label role should classify as READ_ONLY."""
         result, _meta = await safety_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["risk"] == "read_only"
         assert data["role"] == "label"
 
-    async def test_TC_R02_text_input_is_interaction(self, safety_mcp: FastMCP) -> None:
+    async def test_tc_r02_text_input_is_interaction(self, safety_mcp: FastMCP) -> None:
         """TC-R02: text_input role should classify as INTERACTION (default)."""
         result, _meta = await safety_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e2"},
+            "desktop.get_text",
+            arguments={"element_ref": "e2"},
         )
         data = json.loads(result[0].text)
         assert data["risk"] == "interaction"
         assert data["role"] == "text_input"
 
-    async def test_TC_R03_destructive_name_is_sensitive(self, safety_mcp: FastMCP) -> None:
+    async def test_tc_r03_destructive_name_is_sensitive(self, safety_mcp: FastMCP) -> None:
         """TC-R03: button with 'Delete' in name should classify as SENSITIVE."""
         result, _meta = await safety_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e3"},
+            "desktop.get_text",
+            arguments={"element_ref": "e3"},
         )
         data = json.loads(result[0].text)
         assert data["risk"] == "sensitive"
         assert data["role"] == "button"
 
-    async def test_TC_R04_remove_name_is_sensitive(self, safety_mcp: FastMCP) -> None:
+    async def test_tc_r04_remove_name_is_sensitive(self, safety_mcp: FastMCP) -> None:
         """TC-R04: button with 'Remove' in name should classify as SENSITIVE."""
         result, _meta = await safety_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e4"},
+            "desktop.get_text",
+            arguments={"element_ref": "e4"},
         )
         data = json.loads(result[0].text)
         assert data["risk"] == "sensitive"
 
-    async def test_TC_R05_safe_button_is_interaction(self, safety_mcp: FastMCP) -> None:
+    async def test_tc_r05_safe_button_is_interaction(self, safety_mcp: FastMCP) -> None:
         """TC-R05: button with benign name should classify as INTERACTION (default)."""
         result, _meta = await safety_mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e5"},
+            "desktop.get_text",
+            arguments={"element_ref": "e5"},
         )
         data = json.loads(result[0].text)
         assert data["risk"] == "interaction"
@@ -464,7 +493,8 @@ class TestGetTextResponseName:
     async def test_response_includes_name_for_named_element(self, mcp: FastMCP) -> None:
         """Response should include 'name' when element has a name."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["name"] == "Username"
@@ -472,7 +502,8 @@ class TestGetTextResponseName:
     async def test_response_includes_actual_role(self, mcp: FastMCP) -> None:
         """Response 'role' should be the actual element role, not hardcoded."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_text", arguments={"element_ref": "e1"},
+            "desktop.get_text",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["role"] == "text_input"

@@ -84,7 +84,8 @@ class TestGetTableInfoStub:
     async def test_stub_returns_json(self, stub_mcp: FastMCP) -> None:
         """Without a backend, get_table_info should return a static JSON object."""
         result, _meta = await stub_mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert "row_count" in data
@@ -95,7 +96,8 @@ class TestGetTableInfoStub:
     async def test_stub_returns_element_ref(self, stub_mcp: FastMCP) -> None:
         """Stub response should contain the element_ref value."""
         result, _meta = await stub_mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e42"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e42"},
         )
         data = json.loads(result[0].text)
         assert data["element_ref"] == "e42"
@@ -110,7 +112,8 @@ class TestGetTableInfoSuccess:
     async def test_returns_json_success(self, mcp: FastMCP) -> None:
         """Should return JSON with success=True and table data."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -123,7 +126,8 @@ class TestGetTableInfoSuccess:
     async def test_returns_cell_data(self, mcp: FastMCP) -> None:
         """Should return cell values with row/column indices."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         # First row, first column
@@ -135,7 +139,8 @@ class TestGetTableInfoSuccess:
     async def test_returns_all_rows(self, mcp: FastMCP) -> None:
         """Should return all rows in the table."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert len(data["rows"]) == 3
@@ -145,7 +150,8 @@ class TestGetTableInfoSuccess:
     async def test_returns_all_columns(self, mcp: FastMCP) -> None:
         """Should return all columns per row."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert len(data["rows"][0]) == 3
@@ -162,7 +168,8 @@ class TestGetTableInfoSuccess:
     async def test_success_response_has_risk_level(self, mcp: FastMCP) -> None:
         """get_table_info should return a risk level from safety classification."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert "risk" in data
@@ -171,7 +178,8 @@ class TestGetTableInfoSuccess:
     async def test_target_summary_describes_action(self, mcp: FastMCP) -> None:
         """target_summary should describe the action performed."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert "table data retrieval" in data["target_summary"]
@@ -179,7 +187,8 @@ class TestGetTableInfoSuccess:
     async def test_response_includes_name(self, mcp: FastMCP) -> None:
         """Response should include element name when available."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data.get("name") == "Contacts"
@@ -226,7 +235,8 @@ class TestGetTableInfoErrors:
     async def test_unknown_ref_returns_error_json(self, mcp: FastMCP) -> None:
         """Should return structured JSON error for unknown refs, not raise."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e99"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e99"},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "element_not_found"
@@ -242,7 +252,8 @@ class TestGetTableInfoErrors:
         ghost = NativeHandle("ghost-table-handle")
         ref_store.store(ghost, prefix="e")
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e3"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e3"},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "stale_element_reference"
@@ -258,7 +269,8 @@ class TestGetTableInfoErrors:
         elements = backend.find_elements(window_handle)
         backend.invalidate(elements[0])
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "stale_element_reference"
@@ -271,7 +283,8 @@ class TestGetTableInfoErrors:
         """Should return action_not_supported for non-table elements."""
         # e2 is a button element, not a table
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e2"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e2"},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "action_not_supported"
@@ -283,12 +296,12 @@ class TestGetTableInfoErrors:
         backend: MockBackend,
     ) -> None:
         """Should return action_not_supported error when backend raises."""
-        from guidewire.backends.types import DesktopAction as DA
+        from guidewire.backends.types import DesktopAction
 
         original_perform_action = backend.perform_action
 
         def _patched_perform_action(handle, action, **kwargs):
-            if action == DA.GET_TABLE_INFO:
+            if action == DesktopAction.GET_TABLE_INFO:
                 raise ActionNotSupportedError("No table pattern")
             return original_perform_action(handle, action, **kwargs)
 
@@ -298,7 +311,8 @@ class TestGetTableInfoErrors:
             side_effect=_patched_perform_action,
         ):
             result, _meta = await mcp.call_tool(
-                "desktop.get_table_info", arguments={"element_ref": "e1"},
+                "desktop.get_table_info",
+                arguments={"element_ref": "e1"},
             )
         data = json.loads(result[0].text)
         assert data["error"] == "action_not_supported"
@@ -315,7 +329,8 @@ class TestGetTableInfoValidation:
     async def test_empty_string_returns_validation_error(self, mcp: FastMCP) -> None:
         """Empty string should return validation error JSON."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": ""},
+            "desktop.get_table_info",
+            arguments={"element_ref": ""},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
@@ -324,7 +339,8 @@ class TestGetTableInfoValidation:
     async def test_whitespace_only_returns_validation_error(self, mcp: FastMCP) -> None:
         """Whitespace-only string should return validation error JSON."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "   "},
+            "desktop.get_table_info",
+            arguments={"element_ref": "   "},
         )
         data = json.loads(result[0].text)
         assert data["error"] == "validation_error"
@@ -425,7 +441,9 @@ class TestGetTableInfoEmptyTable:
 
     @pytest.fixture()
     def empty_mcp(
-        self, empty_backend: MockBackend, empty_ref_store: ElementRefStore,
+        self,
+        empty_backend: MockBackend,
+        empty_ref_store: ElementRefStore,
     ) -> FastMCP:
         mcp = FastMCP(name="test-empty-table")
         register_all(mcp, backend=empty_backend, ref_store=empty_ref_store)
@@ -434,7 +452,8 @@ class TestGetTableInfoEmptyTable:
     async def test_empty_table_returns_zero_rows(self, empty_mcp: FastMCP) -> None:
         """Empty table should have row_count=0 and empty rows list."""
         result, _meta = await empty_mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -476,7 +495,9 @@ class TestGetTableInfoNullValues:
 
     @pytest.fixture()
     def null_mcp(
-        self, null_backend: MockBackend, null_ref_store: ElementRefStore,
+        self,
+        null_backend: MockBackend,
+        null_ref_store: ElementRefStore,
     ) -> FastMCP:
         mcp = FastMCP(name="test-null-table")
         register_all(mcp, backend=null_backend, ref_store=null_ref_store)
@@ -485,7 +506,8 @@ class TestGetTableInfoNullValues:
     async def test_none_cell_value_preserved(self, null_mcp: FastMCP) -> None:
         """None cell values should be returned as null in JSON."""
         result, _meta = await null_mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["rows"][0][1]["value"] is None
@@ -593,7 +615,8 @@ class TestGetTableInfoSafetyClassification:
     async def test_table_role_is_read_only(self, mcp: FastMCP) -> None:
         """Table element should be classified as read_only risk."""
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["risk"] == "read_only"
@@ -602,7 +625,8 @@ class TestGetTableInfoSafetyClassification:
         """Safety classify should be called with 'get_table_info' action."""
         # This is verified by the response including risk metadata
         result, _meta = await mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert "risk" in data
@@ -647,7 +671,8 @@ class TestGetTableInfoPrivacy:
         return mcp
 
     async def test_password_cell_values_returned_as_is(
-        self, pw_mcp: FastMCP,
+        self,
+        pw_mcp: FastMCP,
     ) -> None:
         """Cell values including passwords are returned from backend as-is.
 
@@ -656,7 +681,8 @@ class TestGetTableInfoPrivacy:
         not at the table data retrieval level (read-only operation).
         """
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -665,11 +691,13 @@ class TestGetTableInfoPrivacy:
         assert data["rows"][1][1]["value"] == "p@ssw0rd"
 
     async def test_password_table_risk_is_read_only(
-        self, pw_mcp: FastMCP,
+        self,
+        pw_mcp: FastMCP,
     ) -> None:
         """Table element with password column headers is still read_only."""
         result, _meta = await pw_mcp.call_tool(
-            "desktop.get_table_info", arguments={"element_ref": "e1"},
+            "desktop.get_table_info",
+            arguments={"element_ref": "e1"},
         )
         data = json.loads(result[0].text)
         # Table role is always READ_ONLY regardless of content

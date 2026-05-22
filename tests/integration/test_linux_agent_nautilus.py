@@ -115,8 +115,7 @@ NAUTILUS_AGENT_REPLAY = [
         "content_blocks": [
             {
                 "type": "text",
-                "text": "Successfully opened Nautilus and read the current path "
-                "from the path bar.",
+                "text": "Successfully opened Nautilus and read the current path from the path bar.",
             },
         ],
     },
@@ -136,12 +135,8 @@ class TestLinuxAgentNautilus:
     async def test_agent_reads_nautilus_path(self) -> None:
         """Agent replay should call list_windows, snapshot, find, get_text."""
         async with GuidewireServerProcess(backend="auto") as server:
-            agent = AgentClient(
-                server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5
-            )
-            result = await agent.send_prompt(
-                "Open Files and read the current path."
-            )
+            agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
+            result = await agent.send_prompt("Open Files and read the current path.")
 
         # Verify all 4 tool calls were made
         assert_tool_called(result, "desktop.list_windows", count=1)
@@ -166,12 +161,8 @@ class TestLinuxAgentNautilus:
     async def test_find_targets_path_bar(self) -> None:
         """The find call should target the path bar by name."""
         async with GuidewireServerProcess(backend="auto") as server:
-            agent = AgentClient(
-                server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5
-            )
-            result = await agent.send_prompt(
-                "Open Files and read the current path."
-            )
+            agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
+            result = await agent.send_prompt("Open Files and read the current path.")
 
         find_calls = assert_tool_called(result, "desktop.find")
         assert len(find_calls) == 1
@@ -181,12 +172,8 @@ class TestLinuxAgentNautilus:
     async def test_get_text_references_found_element(self) -> None:
         """The get_text call should reference the element found by find."""
         async with GuidewireServerProcess(backend="auto") as server:
-            agent = AgentClient(
-                server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5
-            )
-            result = await agent.send_prompt(
-                "Open Files and read the current path."
-            )
+            agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
+            result = await agent.send_prompt("Open Files and read the current path.")
 
         get_text_calls = assert_tool_called(result, "desktop.get_text")
         assert len(get_text_calls) == 1
@@ -195,24 +182,16 @@ class TestLinuxAgentNautilus:
     async def test_total_tool_call_count(self) -> None:
         """Exactly 4 tool calls should be made across the full agent loop."""
         async with GuidewireServerProcess(backend="auto") as server:
-            agent = AgentClient(
-                server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5
-            )
-            result = await agent.send_prompt(
-                "Open Files and read the current path."
-            )
+            agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
+            result = await agent.send_prompt("Open Files and read the current path.")
 
         assert len(result.tool_calls) == 4
 
     async def test_no_type_text_or_click_used(self) -> None:
         """Read-only path workflow should not need type_text or click tools."""
         async with GuidewireServerProcess(backend="auto") as server:
-            agent = AgentClient(
-                server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5
-            )
-            result = await agent.send_prompt(
-                "Open Files and read the current path."
-            )
+            agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
+            result = await agent.send_prompt("Open Files and read the current path.")
 
         assert_tool_not_called(result, "desktop.type_text")
         assert_tool_not_called(result, "desktop.click")

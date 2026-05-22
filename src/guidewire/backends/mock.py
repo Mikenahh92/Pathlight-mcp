@@ -93,7 +93,12 @@ def _element_to_dict(e: _MockElement) -> dict[str, Any]:
         "role": e.role,
         "name": e.name,
         "states": asdict(e.states),
-        "bounds": {"x": e.bounds.x, "y": e.bounds.y, "width": e.bounds.width, "height": e.bounds.height},
+        "bounds": {
+            "x": e.bounds.x,
+            "y": e.bounds.y,
+            "width": e.bounds.width,
+            "height": e.bounds.height,
+        },
         "actions": [a.value for a in e.actions],
         "children": [],
     }
@@ -455,9 +460,7 @@ class MockBackend(DesktopBackend):
             header = headers[col_idx] if col_idx < len(headers) else None
             return {"column": col_idx, "header": header, "cells": col_cells}
         else:
-            raise ActionNotSupportedError(
-                f"Unknown table_action: {table_action!r}"
-            )
+            raise ActionNotSupportedError(f"Unknown table_action: {table_action!r}")
 
     def get_element_info(self, handle: NativeHandle) -> dict[str, Any]:
         """Return element metadata as a dict."""
@@ -530,7 +533,9 @@ class MockBackend(DesktopBackend):
         """Resize a mock window."""
         w = self._require_window(window)
         w.bounds = ElementBounds(x=w.bounds.x, y=w.bounds.y, width=width, height=height)
-        self._action_log.append({"action": "resize_window", "handle": window, "width": width, "height": height})
+        self._action_log.append(
+            {"action": "resize_window", "handle": window, "width": width, "height": height}
+        )
 
     def clipboard_write(self, text: str) -> None:
         """Write text to the mock clipboard.
@@ -568,9 +573,7 @@ class MockBackend(DesktopBackend):
             raise StaleElementReferenceError(f"Container handle {container!r} is stale")
 
         if item_name is None and item_index is None:
-            raise ActionNotSupportedError(
-                "scroll_to_item requires either item_name or item_index"
-            )
+            raise ActionNotSupportedError("scroll_to_item requires either item_name or item_index")
 
         # Find the window for this container
         window_handle = None
@@ -583,28 +586,33 @@ class MockBackend(DesktopBackend):
         candidates = [
             e
             for e in self._elements.values()
-            if e.valid
-            and e.window_handle == window_handle
-            and e.handle != container
+            if e.valid and e.window_handle == window_handle and e.handle != container
         ]
 
         for idx, elem in enumerate(candidates):
-            if item_name is not None:
-                if elem.name is not None and item_name.lower() in elem.name.lower():
-                    self._action_log.append({
+            if (
+                item_name is not None
+                and elem.name is not None
+                and item_name.lower() in elem.name.lower()
+            ):
+                self._action_log.append(
+                    {
                         "action": "scroll_to_item",
                         "container": container,
                         "found": elem.handle,
                         "match": "name",
-                    })
-                    return elem.handle
+                    }
+                )
+                return elem.handle
             if item_index is not None and idx == item_index:
-                self._action_log.append({
-                    "action": "scroll_to_item",
-                    "container": container,
-                    "found": elem.handle,
-                    "match": "index",
-                })
+                self._action_log.append(
+                    {
+                        "action": "scroll_to_item",
+                        "container": container,
+                        "found": elem.handle,
+                        "match": "index",
+                    }
+                )
                 return elem.handle
 
         return None

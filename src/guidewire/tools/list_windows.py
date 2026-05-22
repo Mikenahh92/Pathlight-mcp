@@ -13,12 +13,11 @@ Returns a wrapped dict response (architecture v2 §3.3):
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.errors import BackendUnavailableError
-from guidewire.hints import hints_for
 from guidewire.refs import ElementRefStore
 
 logger = logging.getLogger(__name__)
@@ -60,7 +59,7 @@ def register(mcp: FastMCP, **kwargs: object) -> None:
         """
         try:
             handles = backend.list_windows()
-        except BackendUnavailableError as exc:
+        except BackendUnavailableError:
             raise
 
         store = ref_store if ref_store is not None else ElementRefStore()

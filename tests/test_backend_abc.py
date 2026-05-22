@@ -193,8 +193,12 @@ class TestMinimalSubclass:
 
             def snapshot(self, window, max_depth=4, max_nodes=500):
                 return {
-                    "ref": window, "role": "window", "name": "",
-                    "states": {}, "bounds": None, "actions": [],
+                    "ref": window,
+                    "role": "window",
+                    "name": "",
+                    "states": {},
+                    "bounds": None,
+                    "actions": [],
                     "children": [],
                 }
 

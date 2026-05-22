@@ -27,10 +27,7 @@ from guidewire.tools import register_all
 @pytest.fixture()
 def backend() -> MockBackend:
     """Return a MockBackend with a window and several elements."""
-    b = (
-        MockBackend()
-        .add_window(title="Test Window", app="TestApp", focused=True)
-    )
+    b = MockBackend().add_window(title="Test Window", app="TestApp", focused=True)
     window_handle = b.list_windows()[0]
     b.add_element(role="button", name="Submit", parent=window_handle)
     b.add_element(role="text_field", name="Username", value="", parent=window_handle)
@@ -76,10 +73,12 @@ class TestMultiActionStub:
         """Without a backend, multi_action should return a stub batch summary."""
         result, _meta = await stub_mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "click", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "click", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -164,10 +163,12 @@ class TestMultiActionValidation:
         """Unknown action name should return validation error."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "teleport", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "teleport", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is False
@@ -178,10 +179,12 @@ class TestMultiActionValidation:
         """Actions not in v1 batchable set should be rejected."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "get_table_info", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "get_table_info", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is False
@@ -192,10 +195,12 @@ class TestMultiActionValidation:
         """Element-based action without element_ref should fail validation."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "click"},
-                {"action": "click", "element_ref": "e1"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "click"},
+                    {"action": "click", "element_ref": "e1"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is False
@@ -206,10 +211,12 @@ class TestMultiActionValidation:
         """Type action without 'text' field should fail validation."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "type", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "type", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is False
@@ -220,10 +227,12 @@ class TestMultiActionValidation:
         """Press_key action without 'keys' field should fail validation."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "press_key"},
-                {"action": "click", "element_ref": "e1"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "press_key"},
+                    {"action": "click", "element_ref": "e1"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is False
@@ -234,10 +243,12 @@ class TestMultiActionValidation:
         """Set_value action without 'value' field should fail validation."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "set_value", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "set_value", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is False
@@ -270,10 +281,12 @@ class TestMultiActionSafety:
 
         result, _meta = await local_mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "click", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "click", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is False
@@ -316,10 +329,12 @@ class TestMultiActionSuccess:
         """Two click actions should succeed with architecture §5 schema."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "click", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "click", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -359,10 +374,12 @@ class TestMultiActionSuccess:
         """press_key combined with click should succeed."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "click", "element_ref": "e1"},
-                {"action": "press_key", "keys": "Enter"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "click", "element_ref": "e1"},
+                    {"action": "press_key", "keys": "Enter"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -375,10 +392,12 @@ class TestMultiActionSuccess:
         """get_text combined with click should return text in result."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "get_text", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "get_text", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["success"] is True
@@ -433,9 +452,7 @@ class TestMultiActionStopOnFailure:
         assert data["actions"][1]["success"] is False
         assert data["actions"][1]["error"] == "element_not_found"
 
-    async def test_stale_element_stops_batch(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_stale_element_stops_batch(self, mcp: FastMCP, backend: MockBackend) -> None:
         """A stale element reference should stop the batch."""
         # Invalidate element e2
         window_handle = backend.list_windows()[0]
@@ -502,10 +519,12 @@ class TestMultiActionRiskMetadata:
         """A batch of clicks should have 'interaction' risk."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "click", "element_ref": "e1"},
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "click", "element_ref": "e1"},
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["risk"] in ("interaction", "read_only")
@@ -514,10 +533,12 @@ class TestMultiActionRiskMetadata:
         """A batch with press_key should have 'interaction' risk."""
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                {"action": "click", "element_ref": "e1"},
-                {"action": "press_key", "keys": "Tab"},
-            ]},
+            arguments={
+                "actions": [
+                    {"action": "click", "element_ref": "e1"},
+                    {"action": "press_key", "keys": "Tab"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["risk"] in ("interaction", "read_only")
@@ -618,10 +639,12 @@ class TestMultiActionSupportedTypes:
         descriptor.update(extra_kwargs)
         result, _meta = await mcp.call_tool(
             "desktop.multi_action",
-            arguments={"actions": [
-                descriptor,
-                {"action": "click", "element_ref": "e2"},
-            ]},
+            arguments={
+                "actions": [
+                    descriptor,
+                    {"action": "click", "element_ref": "e2"},
+                ]
+            },
         )
         data = json.loads(result[0].text)
         assert data["completed"] == 2

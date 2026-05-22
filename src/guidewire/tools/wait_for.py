@@ -99,7 +99,7 @@ def register(
 
         Polls the desktop backend at regular intervals until the specified
         condition evaluates to true or the timeout is reached.  This
-        eliminates 3–10 manual polling round-trips per wait operation.
+        eliminates 3-10 manual polling round-trips per wait operation.
 
         Args:
             condition: Condition DSL dict with a ``type`` key and
@@ -108,7 +108,7 @@ def register(
                 ``text_equals``, ``state_change``, ``duration``,
                 ``window_appears``.
             timeout_ms: Maximum wait time in milliseconds (default 5000, max 60000).
-            poll_interval_ms: Polling interval in milliseconds (default 100, range 10–5000).
+            poll_interval_ms: Polling interval in milliseconds (default 100, range 10-5000).
 
         Returns:
             A JSON object with ``success``, ``condition``, ``elapsed_ms``,
@@ -154,10 +154,7 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        f"poll_interval_ms must be at least "
-                        f"{_POLL_INTERVAL_MS_MIN}ms"
-                    ),
+                    "message": (f"poll_interval_ms must be at least {_POLL_INTERVAL_MS_MIN}ms"),
                 }
             )
 
@@ -165,10 +162,7 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        f"poll_interval_ms must not exceed "
-                        f"{_POLL_INTERVAL_MS_MAX}ms"
-                    ),
+                    "message": (f"poll_interval_ms must not exceed {_POLL_INTERVAL_MS_MAX}ms"),
                 }
             )
 
@@ -224,9 +218,7 @@ def register(
                         elapsed_ms,
                         parsed["window_ref"],
                     )
-                    base = json.loads(
-                        _success_response(condition, elapsed_ms, polls)
-                    )
+                    base = json.loads(_success_response(condition, elapsed_ms, polls))
                     base["window_ref"] = parsed["window_ref"]
                     base["matched_title"] = parsed["matched_title"]
                     return json.dumps(base)
@@ -298,32 +290,29 @@ def _validate_condition(condition: dict) -> str | None:
         )
 
     # duration and window_appears do NOT require a ref
-    if ctype not in _NO_REF_CONDITION_TYPES:
-        if "ref" not in condition:
-            return json.dumps(
-                {
-                    "error": "validation_error",
-                    "message": f"condition type '{ctype}' requires a 'ref' key",
-                }
-            )
+    if ctype not in _NO_REF_CONDITION_TYPES and "ref" not in condition:
+        return json.dumps(
+            {
+                "error": "validation_error",
+                "message": f"condition type '{ctype}' requires a 'ref' key",
+            }
+        )
 
-    if ctype == "text_equals":
-        if "value" not in condition:
-            return json.dumps(
-                {
-                    "error": "validation_error",
-                    "message": "text_equals condition requires a 'value' key",
-                }
-            )
+    if ctype == "text_equals" and "value" not in condition:
+        return json.dumps(
+            {
+                "error": "validation_error",
+                "message": "text_equals condition requires a 'value' key",
+            }
+        )
 
-    if ctype == "state_change":
-        if "state" not in condition:
-            return json.dumps(
-                {
-                    "error": "validation_error",
-                    "message": "state_change condition requires a 'state' key",
-                }
-            )
+    if ctype == "state_change" and "state" not in condition:
+        return json.dumps(
+            {
+                "error": "validation_error",
+                "message": "state_change condition requires a 'state' key",
+            }
+        )
 
     if ctype == "duration":
         if "duration_ms" not in condition:
@@ -406,10 +395,7 @@ def _evaluate_condition(
         return json.dumps(
             {
                 "error": "stale_element_reference",
-                "message": (
-                    f"Element reference '{condition.get('ref', '')}' "
-                    f"is no longer valid"
-                ),
+                "message": (f"Element reference '{condition.get('ref', '')}' is no longer valid"),
                 "ref": condition.get("ref"),
             }
         )

@@ -190,9 +190,7 @@ def register(
             return json.dumps(
                 {
                     "error": "element_not_found",
-                    "message": (
-                        f"Element reference '{element_ref}' not found in reference store"
-                    ),
+                    "message": (f"Element reference '{element_ref}' not found in reference store"),
                     "ref": element_ref,
                     "hints": hints_for("element_not_found"),
                 }
@@ -203,9 +201,7 @@ def register(
             return json.dumps(
                 {
                     "error": "stale_element_reference",
-                    "message": (
-                        f"Element reference '{element_ref}' is no longer valid"
-                    ),
+                    "message": (f"Element reference '{element_ref}' is no longer valid"),
                     "ref": element_ref,
                     "hints": hints_for("stale_element_reference"),
                 }
@@ -229,9 +225,7 @@ def register(
             return json.dumps(
                 {
                     "error": "stale_element_reference",
-                    "message": (
-                        f"Element reference '{element_ref}' is stale"
-                    ),
+                    "message": (f"Element reference '{element_ref}' is stale"),
                     "ref": element_ref,
                     "hints": exc.hints,
                 }
@@ -285,7 +279,9 @@ def register(
         if window_handle is not None:
             try:
                 snapshot_tree = backend.snapshot(
-                    window_handle, max_depth=max_depth + 1, max_nodes=500,
+                    window_handle,
+                    max_depth=max_depth + 1,
+                    max_nodes=500,
                 )
                 subtree = _extract_tree_subtree(snapshot_tree, handle)
                 if subtree is not None:
@@ -293,7 +289,10 @@ def register(
                     raw_children = subtree.get("children", [])
                     for child_node in raw_children:
                         child_entry = _build_node_entry(
-                            child_node, ref_store, depth=1, max_depth=max_depth,
+                            child_node,
+                            ref_store,
+                            depth=1,
+                            max_depth=max_depth,
                         )
                         if child_entry is not None:
                             children.append(child_entry)

@@ -21,6 +21,7 @@ class TestServerCrashDetection:
         server = GuidewireServerProcess(
             startup_timeout=5.0,
         )
+
         # Use a non-existent module so the subprocess exits immediately.
         async def _crashing_start():
             from mcp.client.stdio import StdioServerParameters, stdio_client

@@ -15,10 +15,9 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.backends import MockBackend
-from guidewire.backends.types import ElementBounds, NativeHandle
+from guidewire.backends.types import NativeHandle
 from guidewire.refs import ElementRefStore
 from guidewire.tools import register_all
-
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -90,9 +89,7 @@ class TestMinimizeWindow:
         assert data["action"] == "minimize"
         assert "risk" in data
 
-    async def test_minimize_updates_backend_state(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_minimize_updates_backend_state(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Minimize should update backend window state."""
         windows = backend.list_windows()
         await mcp.call_tool(
@@ -158,9 +155,7 @@ class TestMoveWindow:
         assert data["action"] == "move"
         assert "(100, 200)" in data["target_summary"]
 
-    async def test_move_updates_backend_bounds(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_move_updates_backend_bounds(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Move should update backend window bounds."""
         windows = backend.list_windows()
         await mcp.call_tool(
@@ -192,9 +187,7 @@ class TestResizeWindow:
         assert data["action"] == "resize"
         assert "1024x768" in data["target_summary"]
 
-    async def test_resize_updates_backend_bounds(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_resize_updates_backend_bounds(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Resize should update backend window bounds."""
         windows = backend.list_windows()
         await mcp.call_tool(
@@ -291,9 +284,7 @@ class TestManageWindowValidation:
         assert data["error"] == "validation_error"
         assert "action" in data["message"].lower()
 
-    async def test_move_without_coords_returns_validation_error(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_move_without_coords_returns_validation_error(self, mcp: FastMCP) -> None:
         """Move without x,y should return validation error JSON."""
         result, _meta = await mcp.call_tool(
             "desktop.manage_window",
@@ -303,9 +294,7 @@ class TestManageWindowValidation:
         assert data["error"] == "validation_error"
         assert "x" in data["message"].lower()
 
-    async def test_resize_without_dimensions_returns_validation_error(
-        self, mcp: FastMCP
-    ) -> None:
+    async def test_resize_without_dimensions_returns_validation_error(self, mcp: FastMCP) -> None:
         """Resize without width,height should return validation error JSON."""
         result, _meta = await mcp.call_tool(
             "desktop.manage_window",

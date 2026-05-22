@@ -147,9 +147,7 @@ class TestWindowsAgentSettings:
         """Agent replay should call list_windows, snapshot, find, type_text, get_text."""
         async with GuidewireServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
-            result = await agent.send_prompt(
-                "Open Settings and search for 'Display'."
-            )
+            result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
         # Verify all 5 tool calls were made
         assert_tool_called(result, "desktop.list_windows", count=1)
@@ -177,9 +175,7 @@ class TestWindowsAgentSettings:
         """The type_text tool call should include the correct text argument."""
         async with GuidewireServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
-            result = await agent.send_prompt(
-                "Open Settings and search for 'Display'."
-            )
+            result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
         type_text_calls = assert_tool_called(result, "desktop.type_text")
         assert len(type_text_calls) == 1
@@ -190,9 +186,7 @@ class TestWindowsAgentSettings:
         """The get_text tool call should reference the same element as type_text."""
         async with GuidewireServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
-            result = await agent.send_prompt(
-                "Open Settings and search for 'Display'."
-            )
+            result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
         get_text_calls = assert_tool_called(result, "desktop.get_text")
         assert len(get_text_calls) == 1
@@ -202,9 +196,7 @@ class TestWindowsAgentSettings:
         """Exactly 5 tool calls should be made across the full agent loop."""
         async with GuidewireServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
-            result = await agent.send_prompt(
-                "Open Settings and search for 'Display'."
-            )
+            result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
         assert len(result.tool_calls) == 5
 
@@ -212,9 +204,7 @@ class TestWindowsAgentSettings:
         """Settings search workflow should not need click or press_key tools."""
         async with GuidewireServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
-            result = await agent.send_prompt(
-                "Open Settings and search for 'Display'."
-            )
+            result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
         assert_tool_not_called(result, "desktop.click")
         assert_tool_not_called(result, "desktop.press_key")

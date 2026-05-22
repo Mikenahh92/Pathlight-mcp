@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.errors import BackendUnavailableError
-from guidewire.hints import hints_for
 from guidewire.safety import classify_system_action
 
 if TYPE_CHECKING:

@@ -223,6 +223,7 @@ class TestToolStubBehaviour:
         """desktop.list_windows should return wrapped dict with empty windows."""
         result, _meta = await server.mcp.call_tool("desktop.list_windows", arguments={})
         import json
+
         data = json.loads(result[0].text)
         assert isinstance(data, dict)
         assert data["windows"] == []

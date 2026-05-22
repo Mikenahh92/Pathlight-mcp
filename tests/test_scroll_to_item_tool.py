@@ -23,7 +23,6 @@ from guidewire.backends.types import NativeHandle
 from guidewire.refs import ElementRefStore
 from guidewire.tools import register_all
 
-
 # -- Fixtures -----------------------------------------------------------------
 
 
@@ -217,9 +216,7 @@ class TestScrollToItemSuccess:
         assert data["success"] is True
         assert "item_ref" in data
 
-    async def test_item_not_found_returns_failure(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_item_not_found_returns_failure(self, mcp: FastMCP, backend: MockBackend) -> None:
         """When the target item doesn't exist, returns success=False."""
         window = backend.list_windows()[0]
         elements = backend.find_elements(window, role="list")
@@ -239,9 +236,7 @@ class TestScrollToItemSuccess:
         assert data["success"] is False
         assert "not found" in data["message"].lower()
 
-    async def test_returns_item_name_in_response(
-        self, mcp: FastMCP, backend: MockBackend
-    ) -> None:
+    async def test_returns_item_name_in_response(self, mcp: FastMCP, backend: MockBackend) -> None:
         """Success response includes the item name."""
         window = backend.list_windows()[0]
         elements = backend.find_elements(window, role="list")
@@ -345,10 +340,7 @@ class TestMockBackendScrollToItem:
         elements = backend.find_elements(window, role="list")
 
         backend.scroll_to_item(elements[0], item_name="Image.png")
-        assert any(
-            entry.get("action") == "scroll_to_item"
-            for entry in backend.action_log
-        )
+        assert any(entry.get("action") == "scroll_to_item" for entry in backend.action_log)
 
     def test_scroll_to_item_index_out_of_range(self, backend: MockBackend) -> None:
         """MockBackend.scroll_to_item returns None for index beyond items."""

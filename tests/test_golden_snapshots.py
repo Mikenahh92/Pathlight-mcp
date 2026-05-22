@@ -142,18 +142,14 @@ def _validate_node_schema(
     if "is_enabled" not in node:
         errors.append(f"{path}: missing 'is_enabled'")
     elif not isinstance(node["is_enabled"], bool):
-        errors.append(
-            f"{path}: 'is_enabled' must be bool, "
-            f"got {type(node['is_enabled']).__name__}"
-        )
+        errors.append(f"{path}: 'is_enabled' must be bool, got {type(node['is_enabled']).__name__}")
 
     # is_offscreen must be bool
     if "is_offscreen" not in node:
         errors.append(f"{path}: missing 'is_offscreen'")
     elif not isinstance(node["is_offscreen"], bool):
         errors.append(
-            f"{path}: 'is_offscreen' must be bool, "
-            f"got {type(node['is_offscreen']).__name__}"
+            f"{path}: 'is_offscreen' must be bool, got {type(node['is_offscreen']).__name__}"
         )
 
     # bounds must be a dict with x, y, width, height (all numeric)
@@ -167,8 +163,7 @@ def _validate_node_schema(
                     errors.append(f"{path}: 'bounds' missing '{key}'")
                 elif not isinstance(bounds[key], (int, float)):
                     errors.append(
-                        f"{path}: bounds.{key} must be numeric, "
-                        f"got {type(bounds[key]).__name__}"
+                        f"{path}: bounds.{key} must be numeric, got {type(bounds[key]).__name__}"
                     )
 
     # patterns must be a list of valid pattern name strings
@@ -189,9 +184,7 @@ def _validate_node_schema(
     if children is None:
         errors.append(f"{path}: missing 'children'")
     elif not isinstance(children, list):
-        errors.append(
-            f"{path}: 'children' must be list, got {type(children).__name__}"
-        )
+        errors.append(f"{path}: 'children' must be list, got {type(children).__name__}")
 
     return errors
 
@@ -268,22 +261,16 @@ class TestMetadataEnvelope:
         """Fixture must have a top-level 'snapshot' key."""
         assert "snapshot" in golden_snapshot
 
-    def test_metadata_has_required_fields(
-        self, golden_snapshot: dict[str, Any]
-    ) -> None:
+    def test_metadata_has_required_fields(self, golden_snapshot: dict[str, Any]) -> None:
         """_metadata must contain all required fields."""
         errors = _validate_metadata(golden_snapshot["_metadata"])
         assert errors == [], f"Metadata errors: {errors}"
 
-    def test_metadata_max_depth_is_positive(
-        self, golden_snapshot: dict[str, Any]
-    ) -> None:
+    def test_metadata_max_depth_is_positive(self, golden_snapshot: dict[str, Any]) -> None:
         """_metadata.max_depth must be a positive integer."""
         assert golden_snapshot["_metadata"]["max_depth"] > 0
 
-    def test_metadata_max_nodes_is_positive(
-        self, golden_snapshot: dict[str, Any]
-    ) -> None:
+    def test_metadata_max_nodes_is_positive(self, golden_snapshot: dict[str, Any]) -> None:
         """_metadata.max_nodes must be a positive integer."""
         assert golden_snapshot["_metadata"]["max_nodes"] > 0
 
@@ -320,15 +307,12 @@ class TestRawSnapshotSchema:
         errors = _validate_tree_schema(snapshot_tree)
         assert errors == [], f"Schema errors: {errors}"
 
-    def test_all_control_types_are_valid(
-        self, snapshot_tree: dict[str, Any]
-    ) -> None:
+    def test_all_control_types_are_valid(self, snapshot_tree: dict[str, Any]) -> None:
         """All control_type values in the tree must be recognized UIA types."""
         nodes = _collect_all_nodes(snapshot_tree)
         for node in nodes:
             assert node["control_type"] in _VALID_CONTROL_TYPES, (
-                f"Unknown control_type {node['control_type']} "
-                f"for {node.get('name', '?')}"
+                f"Unknown control_type {node['control_type']} for {node.get('name', '?')}"
             )
 
     def test_all_patterns_are_valid(self, snapshot_tree: dict[str, Any]) -> None:
@@ -475,27 +459,29 @@ class TestCalculatorFixture:
     def test_has_digit_buttons(self, calculator: dict[str, Any]) -> None:
         """Calculator must have buttons for digits 0-9."""
         nodes = _collect_all_nodes(calculator)
-        button_names = {
-            n["name"] for n in nodes if n["control_type"] == 50000
-        }
+        button_names = {n["name"] for n in nodes if n["control_type"] == 50000}
         for digit_name in (
-            "Zero", "One", "Two", "Three", "Four",
-            "Five", "Six", "Seven", "Eight", "Nine",
+            "Zero",
+            "One",
+            "Two",
+            "Three",
+            "Four",
+            "Five",
+            "Six",
+            "Seven",
+            "Eight",
+            "Nine",
         ):
             assert digit_name in button_names, f"Missing button '{digit_name}'"
 
     def test_has_operator_buttons(self, calculator: dict[str, Any]) -> None:
         """Calculator must have operator buttons."""
         nodes = _collect_all_nodes(calculator)
-        button_names = {
-            n["name"] for n in nodes if n["control_type"] == 50000
-        }
+        button_names = {n["name"] for n in nodes if n["control_type"] == 50000}
         for op_name in ("Plus", "Minus", "Multiply by", "Divide by", "Equals"):
             assert op_name in button_names, f"Missing operator button '{op_name}'"
 
-    def test_all_buttons_have_invoke_pattern(
-        self, calculator: dict[str, Any]
-    ) -> None:
+    def test_all_buttons_have_invoke_pattern(self, calculator: dict[str, Any]) -> None:
         """All calculator buttons must support the Invoke pattern."""
         nodes = _collect_all_nodes(calculator)
         buttons = [n for n in nodes if n["control_type"] == 50000]
@@ -509,11 +495,7 @@ class TestCalculatorFixture:
         """Calculator memory button should be disabled."""
         nodes = _collect_all_nodes(calculator)
         memory_btn = next(
-            (
-                n
-                for n in nodes
-                if n["control_type"] == 50000 and n.get("name") == "Memory"
-            ),
+            (n for n in nodes if n["control_type"] == 50000 and n.get("name") == "Memory"),
             None,
         )
         assert memory_btn is not None
@@ -547,10 +529,7 @@ class TestWindowsSettingsFixture:
         """Settings must have a search Edit control."""
         nodes = _collect_all_nodes(settings)
         search_edits = [
-            n
-            for n in nodes
-            if n["control_type"] == 50004
-            and "Find" in (n.get("name") or "")
+            n for n in nodes if n["control_type"] == 50004 and "Find" in (n.get("name") or "")
         ]
         assert len(search_edits) >= 1
 
@@ -578,9 +557,7 @@ class TestWindowsSettingsFixture:
         assert "Personalization" in nav_names
         assert "Windows Update" in nav_names
 
-    def test_nav_items_have_invoke_and_selection_item(
-        self, settings: dict[str, Any]
-    ) -> None:
+    def test_nav_items_have_invoke_and_selection_item(self, settings: dict[str, Any]) -> None:
         """Navigation list items must support Invoke and SelectionItem patterns."""
         nav = next(
             (c for c in settings.get("children", []) if c["control_type"] == 50008),
@@ -589,9 +566,7 @@ class TestWindowsSettingsFixture:
         assert nav is not None
         for item in nav.get("children", []):
             patterns = item.get("patterns", [])
-            assert "Invoke" in patterns, (
-                f"Nav item '{item.get('name')}' missing Invoke pattern"
-            )
+            assert "Invoke" in patterns, f"Nav item '{item.get('name')}' missing Invoke pattern"
             assert "SelectionItem" in patterns, (
                 f"Nav item '{item.get('name')}' missing SelectionItem pattern"
             )
@@ -604,9 +579,7 @@ class TestWindowsSettingsFixture:
         )
         assert nav is not None
         selectable = [
-            c
-            for c in nav.get("children", [])
-            if "SelectionItem" in c.get("patterns", [])
+            c for c in nav.get("children", []) if "SelectionItem" in c.get("patterns", [])
         ]
         assert len(selectable) >= 1
 
@@ -620,18 +593,14 @@ class TestWindowsSettingsFixture:
         texts = [c for c in content.get("children", []) if c["control_type"] == 50020]
         assert len(texts) >= 1
 
-    def test_content_pane_has_setting_groups(
-        self, settings: dict[str, Any]
-    ) -> None:
+    def test_content_pane_has_setting_groups(self, settings: dict[str, Any]) -> None:
         """Content pane must contain group elements for setting categories."""
         content = next(
             (c for c in settings.get("children", []) if c["control_type"] == 50025),
             None,
         )
         assert content is not None
-        groups = [
-            c for c in content.get("children", []) if c["control_type"] == 50026
-        ]
+        groups = [c for c in content.get("children", []) if c["control_type"] == 50026]
         assert len(groups) >= 3
 
     def test_setting_groups_have_buttons(self, settings: dict[str, Any]) -> None:
@@ -641,16 +610,10 @@ class TestWindowsSettingsFixture:
             None,
         )
         assert content is not None
-        groups = [
-            c for c in content.get("children", []) if c["control_type"] == 50026
-        ]
+        groups = [c for c in content.get("children", []) if c["control_type"] == 50026]
         for group in groups:
-            buttons = [
-                c for c in group.get("children", []) if c["control_type"] == 50000
-            ]
-            assert len(buttons) >= 1, (
-                f"Setting group '{group.get('name')}' has no buttons"
-            )
+            buttons = [c for c in group.get("children", []) if c["control_type"] == 50000]
+            assert len(buttons) >= 1, f"Setting group '{group.get('name')}' has no buttons"
 
     def test_element_count(self, settings: dict[str, Any]) -> None:
         """Windows Settings fixture should have at least 20 elements."""
@@ -730,16 +693,24 @@ class TestCompareSnapshots:
     def test_different_name(self) -> None:
         """Different names are detected."""
         base = {
-            "control_type": 50032, "name": "A", "value": None,
-            "is_enabled": True, "is_offscreen": False,
+            "control_type": 50032,
+            "name": "A",
+            "value": None,
+            "is_enabled": True,
+            "is_offscreen": False,
             "bounds": {"x": 0, "y": 0, "width": 100, "height": 100},
-            "patterns": [], "children": [],
+            "patterns": [],
+            "children": [],
         }
         other = {
-            "control_type": 50032, "name": "B", "value": None,
-            "is_enabled": True, "is_offscreen": False,
+            "control_type": 50032,
+            "name": "B",
+            "value": None,
+            "is_enabled": True,
+            "is_offscreen": False,
             "bounds": {"x": 0, "y": 0, "width": 100, "height": 100},
-            "patterns": [], "children": [],
+            "patterns": [],
+            "children": [],
         }
         diffs = compare_snapshots(base, other)
         assert any("name" in d for d in diffs)
@@ -747,16 +718,24 @@ class TestCompareSnapshots:
     def test_missing_pattern(self) -> None:
         """Missing patterns are detected."""
         base = {
-            "control_type": 50000, "name": "Btn", "value": None,
-            "is_enabled": True, "is_offscreen": False,
+            "control_type": 50000,
+            "name": "Btn",
+            "value": None,
+            "is_enabled": True,
+            "is_offscreen": False,
             "bounds": {"x": 0, "y": 0, "width": 50, "height": 50},
-            "patterns": ["Invoke"], "children": [],
+            "patterns": ["Invoke"],
+            "children": [],
         }
         other = {
-            "control_type": 50000, "name": "Btn", "value": None,
-            "is_enabled": True, "is_offscreen": False,
+            "control_type": 50000,
+            "name": "Btn",
+            "value": None,
+            "is_enabled": True,
+            "is_offscreen": False,
             "bounds": {"x": 0, "y": 0, "width": 50, "height": 50},
-            "patterns": [], "children": [],
+            "patterns": [],
+            "children": [],
         }
         diffs = compare_snapshots(base, other)
         assert any("Invoke" in d for d in diffs)
@@ -764,21 +743,33 @@ class TestCompareSnapshots:
     def test_different_children_count(self) -> None:
         """Different children counts are detected."""
         base = {
-            "control_type": 50032, "name": "W", "value": None,
-            "is_enabled": True, "is_offscreen": False,
+            "control_type": 50032,
+            "name": "W",
+            "value": None,
+            "is_enabled": True,
+            "is_offscreen": False,
             "bounds": {"x": 0, "y": 0, "width": 100, "height": 100},
-            "patterns": [], "children": [],
+            "patterns": [],
+            "children": [],
         }
         other = {
-            "control_type": 50032, "name": "W", "value": None,
-            "is_enabled": True, "is_offscreen": False,
+            "control_type": 50032,
+            "name": "W",
+            "value": None,
+            "is_enabled": True,
+            "is_offscreen": False,
             "bounds": {"x": 0, "y": 0, "width": 100, "height": 100},
-            "patterns": [], "children": [
+            "patterns": [],
+            "children": [
                 {
-                    "control_type": 50033, "name": "TB", "value": None,
-                    "is_enabled": True, "is_offscreen": False,
+                    "control_type": 50033,
+                    "name": "TB",
+                    "value": None,
+                    "is_enabled": True,
+                    "is_offscreen": False,
                     "bounds": {"x": 0, "y": 0, "width": 100, "height": 32},
-                    "patterns": [], "children": [],
+                    "patterns": [],
+                    "children": [],
                 },
             ],
         }

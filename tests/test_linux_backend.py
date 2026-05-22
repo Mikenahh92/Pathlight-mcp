@@ -545,9 +545,7 @@ class TestPerformAction:
         accessible.querySelection.return_value = mock_selection
         accessible.getIndexInParent.return_value = 2
 
-        result = backend.perform_action(
-            NativeHandle(accessible), DesktopAction.SELECT_ITEM
-        )
+        result = backend.perform_action(NativeHandle(accessible), DesktopAction.SELECT_ITEM)
         assert result is None
         accessible.querySelection.assert_called_once()
         accessible.getIndexInParent.assert_called_once()
@@ -559,9 +557,7 @@ class TestPerformAction:
         accessible.querySelection.side_effect = Exception("no Selection interface")
 
         with pytest.raises(ActionNotSupportedError, match="Selection"):
-            backend.perform_action(
-                NativeHandle(accessible), DesktopAction.SELECT_ITEM
-            )
+            backend.perform_action(NativeHandle(accessible), DesktopAction.SELECT_ITEM)
 
     # -- DESELECT_ITEM action (GW-051) ----------------------------------------
 
@@ -572,9 +568,7 @@ class TestPerformAction:
         accessible.querySelection.return_value = mock_selection
         accessible.getIndexInParent.return_value = 3
 
-        result = backend.perform_action(
-            NativeHandle(accessible), DesktopAction.DESELECT_ITEM
-        )
+        result = backend.perform_action(NativeHandle(accessible), DesktopAction.DESELECT_ITEM)
         assert result is None
         accessible.querySelection.assert_called_once()
         accessible.getIndexInParent.assert_called_once()
@@ -586,9 +580,7 @@ class TestPerformAction:
         accessible.querySelection.side_effect = Exception("no Selection interface")
 
         with pytest.raises(ActionNotSupportedError, match="Selection"):
-            backend.perform_action(
-                NativeHandle(accessible), DesktopAction.DESELECT_ITEM
-            )
+            backend.perform_action(NativeHandle(accessible), DesktopAction.DESELECT_ITEM)
 
     # -- ADD_TO_SELECTION action (GW-051) -------------------------------------
 
@@ -599,9 +591,7 @@ class TestPerformAction:
         accessible.querySelection.return_value = mock_selection
         accessible.getIndexInParent.return_value = 5
 
-        result = backend.perform_action(
-            NativeHandle(accessible), DesktopAction.ADD_TO_SELECTION
-        )
+        result = backend.perform_action(NativeHandle(accessible), DesktopAction.ADD_TO_SELECTION)
         assert result is None
         accessible.querySelection.assert_called_once()
         accessible.getIndexInParent.assert_called_once()
@@ -613,9 +603,7 @@ class TestPerformAction:
         accessible.querySelection.side_effect = Exception("no Selection interface")
 
         with pytest.raises(ActionNotSupportedError, match="Selection"):
-            backend.perform_action(
-                NativeHandle(accessible), DesktopAction.ADD_TO_SELECTION
-            )
+            backend.perform_action(NativeHandle(accessible), DesktopAction.ADD_TO_SELECTION)
 
     # -- SCROLL action --------------------------------------------------------
 
@@ -1188,9 +1176,18 @@ class TestSnapshot:
             # "enabled", second to "focused", etc.
             _ordered_values = []
             for _key in [
-                "enabled", "focused", "selected", "checked", "expanded",
-                "showing", "visible", "offscreen", "read-only", "required",
-                "editable", "indeterminate",
+                "enabled",
+                "focused",
+                "selected",
+                "checked",
+                "expanded",
+                "showing",
+                "visible",
+                "offscreen",
+                "read-only",
+                "required",
+                "editable",
+                "indeterminate",
             ]:
                 _ordered_values.append(states.get(_key, False))
             mock_state_set.contains.side_effect = list(_ordered_values)
@@ -1230,8 +1227,8 @@ class TestSnapshot:
         if actions:
             mock_action = MagicMock()
             mock_action.get_n_actions.return_value = len(actions)
-            mock_action.get_action_name.side_effect = (
-                lambda i: actions[i] if i < len(actions) else None
+            mock_action.get_action_name.side_effect = lambda i: (
+                actions[i] if i < len(actions) else None
             )
             acc.get_action.return_value = mock_action
         else:

@@ -227,7 +227,9 @@ class TestStubMethods:
         with pytest.raises(NotImplementedError, match="get_window_info"):
             backend.get_window_info(NativeHandle("fake"))
 
-    def test_focus_window_invalid_handle_raises_window_not_found(self, backend: WindowsBackend) -> None:
+    def test_focus_window_invalid_handle_raises_window_not_found(
+        self, backend: WindowsBackend
+    ) -> None:
         """focus_window is implemented (GW-021); invalid handle raises WindowNotFoundError."""
         from guidewire.backends.types import NativeHandle
         from guidewire.errors import WindowNotFoundError
@@ -274,9 +276,7 @@ class TestStubMethods:
         with pytest.raises(StaleElementReferenceError, match="disposed"):
             backend.get_element_info(NativeHandle("fake"))
 
-    def test_is_valid_no_longer_raises_not_implemented(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_is_valid_no_longer_raises_not_implemented(self, backend: WindowsBackend) -> None:
         """is_valid is implemented (GW-024) — must not raise NotImplementedError."""
         from guidewire.backends.types import NativeHandle
 
@@ -550,9 +550,7 @@ class TestIsValid:
 
     # -- COM IUIAutomationElement handles ------------------------------------
 
-    def test_com_element_valid_returns_true(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_com_element_valid_returns_true(self, backend: WindowsBackend) -> None:
         """A live COM element (property probe succeeds) → True."""
         mock_element = MagicMock()
         mock_element.GetCurrentPropertyValue.return_value = 1234
@@ -560,9 +558,7 @@ class TestIsValid:
         assert backend.is_valid(NativeHandle(mock_element)) is True  # type: ignore[arg-type]
         mock_element.GetCurrentPropertyValue.assert_called_once()
 
-    def test_com_element_stale_returns_false(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_com_element_stale_returns_false(self, backend: WindowsBackend) -> None:
         """A stale COM element (property probe raises) → False."""
         mock_element = MagicMock()
         mock_element.GetCurrentPropertyValue.side_effect = OSError(
@@ -571,9 +567,7 @@ class TestIsValid:
 
         assert backend.is_valid(NativeHandle(mock_element)) is False  # type: ignore[arg-type]
 
-    def test_com_element_process_id_constant_used(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_com_element_process_id_constant_used(self, backend: WindowsBackend) -> None:
         """is_valid must probe with UIA_ProcessIdPropertyId (30076)."""
         from guidewire.backends.windows import _UIA_PROCESS_ID_PROPERTY_ID
 
@@ -584,9 +578,7 @@ class TestIsValid:
 
         mock_element.GetCurrentPropertyValue.assert_called_once_with(30076)
 
-    def test_com_element_generic_exception_returns_false(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_com_element_generic_exception_returns_false(self, backend: WindowsBackend) -> None:
         """Any exception from COM property access → False."""
         mock_element = MagicMock()
         mock_element.GetCurrentPropertyValue.side_effect = RuntimeError("unexpected")
@@ -616,22 +608,16 @@ class TestIsValid:
         with patch.object(ctypes.windll.user32, "IsWindow", return_value=0):
             assert backend.is_valid(NativeHandle(0)) is False  # type: ignore[arg-type]
 
-    def test_hwnd_ctypes_error_returns_false(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_hwnd_ctypes_error_returns_false(self, backend: WindowsBackend) -> None:
         """ctypes failure during IsWindow → False."""
         import ctypes
 
-        with patch.object(
-            ctypes.windll.user32, "IsWindow", side_effect=OSError("ctypes error")
-        ):
+        with patch.object(ctypes.windll.user32, "IsWindow", side_effect=OSError("ctypes error")):
             assert backend.is_valid(NativeHandle(12345)) is False  # type: ignore[arg-type]
 
     # -- Edge cases ----------------------------------------------------------
 
-    def test_unknown_handle_type_returns_false(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_unknown_handle_type_returns_false(self, backend: WindowsBackend) -> None:
         """A non-int, non-COM handle (e.g. string) → property probe fails → False."""
         # A string doesn't have GetCurrentPropertyValue, so the COM probe
         # will raise AttributeError → caught → False.

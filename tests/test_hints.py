@@ -4,7 +4,6 @@ import pytest
 
 from guidewire.hints import _HINT_REGISTRY, hints_for, register_hints
 
-
 # ---------------------------------------------------------------------------
 # Module-level registry content
 # ---------------------------------------------------------------------------

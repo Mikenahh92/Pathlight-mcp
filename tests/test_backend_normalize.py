@@ -136,19 +136,22 @@ class TestNormalizeStates:
     def test_linux_extended_states_filtered(self) -> None:
         """States not in ElementStates (focusable, selectable, etc.) are
         silently dropped instead of causing TypeError (GW-034)."""
-        result = normalize_states("linux", {
-            "enabled": True,
-            "focusable": True,
-            "selectable": True,
-            "multi-selectable": True,
-            "modal": True,
-            "horizontal": True,
-            "vertical": True,
-            "value": 42,
-            "min-value": 0,
-            "max-value": 100,
-            "step": 1,
-        })
+        result = normalize_states(
+            "linux",
+            {
+                "enabled": True,
+                "focusable": True,
+                "selectable": True,
+                "multi-selectable": True,
+                "modal": True,
+                "horizontal": True,
+                "vertical": True,
+                "value": 42,
+                "min-value": 0,
+                "max-value": 100,
+                "step": 1,
+            },
+        )
         assert result.enabled is True
         # multi-selectable now maps to multi_selectable on ElementStates (GW-048).
         assert result.multi_selectable is True

@@ -174,7 +174,8 @@ class TestResolveState:
 
     def test_windows_has_keyboard_focus(self) -> None:
         assert resolve_state("windows", "HasKeyboardFocus", True) == (
-            "focused", True,
+            "focused",
+            True,
         )
 
     def test_windows_is_selected(self) -> None:
@@ -197,17 +198,20 @@ class TestResolveState:
 
     def test_windows_is_read_only(self) -> None:
         assert resolve_state("windows", "IsReadOnly", True) == (
-            "read_only", True,
+            "read_only",
+            True,
         )
 
     def test_windows_is_required(self) -> None:
         assert resolve_state("windows", "IsRequiredForForm", True) == (
-            "required", True,
+            "required",
+            True,
         )
 
     def test_windows_is_password(self) -> None:
         assert resolve_state("windows", "IsPassword", True) == (
-            "is_password", True,
+            "is_password",
+            True,
         )
 
     def test_windows_visibility_fully_visible(self) -> None:
@@ -263,7 +267,8 @@ class TestResolveState:
 
     def test_linux_indeterminate(self) -> None:
         assert resolve_state("linux", "indeterminate", True) == (
-            "checked", "mixed",
+            "checked",
+            "mixed",
         )
 
     # -- Unknown / error cases --
