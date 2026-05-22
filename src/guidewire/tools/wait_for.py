@@ -10,6 +10,9 @@ Condition types (all use existing ABC methods — zero backend changes):
     element_disappears → backend.is_valid(handle) is False
     text_equals       → backend.perform_action(handle, GET_TEXT)
     state_change      → backend.get_element_info(handle) → states dict
+    duration          → asyncio.sleep for a fixed duration (no element ref)
+    window_appears    → backend.list_windows() + get_window_info() title match
+                       (match='substring' default, match='regex' for pattern)
 
 Safety classification: READ_ONLY (passive observation, no UI modification).
 """
@@ -17,6 +20,7 @@ Safety classification: READ_ONLY (passive observation, no UI modification).
 import asyncio
 import json
 import logging
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -42,14 +46,26 @@ _VALID_CONDITION_TYPES = frozenset(
         "element_disappears",
         "text_equals",
         "state_change",
+        "duration",
+        "window_appears",
     }
 )
+
+# Condition types that do NOT require an element reference
+_NO_REF_CONDITION_TYPES = frozenset({"duration", "window_appears"})
 
 _VALID_OPERATORS = frozenset(
     {
         "equals",
         "contains",
         "not_empty",
+    }
+)
+
+_VALID_MATCH_MODES = frozenset(
+    {
+        "substring",
+        "regex",
     }
 )
 
@@ -89,7 +105,8 @@ def register(
             condition: Condition DSL dict with a ``type`` key and
                 type-specific parameters.  Supported types:
                 ``element_appears``, ``element_disappears``,
-                ``text_equals``, ``state_change``.
+                ``text_equals``, ``state_change``, ``duration``,
+                ``window_appears``.
             timeout_ms: Maximum wait time in milliseconds (default 5000, max 60000).
             poll_interval_ms: Polling interval in milliseconds (default 100, range 10–5000).
 
@@ -163,11 +180,21 @@ def register(
             poll_interval_ms,
         )
 
+        t0 = time.monotonic()
+
+        # --- Special handling: duration type ---
+        if ctype == "duration":
+            duration_ms = condition.get("duration_ms", 0)
+            actual_wait = min(duration_ms, timeout_ms) if timeout_ms > 0 else duration_ms
+            if actual_wait > 0:
+                await asyncio.sleep(actual_wait / 1000.0)
+            elapsed_ms = round((time.monotonic() - t0) * 1000)
+            return _success_response(condition, elapsed_ms, 1)
+
         # --- Polling loop ---
         deadline = time.monotonic() + timeout_ms / 1000.0
         poll_interval = poll_interval_ms / 1000.0
         polls = 0
-        t0 = time.monotonic()
 
         while time.monotonic() < deadline:
             polls += 1
@@ -182,6 +209,27 @@ def register(
                 )
                 return _success_response(condition, elapsed_ms, polls)
             if isinstance(result, str):
+                # Could be a fatal error or a window_appears success with ref
+                try:
+                    parsed = json.loads(result)
+                except (json.JSONDecodeError, TypeError):
+                    parsed = None
+                if isinstance(parsed, dict) and parsed.get("__window_appears_match"):
+                    # window_appears matched — build enriched success response
+                    elapsed_ms = round((time.monotonic() - t0) * 1000)
+                    logger.info(
+                        "wait_for met: type=%s polls=%d elapsed=%dms window_ref=%s",
+                        ctype,
+                        polls,
+                        elapsed_ms,
+                        parsed["window_ref"],
+                    )
+                    base = json.loads(
+                        _success_response(condition, elapsed_ms, polls)
+                    )
+                    base["window_ref"] = parsed["window_ref"]
+                    base["matched_title"] = parsed["matched_title"]
+                    return json.dumps(base)
                 # Fatal error — stop polling and return the error JSON
                 logger.warning(
                     "wait_for fatal error: type=%s error=%s",
@@ -249,14 +297,15 @@ def _validate_condition(condition: dict) -> str | None:
             }
         )
 
-    # All condition types require a ref
-    if "ref" not in condition:
-        return json.dumps(
-            {
-                "error": "validation_error",
-                "message": f"condition type '{ctype}' requires a 'ref' key",
-            }
-        )
+    # duration and window_appears do NOT require a ref
+    if ctype not in _NO_REF_CONDITION_TYPES:
+        if "ref" not in condition:
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": f"condition type '{ctype}' requires a 'ref' key",
+                }
+            )
 
     if ctype == "text_equals":
         if "value" not in condition:
@@ -275,6 +324,53 @@ def _validate_condition(condition: dict) -> str | None:
                     "message": "state_change condition requires a 'state' key",
                 }
             )
+
+    if ctype == "duration":
+        if "duration_ms" not in condition:
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": "duration condition requires a 'duration_ms' key",
+                }
+            )
+        dur = condition["duration_ms"]
+        if not isinstance(dur, (int, float)) or dur < 0:
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": "duration_ms must be a non-negative number",
+                }
+            )
+
+    if ctype == "window_appears":
+        if "title" not in condition:
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": "window_appears condition requires a 'title' key",
+                }
+            )
+        match_mode = condition.get("match", "substring")
+        if match_mode not in _VALID_MATCH_MODES:
+            return json.dumps(
+                {
+                    "error": "validation_error",
+                    "message": (
+                        f"window_appears 'match' must be one of: "
+                        f"{', '.join(sorted(_VALID_MATCH_MODES))}"
+                    ),
+                }
+            )
+        if match_mode == "regex":
+            try:
+                re.compile(condition["title"])
+            except re.error as exc:
+                return json.dumps(
+                    {
+                        "error": "validation_error",
+                        "message": f"Invalid regex pattern '{condition['title']}': {exc}",
+                    }
+                )
 
     return None
 
@@ -302,6 +398,10 @@ def _evaluate_condition(
             return _eval_text_equals(condition, backend, ref_store)
         elif ctype == "state_change":
             return _eval_state_change(condition, backend, ref_store)
+        elif ctype == "duration":
+            return _eval_duration(condition)
+        elif ctype == "window_appears":
+            return _eval_window_appears(condition, backend, ref_store)
     except StaleElementReferenceError:
         return json.dumps(
             {
@@ -427,7 +527,70 @@ def _eval_state_change(
     return actual == expected
 
 
+def _eval_duration(condition: dict) -> bool | str:
+    """duration: always returns True.
+
+    The actual waiting is handled by the caller which sleeps for
+    ``duration_ms`` before the first evaluation.  Since the sleep has
+    already happened by the time this is called, the condition is always met.
+    """
+    return True
+
+
+def _eval_window_appears(
+    condition: dict,
+    backend: "DesktopBackend",
+    ref_store: "ElementRefStore",
+) -> bool | str:
+    """window_appears: True when a window with the given title exists.
+
+    Scans all visible windows via ``list_windows()`` + ``get_window_info()``
+    and checks for a title match.  Supports two match modes:
+
+    * ``substring`` (default): case-insensitive substring match.
+    * ``regex``: full regex pattern match against the window title.
+
+    When a match is found, the window handle is registered in *ref_store*
+    with prefix ``w`` and the resulting ``window_ref`` is returned alongside
+    the success payload.
+    """
+    expected_title = condition["title"]
+    match_mode = condition.get("match", "substring")
+    try:
+        windows = backend.list_windows()
+    except Exception:
+        return False
+
+    for win_handle in windows:
+        try:
+            info = backend.get_window_info(win_handle)
+            title = info.get("title", "")
+            if match_mode == "regex":
+                if re.search(expected_title, title):
+                    window_ref = ref_store.store(win_handle, prefix="w")
+                    return _window_appears_success(window_ref, title)
+            else:
+                if expected_title.lower() in title.lower():
+                    window_ref = ref_store.store(win_handle, prefix="w")
+                    return _window_appears_success(window_ref, title)
+        except Exception:
+            continue
+
+    return False
+
+
 # -- Response helpers --------------------------------------------------------
+
+
+def _window_appears_success(window_ref: str, matched_title: str) -> str:
+    """Build a JSON success payload for window_appears with the window ref."""
+    return json.dumps(
+        {
+            "__window_appears_match": True,
+            "window_ref": window_ref,
+            "matched_title": matched_title,
+        }
+    )
 
 
 def _success_response(

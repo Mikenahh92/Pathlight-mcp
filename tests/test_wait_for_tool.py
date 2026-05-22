@@ -1,4 +1,4 @@
-"""Tests for the desktop.wait_for tool handler (GW-064).
+"""Tests for the desktop.wait_for tool handler (GW-064, GW-074).
 
 Validates:
 - Stub mode returns success without backend
@@ -6,6 +6,8 @@ Validates:
 - element_disappears condition (element becomes invalid)
 - text_equals condition (text comparison operators)
 - state_change condition (state flag matching)
+- duration condition (fixed-duration wait, no element ref)
+- window_appears condition (window title matching, no element ref)
 - Timeout behavior when condition is never met
 - Immediate return when condition is already true
 - Async polling detects state changes mid-wait (TC-02)
@@ -600,6 +602,319 @@ class TestWaitForStaleDuringPoll:
         assert "s1" in data.get("message", "") or ref in data.get("message", "")
 
 
+# -- duration condition (GW-074) ---------------------------------------------
+
+
+class TestDurationCondition:
+    """duration: waits for a fixed duration_ms, no element ref needed."""
+
+    async def test_duration_waits_specified_time(
+        self, mcp: FastMCP
+    ) -> None:
+        """duration waits approximately duration_ms and returns success."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "duration", "duration_ms": 100},
+                "timeout_ms": 5000,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert data["elapsed_ms"] >= 80  # allow timing slack
+        assert data["elapsed_ms"] < 300
+
+    async def test_duration_zero_ms(
+        self, mcp: FastMCP
+    ) -> None:
+        """duration with duration_ms=0 returns immediately."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "duration", "duration_ms": 0},
+                "timeout_ms": 5000,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert data["elapsed_ms"] < 50
+        assert data["polls"] == 1
+
+    async def test_duration_capped_by_timeout(
+        self, mcp: FastMCP
+    ) -> None:
+        """duration waits min(duration_ms, timeout_ms)."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "duration", "duration_ms": 5000},
+                "timeout_ms": 80,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        # Should be capped at timeout_ms (80ms), not wait the full 5000ms
+        assert data["elapsed_ms"] < 200
+
+    async def test_duration_no_ref_required(
+        self, mcp: FastMCP
+    ) -> None:
+        """duration condition does not require a ref key."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "duration", "duration_ms": 10},
+                "timeout_ms": 500,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+
+    async def test_duration_missing_duration_ms(
+        self, mcp: FastMCP
+    ) -> None:
+        """duration without duration_ms returns validation error."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "duration"},
+                "timeout_ms": 500,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "validation_error"
+        assert "duration_ms" in data["message"]
+
+    async def test_duration_negative_duration_ms(
+        self, mcp: FastMCP
+    ) -> None:
+        """duration with negative duration_ms returns validation error."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "duration", "duration_ms": -1},
+                "timeout_ms": 500,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "validation_error"
+        assert "non-negative" in data["message"]
+
+
+# -- window_appears condition (GW-074) ----------------------------------------
+
+
+class TestWindowAppearsCondition:
+    """window_appears: waits for a window with matching title, no element ref."""
+
+    async def test_window_appears_immediate_match(
+        self, mcp: FastMCP
+    ) -> None:
+        """Window already exists with matching title — returns success immediately."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "Test Window"},
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert data["polls"] == 1
+
+    async def test_window_appears_case_insensitive(
+        self, mcp: FastMCP
+    ) -> None:
+        """Title match is case-insensitive."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "test window"},
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+
+    async def test_window_appears_substring_match(
+        self, mcp: FastMCP
+    ) -> None:
+        """Title match uses substring matching."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "Test"},
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+
+    async def test_window_appears_timeout(
+        self, mcp: FastMCP
+    ) -> None:
+        """No window with matching title — times out."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "Nonexistent"},
+                "timeout_ms": 100,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is False
+        assert "not met" in data["message"].lower()
+
+    async def test_window_appears_no_ref_required(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears does not require a ref key."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "Test Window"},
+                "timeout_ms": 500,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+
+    async def test_window_appears_missing_title(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears without title returns validation error."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears"},
+                "timeout_ms": 500,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "validation_error"
+        assert "title" in data["message"]
+
+    async def test_window_appears_detects_new_window(
+        self, mcp: FastMCP, backend: MockBackend
+    ) -> None:
+        """Window appears mid-wait — polling detects the new window."""
+        async def add_window_after_delay():
+            await asyncio.sleep(0.05)
+            backend.add_window(title="New Dialog", app="TestApp")
+
+        asyncio.create_task(add_window_after_delay())
+
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "New Dialog"},
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert data["elapsed_ms"] < 300
+
+    async def test_window_appears_regex_match(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears with match='regex' matches using regex pattern."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {
+                    "type": "window_appears",
+                    "title": r"Test\s+Window",
+                    "match": "regex",
+                },
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert data["polls"] == 1
+
+    async def test_window_appears_regex_no_match(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears with match='regex' and no matching window times out."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {
+                    "type": "window_appears",
+                    "title": r"^Error\d+$",
+                    "match": "regex",
+                },
+                "timeout_ms": 100,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is False
+
+    async def test_window_appears_returns_window_ref(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears registers matched window in ref_store and returns window_ref."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "Test Window"},
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert "window_ref" in data
+        assert data["window_ref"].startswith("w")
+        assert "matched_title" in data
+        assert data["matched_title"] == "Test Window"
+
+    async def test_window_appears_regex_returns_window_ref(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears with regex returns window_ref on match."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {
+                    "type": "window_appears",
+                    "title": r"Test.*Window",
+                    "match": "regex",
+                },
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+        assert "window_ref" in data
+        assert data["window_ref"].startswith("w")
+
+    async def test_window_appears_default_match_is_substring(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears without match key defaults to substring matching."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {"type": "window_appears", "title": "Test"},
+                "timeout_ms": 500,
+                "poll_interval_ms": 20,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["success"] is True
+
+
 # -- Input validation ---------------------------------------------------------
 
 
@@ -726,6 +1041,44 @@ class TestWaitForValidation:
         data = json.loads(result[0].text)
         assert data["error"] == "element_not_found"
         assert "e99" in data["message"]
+
+    async def test_window_appears_invalid_match_mode(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears with invalid match mode returns validation error."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {
+                    "type": "window_appears",
+                    "title": "Test",
+                    "match": "exact",
+                },
+                "timeout_ms": 200,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "validation_error"
+        assert "match" in data["message"]
+
+    async def test_window_appears_invalid_regex(
+        self, mcp: FastMCP
+    ) -> None:
+        """window_appears with invalid regex returns validation error."""
+        result, _ = await mcp.call_tool(
+            "desktop.wait_for",
+            arguments={
+                "condition": {
+                    "type": "window_appears",
+                    "title": r"[invalid",
+                    "match": "regex",
+                },
+                "timeout_ms": 200,
+            },
+        )
+        data = json.loads(result[0].text)
+        assert data["error"] == "validation_error"
+        assert "regex" in data["message"].lower() or "Invalid" in data["message"]
 
 
 # -- Range validation ---------------------------------------------------------
