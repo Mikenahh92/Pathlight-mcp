@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -5,8 +6,45 @@ dist/
 build/
 .eggs/
 *.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
+*.cover
+
+# Linting / type checking
 .ruff_cache/
 .mypy_cache/
+.pytype/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets / credentials
+.env
+.env.*
+*.pem
+*.key
+
+# Node
+node_modules/
+
+# Project
+.synod-worktrees/
+"DH dojo"/
