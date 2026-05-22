@@ -71,12 +71,15 @@ class GuidewireServerProcess:
 
     def _build_env(self) -> dict[str, str]:
         """Build the subprocess environment with PYTHONPATH set."""
-        env: dict[str, str] = {}
+        # Inherit the full parent environment so the child process has
+        # PATH, DISPLAY, HOME, etc.  Previously this started from an empty
+        # dict which stripped all parent env vars (GW-075).
+        env: dict[str, str] = dict(os.environ)
         if self.env:
             env.update(self.env)
         # Prepend src_dir to PYTHONPATH so the subprocess can import guidewire.
-        existing = os.environ.get("PYTHONPATH", "")
-        env["PYTHONPATH"] = self.src_dir + ((";" + existing) if existing else "")
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = self.src_dir + ((os.pathsep + existing) if existing else "")
         # Ensure PYTHONIOENCODING is set to utf-8 for stdio transport.
         env.setdefault("PYTHONIOENCODING", "utf-8")
         return env
