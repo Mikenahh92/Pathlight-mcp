@@ -246,34 +246,91 @@ class LinuxBackend(DesktopBackend):
         """
         accessible = self._resolve_accessible(window)
 
+        # Collect diagnostic context for the error message (GW-078)
+        acc_name = ""
+        acc_role = ""
+        with contextlib.suppress(Exception):
+            acc_name = accessible.get_name() or ""
+        with contextlib.suppress(Exception):
+            role = accessible.get_role()
+            acc_role = role if isinstance(role, str) else str(role)
+
+        atspi_tried = False
+        atspi_reason = ""
+        xlib_tried = False
+        xlib_reason = ""
+        xlib_unavailable = False
+
         # -- Primary path: AT-SPI activate action ----------------------------
         try:
             action = self._get_action(accessible, "activate")
             if action is not None:
+                atspi_tried = True
                 action.doAction(0)
                 logger.debug("Activated window via AT-SPI activate: %s", window)
                 if self._verify_focus(accessible):
                     return
+                atspi_reason = (
+                    "post-activation verification failed "
+                    "(STATE_ACTIVE/STATE_FOCUSED not acquired)"
+                )
                 logger.debug("Post-activation verification failed after AT-SPI activate")
+            else:
+                atspi_reason = "activate action not found in AT-SPI action list"
         except Exception as exc:
+            atspi_tried = True
+            atspi_reason = str(exc)
             logger.debug("AT-SPI activate failed: %s", exc)
 
         # -- Fallback: _NET_ACTIVE_WINDOW via python-xlib --------------------
         try:
             self._xlib_activate(accessible)
+            xlib_tried = True
             logger.debug("Activated window via xlib fallback: %s", window)
             if self._verify_focus(accessible):
                 return
+            xlib_reason = (
+                "post-activation verification failed "
+                "(STATE_ACTIVE/STATE_FOCUSED not acquired)"
+            )
             logger.debug("Post-activation verification failed after xlib fallback")
         except ImportError:
+            xlib_unavailable = True
+            xlib_reason = "python-xlib not installed (install via: pip install python-xlib)"
             logger.debug("python-xlib not available; cannot use EWMH fallback")
         except Exception as exc:
+            xlib_tried = True
+            xlib_reason = str(exc)
             logger.debug("xlib fallback failed: %s", exc)
 
-        raise ActionNotSupportedError(
-            "focus_window requires AT-SPI activate action or python-xlib "
-            "(install via: pip install python-xlib)"
+        # GW-078: Build diagnostic error message with activation path details
+        parts = ["focus_window failed"]
+        if acc_name:
+            parts.append(f"window={acc_name!r}")
+        if acc_role:
+            parts.append(f"role={acc_role!r}")
+
+        atspi_detail = (
+            f"attempted, {atspi_reason}"
+            if atspi_tried and atspi_reason
+            else "attempted" if atspi_tried
+            else f"skipped ({atspi_reason})" if atspi_reason
+            else "not available"
         )
+        parts.append(f"AT-SPI activate: {atspi_detail}")
+
+        xlib_detail = (
+            f"attempted, {xlib_reason}"
+            if xlib_tried and xlib_reason
+            else "attempted" if xlib_tried
+            else "unavailable" if xlib_unavailable
+            else f"failed ({xlib_reason})" if xlib_reason
+            else "not attempted"
+        )
+        parts.append(f"xlib fallback: {xlib_detail}")
+        parts.append("install python-xlib for EWMH fallback: pip install python-xlib")
+
+        raise ActionNotSupportedError("; ".join(parts))
 
     # -- Private helpers for focus_window ------------------------------------
 
@@ -575,6 +632,14 @@ class LinuxBackend(DesktopBackend):
                 role="unknown",
             )
 
+        # GW-078: On pyatspi 2.46 (Ubuntu 22.04), some offscreen elements
+        # crash during D-Bus round-trips in getState() or property queries.
+        # Pre-check offscreen state via a safe D-Bus probe so that we can
+        # skip the node before calling _extract_element_node, which performs
+        # many more D-Bus calls and is more likely to trigger the crash.
+        if depth > 0 and self._is_likely_offscreen(accessible):
+            return None
+
         try:
             counter[0] += 1
             node = self._extract_element_node(accessible)
@@ -617,6 +682,30 @@ class LinuxBackend(DesktopBackend):
             node.children = children
 
         return node
+
+    @staticmethod
+    def _is_likely_offscreen(accessible: Any) -> bool:
+        """Check whether *accessible* is offscreen without triggering a crash.
+
+        On pyatspi 2.46 (Ubuntu 22.04), ``state_set.contains(STATE_OFFSCREEN)``
+        can raise a D-Bus exception for elements that are genuinely offscreen.
+        This helper wraps the check safely and returns ``True`` only when the
+        element explicitly reports ``STATE_OFFSCREEN``.
+
+        Returns:
+            ``True`` if the element reports STATE_OFFSCREEN, ``False`` otherwise
+            (including when the state query fails — those are handled by the
+            caller's own exception handling).
+        """
+        try:
+            import pyatspi
+
+            state_set = accessible.getState()
+            return bool(state_set.contains(pyatspi.STATE_OFFSCREEN))
+        except Exception:
+            # Don't assume offscreen on error — let the caller's normal
+            # exception handling deal with defunct/inaccessible nodes.
+            return False
 
     def find_elements(
         self,
@@ -1099,7 +1188,8 @@ class LinuxBackend(DesktopBackend):
         try:
             text_interface = accessible.queryText()
             if text_interface is not None:
-                text = text_interface.get_text(0, text_interface.character_count)
+                char_count = text_interface.character_count
+                text = text_interface.get_text(0, char_count)
                 return str(text) if text else ""
         except Exception:
             pass
@@ -1209,12 +1299,17 @@ class LinuxBackend(DesktopBackend):
 
     @staticmethod
     def _send_key(key: str) -> None:
-        """Simulate a single key press via ``pynput`` keyboard simulation.
+        """Simulate a key press via ``pynput`` keyboard simulation.
+
+        Supports single keys (``"enter"``, ``"tab"``, ``"a"``) and
+        ``+``-delimited modifier combos (``"ctrl+s"``, ``"ctrl+shift+p"``,
+        ``"alt+f4"``).
 
         Falls back silently if pynput is not available.
 
         Args:
-            key: The key name (e.g. ``"Enter"``, ``"Tab"``, ``"escape"``).
+            key: The key name or combo (e.g. ``"enter"``, ``"ctrl+s"``,
+                ``"ctrl+shift+p"``).
         """
         try:
             from pynput.keyboard import Controller, Key
@@ -1248,6 +1343,44 @@ class LinuxBackend(DesktopBackend):
                 "f11": Key.f11,
                 "f12": Key.f12,
             }
+
+            modifier_map: dict[str, Any] = {
+                "ctrl": Key.ctrl,
+                "shift": Key.shift,
+                "alt": Key.alt,
+                "super": Key.cmd,
+            }
+
+            # GW-078: Parse ``+``-delimited modifier combos.  The tool layer
+            # normalises combos like "Ctrl+Shift+P" → "ctrl+shift+p", so we
+            # split on ``+`` and hold all modifier keys while pressing the
+            # final (non-modifier) key.
+            parts = key.lower().split("+")
+            if len(parts) > 1:
+                # Separate modifier keys from the final key
+                held_keys: list[Any] = []
+                final_key = parts[-1]
+                for part in parts[:-1]:
+                    mod = modifier_map.get(part)
+                    if mod is not None:
+                        held_keys.append(mod)
+
+                # Resolve the final key
+                resolved_final = key_map.get(final_key)
+                if resolved_final is None and len(final_key) == 1:
+                    resolved_final = final_key
+
+                if resolved_final is not None and held_keys:
+                    # Hold all modifiers, press the key, release modifiers
+                    for mod_key in held_keys:
+                        keyboard.press(mod_key)
+                    keyboard.press(resolved_final)
+                    keyboard.release(resolved_final)
+                    for mod_key in reversed(held_keys):
+                        keyboard.release(mod_key)
+                    return
+                # If we can't resolve the combo, fall through to single-key
+                # handling below (backward compatibility)
 
             mapped = key_map.get(key.lower())
             if mapped is not None:

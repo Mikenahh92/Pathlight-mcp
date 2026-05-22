@@ -1706,6 +1706,18 @@ def _make_mock_pyatspi(showing_count: int, hidden_count: int) -> MagicMock:
     mock_pyatspi.ROLE_TOOLTIP = role_tooltip
     mock_pyatspi.ROLE_APPLICATION = role_application
     mock_pyatspi.STATE_SHOWING = 42
+    mock_pyatspi.STATE_OFFSCREEN = 99  # GW-078: needed by _is_likely_offscreen
+    mock_pyatspi.STATE_ENABLED = 0
+    mock_pyatspi.STATE_FOCUSED = 1
+    mock_pyatspi.STATE_ACTIVE = 2
+    mock_pyatspi.STATE_SELECTED = 3
+    mock_pyatspi.STATE_CHECKED = 4
+    mock_pyatspi.STATE_EXPANDED = 5
+    mock_pyatspi.STATE_VISIBLE = 6
+    mock_pyatspi.STATE_READ_ONLY = 7
+    mock_pyatspi.STATE_REQUIRED = 8
+    mock_pyatspi.STATE_EDITABLE = 9
+    mock_pyatspi.STATE_INDETERMINATE = 10
 
     mock_registry = MagicMock()
     mock_desktop = MagicMock()
@@ -2299,3 +2311,438 @@ class TestFocusWindowLifecycle:
         # Dispose.
         backend.dispose()
         assert backend._disposed
+
+
+# ---------------------------------------------------------------------------
+# GW-078: Linux AT-SPI2 Runtime Crash Fixes
+# ---------------------------------------------------------------------------
+
+
+class TestOffscreenPreCheck:
+    """GW-078 Bug 1: Verify _is_likely_offscreen safely handles pyatspi 2.46 crashes."""
+
+    def test_offscreen_element_returns_true(self) -> None:
+        """_is_likely_offscreen must return True for offscreen elements."""
+        mock_pyatspi = _make_mock_pyatspi(showing_count=0, hidden_count=0)
+        with patch.dict("sys.modules", {"pyatspi": mock_pyatspi}):
+            acc = MagicMock()
+            state_set = MagicMock()
+            # STATE_OFFSCREEN is the 8th constant (index 7)
+            state_set.contains.side_effect = lambda c: c == mock_pyatspi.STATE_OFFSCREEN
+            acc.getState.return_value = state_set
+            assert LinuxBackend._is_likely_offscreen(acc) is True
+
+    def test_non_offscreen_element_returns_false(self) -> None:
+        """_is_likely_offscreen must return False for visible elements."""
+        mock_pyatspi = _make_mock_pyatspi(showing_count=0, hidden_count=0)
+        with patch.dict("sys.modules", {"pyatspi": mock_pyatspi}):
+            acc = MagicMock()
+            state_set = MagicMock()
+            state_set.contains.return_value = False
+            acc.getState.return_value = state_set
+            assert LinuxBackend._is_likely_offscreen(acc) is False
+
+    def test_get_state_crash_returns_false(self) -> None:
+        """_is_likely_offscreen must return False when getState() crashes.
+
+        On pyatspi 2.46, getState() can raise a D-Bus exception for
+        offscreen elements.  The helper must not propagate the crash
+        but also not assume offscreen — the caller handles exceptions
+        through its own try/except path.
+        """
+        mock_pyatspi = _make_mock_pyatspi(showing_count=0, hidden_count=0)
+        with patch.dict("sys.modules", {"pyatspi": mock_pyatspi}):
+            acc = MagicMock()
+            acc.getState.side_effect = RuntimeError("D-Bus crash on offscreen element")
+            assert LinuxBackend._is_likely_offscreen(acc) is False
+
+    def test_contains_crash_returns_false(self) -> None:
+        """_is_likely_offscreen must return False when contains() crashes."""
+        mock_pyatspi = _make_mock_pyatspi(showing_count=0, hidden_count=0)
+        with patch.dict("sys.modules", {"pyatspi": mock_pyatspi}):
+            acc = MagicMock()
+            state_set = MagicMock()
+            state_set.contains.side_effect = RuntimeError("D-Bus crash")
+            acc.getState.return_value = state_set
+            assert LinuxBackend._is_likely_offscreen(acc) is False
+
+
+class TestSnapshotOffscreenSafety:
+    """GW-078 Bug 1: Verify snapshot handles STATE_OFFSCREEN crashes gracefully."""
+
+    @pytest.fixture()
+    def backend(self) -> LinuxBackend:
+        """Create a LinuxBackend with mocked pyatspi."""
+        mock_pyatspi = _make_mock_pyatspi(showing_count=0, hidden_count=0)
+        original_platform = sys.platform
+        original_pyatspi = sys.modules.get("pyatspi")
+        sys.platform = "linux"
+        sys.modules["pyatspi"] = mock_pyatspi
+        yield LinuxBackend()
+        sys.platform = original_platform
+        if original_pyatspi is None:
+            sys.modules.pop("pyatspi", None)
+        else:
+            sys.modules["pyatspi"] = original_pyatspi
+
+    def test_snapshot_skips_child_whose_get_state_crashes(
+        self, backend: LinuxBackend
+    ) -> None:
+        """snapshot() must not crash when a child's getState() raises (pyatspi 2.46 bug).
+
+        This simulates the actual bug: an offscreen child whose getState()
+        call crashes during the D-Bus round-trip.  The snapshot must not
+        crash — it includes the child with empty/default properties.
+        """
+        mock_pyatspi = _make_mock_pyatspi(showing_count=0, hidden_count=0)
+        with patch.dict("sys.modules", {"pyatspi": mock_pyatspi}):
+            # Build a child whose getState() crashes (pyatspi 2.46 offscreen bug)
+            crashing_child = MagicMock()
+            crashing_child.get_role.return_value = "push button"
+            crashing_child.get_name.return_value = "Hidden"
+            crashing_child.get_description.return_value = None
+            crashing_child.get_text.return_value = None
+            crashing_child.get_value.return_value = None
+            crashing_child.get_action.return_value = None
+            crashing_child.getExtent.return_value = None
+            crashing_child.childCount = 0
+            # getState() crashes — simulating the pyatspi 2.46 bug
+            crashing_child.getState.side_effect = RuntimeError("D-Bus offscreen crash")
+
+            # Build a good child
+            good_child = MagicMock()
+            good_child.get_role.return_value = "push button"
+            good_child.get_name.return_value = "OK"
+            good_child.get_description.return_value = None
+            good_child.get_text.return_value = None
+            good_child.get_value.return_value = None
+            good_child.get_action.return_value = None
+            good_child.getExtent.return_value = None
+            good_child.childCount = 0
+            # Good child has valid states (not offscreen)
+            good_ss = MagicMock()
+            good_ss.contains.return_value = False
+            good_child.getState.return_value = good_ss
+
+            root = MagicMock()
+            root.get_role.return_value = "frame"
+            root.get_name.return_value = "Window"
+            root.get_description.return_value = None
+            root.get_text.return_value = None
+            root.get_value.return_value = None
+            root.getExtent.return_value = None
+            root.childCount = 2
+            root.getChildAtIndex.side_effect = lambda i: [good_child, crashing_child][i]
+            # Root states — not offscreen
+            root_ss = MagicMock()
+            root_ss.contains.return_value = False
+            root.getState.return_value = root_ss
+            root.get_action.return_value = None
+
+            # Must not crash
+            result = backend.snapshot(NativeHandle(root))
+            children = result.get("children") or []
+            # Both children are included: good child has proper data,
+            # crashing child has empty states (getState absorbed by suppress)
+            assert len(children) == 2
+            assert children[0]["name"] == "OK"
+            assert children[1]["name"] == "Hidden"
+
+    def test_snapshot_includes_root_even_when_get_state_crashes(
+        self, backend: LinuxBackend
+    ) -> None:
+        """snapshot() must include root even when getState() crashes (depth 0)."""
+        mock_pyatspi = _make_mock_pyatspi(showing_count=0, hidden_count=0)
+        with patch.dict("sys.modules", {"pyatspi": mock_pyatspi}):
+            root = MagicMock()
+            root.get_role.return_value = "frame"
+            root.get_name.return_value = "Window"
+            root.get_description.return_value = None
+            root.get_text.return_value = None
+            root.get_value.return_value = None
+            root.getExtent.return_value = None
+            root.childCount = 0
+            root.get_action.return_value = None
+            # Root getState() crashes
+            root.getState.side_effect = RuntimeError("D-Bus crash")
+
+            # Must not crash — root is always included at depth 0
+            result = backend.snapshot(NativeHandle(root))
+            assert result["name"] == "Window"
+
+
+class TestSendKeyModifierCombos:
+    """GW-078 Bug 2: Verify _send_key handles modifier combos correctly."""
+
+    def _make_mock_pynput(self):
+        """Create mock pynput.keyboard module with named key objects."""
+        mock_keyboard = MagicMock()
+        key_lookup = {
+            "ctrl": MagicMock(name="Key.ctrl"),
+            "shift": MagicMock(name="Key.shift"),
+            "alt": MagicMock(name="Key.alt"),
+            "super": MagicMock(name="Key.cmd"),
+            "enter": MagicMock(name="Key.enter"),
+            "tab": MagicMock(name="Key.tab"),
+            "escape": MagicMock(name="Key.esc"),
+            "f1": MagicMock(name="Key.f1"),
+            "f2": MagicMock(name="Key.f2"),
+            "f3": MagicMock(name="Key.f3"),
+            "f4": MagicMock(name="Key.f4"),
+            "f5": MagicMock(name="Key.f5"),
+            "f6": MagicMock(name="Key.f6"),
+            "f7": MagicMock(name="Key.f7"),
+            "f8": MagicMock(name="Key.f8"),
+            "f9": MagicMock(name="Key.f9"),
+            "f10": MagicMock(name="Key.f10"),
+            "f11": MagicMock(name="Key.f11"),
+            "f12": MagicMock(name="Key.f12"),
+        }
+        mock_key = MagicMock()
+        mock_key.ctrl = key_lookup["ctrl"]
+        mock_key.shift = key_lookup["shift"]
+        mock_key.alt = key_lookup["alt"]
+        mock_key.cmd = key_lookup["super"]
+        mock_key.enter = key_lookup["enter"]
+        mock_key.tab = key_lookup["tab"]
+        mock_key.esc = key_lookup["escape"]
+        mock_key.backspace = MagicMock()
+        mock_key.delete = MagicMock()
+        mock_key.up = MagicMock()
+        mock_key.down = MagicMock()
+        mock_key.left = MagicMock()
+        mock_key.right = MagicMock()
+        mock_key.home = MagicMock()
+        mock_key.end = MagicMock()
+        mock_key.page_up = MagicMock()
+        mock_key.page_down = MagicMock()
+        mock_key.space = MagicMock()
+        for i in range(1, 13):
+            setattr(mock_key, f"f{i}", key_lookup[f"f{i}"])
+        mock_kb = MagicMock()
+        mock_kb.Controller.return_value = mock_keyboard
+        mock_kb.Key = mock_key
+        return mock_keyboard, key_lookup, mock_kb
+
+    def test_ctrl_shift_p_combo_presses_correctly(self) -> None:
+        """_send_key('ctrl+shift+p') must press ctrl, shift, p then release."""
+        from unittest.mock import call
+
+        mock_keyboard, keys, mock_kb = self._make_mock_pynput()
+        with patch.dict("sys.modules", {"pynput": MagicMock(), "pynput.keyboard": mock_kb}):
+            LinuxBackend._send_key("ctrl+shift+p")
+        assert mock_keyboard.press.call_count == 3
+        assert mock_keyboard.release.call_count == 3
+        assert mock_keyboard.press.call_args_list[0] == call(keys["ctrl"])
+        assert mock_keyboard.press.call_args_list[1] == call(keys["shift"])
+        assert mock_keyboard.press.call_args_list[2] == call("p")
+        assert mock_keyboard.release.call_args_list[0] == call("p")
+        assert mock_keyboard.release.call_args_list[1] == call(keys["shift"])
+        assert mock_keyboard.release.call_args_list[2] == call(keys["ctrl"])
+
+    def test_ctrl_a_combo(self) -> None:
+        """_send_key('ctrl+a') must hold ctrl while pressing a."""
+        from unittest.mock import call
+
+        mock_keyboard, keys, mock_kb = self._make_mock_pynput()
+        with patch.dict("sys.modules", {"pynput": MagicMock(), "pynput.keyboard": mock_kb}):
+            LinuxBackend._send_key("ctrl+a")
+        assert mock_keyboard.press.call_count == 2
+        assert mock_keyboard.release.call_count == 2
+        assert mock_keyboard.press.call_args_list[0] == call(keys["ctrl"])
+        assert mock_keyboard.press.call_args_list[1] == call("a")
+
+    def test_alt_f4_combo(self) -> None:
+        """_send_key('alt+f4') must hold alt while pressing f4."""
+        from unittest.mock import call
+
+        mock_keyboard, keys, mock_kb = self._make_mock_pynput()
+        with patch.dict("sys.modules", {"pynput": MagicMock(), "pynput.keyboard": mock_kb}):
+            LinuxBackend._send_key("alt+f4")
+        assert mock_keyboard.press.call_count == 2
+        assert mock_keyboard.press.call_args_list[0] == call(keys["alt"])
+        assert mock_keyboard.press.call_args_list[1] == call(keys["f4"])
+
+    def test_super_key_combo(self) -> None:
+        """_send_key('super+r') must hold cmd while pressing r."""
+        from unittest.mock import call
+
+        mock_keyboard, keys, mock_kb = self._make_mock_pynput()
+        with patch.dict("sys.modules", {"pynput": MagicMock(), "pynput.keyboard": mock_kb}):
+            LinuxBackend._send_key("super+r")
+        assert mock_keyboard.press.call_args_list[0] == call(keys["super"])
+        assert mock_keyboard.press.call_args_list[1] == call("r")
+
+    def test_single_key_still_works(self) -> None:
+        """_send_key('enter') must still work for single keys (backward compat)."""
+        from unittest.mock import call
+
+        mock_keyboard, keys, mock_kb = self._make_mock_pynput()
+        with patch.dict("sys.modules", {"pynput": MagicMock(), "pynput.keyboard": mock_kb}):
+            LinuxBackend._send_key("enter")
+        assert mock_keyboard.press.call_count == 1
+        assert mock_keyboard.press.call_args == call(keys["enter"])
+        assert mock_keyboard.release.call_args == call(keys["enter"])
+
+    def test_ctrl_shift_escape_combo(self) -> None:
+        """_send_key('ctrl+shift+escape') must handle triple combos."""
+        from unittest.mock import call
+
+        mock_keyboard, keys, mock_kb = self._make_mock_pynput()
+        with patch.dict("sys.modules", {"pynput": MagicMock(), "pynput.keyboard": mock_kb}):
+            LinuxBackend._send_key("ctrl+shift+escape")
+        assert mock_keyboard.press.call_count == 3
+        assert mock_keyboard.release.call_count == 3
+        assert mock_keyboard.press.call_args_list[0] == call(keys["ctrl"])
+        assert mock_keyboard.press.call_args_list[1] == call(keys["shift"])
+        assert mock_keyboard.press.call_args_list[2] == call(keys["escape"])
+
+    def test_ctrl_s_combo(self) -> None:
+        """_send_key('ctrl+s') must hold ctrl while pressing s."""
+        from unittest.mock import call
+
+        mock_keyboard, keys, mock_kb = self._make_mock_pynput()
+        with patch.dict("sys.modules", {"pynput": MagicMock(), "pynput.keyboard": mock_kb}):
+            LinuxBackend._send_key("ctrl+s")
+        assert mock_keyboard.press.call_count == 2
+        assert mock_keyboard.press.call_args_list[0] == call(keys["ctrl"])
+        assert mock_keyboard.press.call_args_list[1] == call("s")
+        assert mock_keyboard.release.call_args_list[0] == call("s")
+        assert mock_keyboard.release.call_args_list[1] == call(keys["ctrl"])
+
+
+
+class TestFocusWindowDiagnosticMessage:
+    """GW-078 Bug 3: Verify focus_window error includes diagnostic context."""
+
+    def test_error_includes_activation_paths(self) -> None:
+        """Error message must mention AT-SPI activate and xlib paths."""
+        backend = _make_backend()
+        fake_accessible = _make_accessible(focused=False)
+        fake_accessible.get_name.return_value = "TestWindow"
+        fake_accessible.get_role.return_value = "frame"
+        fake_accessible.get_action.return_value = None
+
+        with (
+            patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
+            patch(
+                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                side_effect=ImportError("no xlib"),
+            ),
+            pytest.raises(ActionNotSupportedError) as exc_info,
+        ):
+            backend.focus_window(fake_accessible)
+
+        msg = str(exc_info.value)
+        assert "AT-SPI activate" in msg
+        assert "xlib" in msg
+
+    def test_error_includes_window_name(self) -> None:
+        """Error message must include the window name."""
+        backend = _make_backend()
+        fake_accessible = _make_accessible(focused=False)
+        fake_accessible.get_name.return_value = "MyVSCodeWindow"
+        fake_accessible.get_action.return_value = None
+
+        with (
+            patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
+            patch(
+                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                side_effect=ImportError("no xlib"),
+            ),
+            pytest.raises(ActionNotSupportedError) as exc_info,
+        ):
+            backend.focus_window(fake_accessible)
+
+        msg = str(exc_info.value)
+        assert "MyVSCodeWindow" in msg
+
+    def test_error_includes_install_instruction(self) -> None:
+        """Error message must include pip install instruction."""
+        backend = _make_backend()
+        fake_accessible = _make_accessible(focused=False)
+        fake_accessible.get_name.return_value = "TestWindow"
+        fake_accessible.get_role.return_value = "frame"
+        fake_accessible.get_action.return_value = None
+
+        with (
+            patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
+            patch(
+                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                side_effect=ImportError("no xlib"),
+            ),
+            pytest.raises(ActionNotSupportedError) as exc_info,
+        ):
+            backend.focus_window(fake_accessible)
+
+        msg = str(exc_info.value)
+        assert "pip install python-xlib" in msg
+
+    def test_error_when_atspi_verify_fails(self) -> None:
+        """Error must note verification failure when AT-SPI activate ran but verify failed."""
+        backend = _make_backend()
+        fake_accessible = _make_accessible(focused=False)
+        fake_accessible.get_name.return_value = "TestWindow"
+        fake_accessible.get_role.return_value = "frame"
+
+        fake_action_iface = MagicMock()
+        fake_action_iface.get_n_actions.return_value = 1
+        fake_action_iface.get_action_name.return_value = "activate"
+        fake_accessible.get_action.return_value = fake_action_iface
+
+        with (
+            patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
+            patch(
+                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                side_effect=ImportError("no xlib"),
+            ),
+            pytest.raises(ActionNotSupportedError) as exc_info,
+        ):
+            backend.focus_window(fake_accessible)
+
+        msg = str(exc_info.value)
+        assert "AT-SPI activate: attempted" in msg
+        assert "verification failed" in msg
+        assert "xlib fallback: unavailable" in msg
+
+    def test_error_when_xlib_raises_non_import(self) -> None:
+        """Error must include xlib failure reason when it raises a non-ImportError."""
+        backend = _make_backend()
+        fake_accessible = _make_accessible(focused=False)
+        fake_accessible.get_name.return_value = "TestWindow"
+        fake_accessible.get_role.return_value = "frame"
+        fake_accessible.get_action.return_value = None
+
+        with (
+            patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
+            patch(
+                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                side_effect=RuntimeError("Display connection refused"),
+            ),
+            pytest.raises(ActionNotSupportedError) as exc_info,
+        ):
+            backend.focus_window(fake_accessible)
+
+        msg = str(exc_info.value)
+        assert "Display connection refused" in msg
+
+    def test_error_includes_window_role(self) -> None:
+        """Error message must include the accessible role."""
+        backend = _make_backend()
+        fake_accessible = _make_accessible(focused=False)
+        fake_accessible.get_name.return_value = "TestWindow"
+        fake_accessible.get_role.return_value = "frame"
+        fake_accessible.get_action.return_value = None
+
+        with (
+            patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
+            patch(
+                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                side_effect=ImportError("no xlib"),
+            ),
+            pytest.raises(ActionNotSupportedError) as exc_info,
+        ):
+            backend.focus_window(fake_accessible)
+
+        msg = str(exc_info.value)
+        assert "role=" in msg
