@@ -57,6 +57,50 @@ MCP Server  →  Tools  →  Refs  →  Normalize  →  Backends
 5. Safety classification runs on the result
 6. Structured JSON response is returned (success or error with hints)
 
+### Project structure
+
+```
+src/guidewire/
+  __init__.py          Package version
+  __main__.py          CLI entry point (--backend flag)
+  server.py            GuidewireServer (FastMCP wrapper, stdio transport)
+  refs.py              ElementRefStore (short ref to native handle mapping)
+  errors.py            8 structured error types with hint registry
+  safety.py            3-tier risk classification model
+  privacy.py           Password detection, value redaction, app denylisting
+  hints.py             Actionable recovery hints per error code
+  backends/
+    base.py            DesktopBackend ABC (22 abstract methods)
+    types.py           NativeHandle, ElementBounds, DesktopAction types
+    normalize.py       Cross-platform normalization pipeline
+    mock.py            MockBackend for testing
+    windows.py         Windows UI Automation backend
+    linux.py           Linux AT-SPI2 backend
+    _xlib_focus.py     X11 EWMH window focus helper
+  models/
+    __init__.py        NormalizedElement, ElementStates, Bounds
+    mappings.py        Role/control type mapping tables
+  tools/
+    __init__.py        register_all() dispatcher
+    list_windows.py    desktop.list_windows
+    focus_window.py    desktop.focus_window
+    manage_window.py   desktop.manage_window
+    snapshot.py        desktop.snapshot
+    find.py            desktop.find
+    click.py           desktop.click
+    type_text.py       desktop.type_text
+    press_key.py       desktop.press_key
+    get_text.py        desktop.get_text
+    get_tree_info.py   desktop.get_tree_info
+    clipboard_read.py  desktop.clipboard_read
+    clipboard_write.py desktop.clipboard_write
+    get_table_info.py  desktop.get_table_info
+    launch_app.py      desktop.launch_app
+    scroll_to_item.py  desktop.scroll_to_item
+    multi_action.py    desktop.multi_action
+    wait_for.py        desktop.wait_for
+```
+
 ## Getting Started
 
 1. **Fork** the repository on GitHub.

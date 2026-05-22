@@ -1,6 +1,6 @@
 # Guidewire
 
-**Desktop Accessibility MCP** — a Playwright-like MCP server for non-browser desktop applications, powered by OS accessibility APIs.
+**The zero-code desktop MCP server.** Connect any AI agent to native desktop applications in 30 seconds — no configuration, no API keys, no browser required.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -9,134 +9,19 @@
 [![Platform: Windows / Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)](#supported-platforms)
 [![Tests](https://img.shields.io/badge/tests-65%2B%20files-brightgreen.svg)](#testing)
 
-Guidewire exposes desktop application UIs as a navigable, actionable accessibility tree that AI agents can inspect and operate through structured MCP tool calls. It works where Playwright cannot — native desktop apps, system dialogs, legacy software, and any window that responds to OS accessibility APIs.
+Guidewire turns any desktop application into a navigable accessibility tree that AI agents can see, click, type into, and control — through standard MCP tool calls. It works where Playwright cannot: native apps, system dialogs, legacy software, control panels, and any window that responds to OS accessibility APIs.
+
+> **New to MCP?** The [Model Context Protocol](https://modelcontextprotocol.io/) is the standard way AI agents interact with external tools. If your client supports MCP servers, it supports Guidewire.
 
 ---
 
-## Table of Contents
+## How Agents Connect
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Quickstart](#quickstart)
-- [Configuration](#configuration)
-- [MCP Tools Reference](#mcp-tools-reference)
-- [Usage Examples](#usage-examples)
-- [Supported Platforms](#supported-platforms)
-- [Safety Model](#safety-model)
-- [Development](#development)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [Roadmap](#roadmap)
-- [License](#license)
+Guidewire uses the MCP **stdio transport**, which means any MCP-compatible client can connect by pointing at the `guidewire` command. No API keys, no web server, no browser extension.
 
----
+### Claude Desktop
 
-## Features
-
-- **17 MCP tools** for complete desktop interaction — windows, elements, keyboard, clipboard, trees, tables, and more
-- **Cross-platform backends** — Windows (UI Automation) and Linux (AT-SPI2) with a unified API
-- **Normalized element schema** — platform-agnostic role, state, and action names mapped from native accessibility APIs
-- **Element reference store** — short-lived, per-snapshot references (`e1`, `w3`) that auto-invalidate on stale access
-- **Three-tier safety model** — every element/action is classified as READ_ONLY, INTERACTION, or SENSITIVE
-- **Privacy controls** — automatic password field detection, value redaction, and app-level denylisting
-- **Structured errors with hints** — 8 error codes with actionable recovery suggestions
-- **Async condition polling** — `wait_for` tool blocks until a UI condition is met
-- **Batch actions** — `multi_action` tool groups 2–20 actions into a single call
-- **Stdio transport** — works with any MCP client (Claude Desktop, Anthropic SDK, custom agents)
-
----
-
-## Architecture
-
-```mermaid
-graph LR
-    subgraph MCP Client
-        A[Claude / AI Agent]
-    end
-
-    subgraph Guidewire MCP Server
-        B[FastMCP<br/>stdio transport]
-        C[Tool Layer<br/>17 tools]
-        D[Element Ref Store]
-        E[Normalizer]
-    end
-
-    subgraph Platform Backends
-        F[Windows Backend<br/>UI Automation / comtypes]
-        G[Linux Backend<br/>AT-SPI2 / pyatspi]
-    end
-
-    subgraph Desktop
-        H[Notepad]
-        I[Calculator]
-        J[Settings]
-        K[gedit]
-        L[Nautilus]
-    end
-
-    A -->|MCP JSON-RPC| B
-    B --> C
-    C --> D
-    C --> E
-    E --> F
-    E --> G
-    F --> H
-    F --> I
-    F --> J
-    G --> K
-    G --> L
-```
-
-### How it works
-
-1. **MCP Client** connects to Guidewire via stdio transport
-2. **Tool Layer** receives structured tool calls (`desktop.snapshot`, `desktop.click`, etc.)
-3. **Element Reference Store** maps short references to native handles
-4. **Normalizer** converts platform-specific data into a unified `NormalizedElement` schema
-5. **Platform Backend** translates actions into OS accessibility API calls
-6. **Desktop Application** responds to the accessibility-driven interaction
-
----
-
-## Quickstart
-
-### Requirements
-
-- Python 3.11 or later
-- Windows 10+ or Linux with AT-SPI2 support
-
-### Install
-
-```bash
-# Core package
-pip install guidewire
-
-# With platform support
-pip install "guidewire[windows]"   # Windows (comtypes)
-pip install "guidewire[linux-x11]" # Linux X11 focus helper (python-xlib)
-
-# Or install from source
-git clone https://github.com/Mikenahh92/Guidewire.git
-cd Guidewire
-pip install -e ".[dev]"
-```
-
-### Run
-
-```bash
-# Start the MCP server (stdio transport)
-guidewire
-
-# Or via Python module
-python -m guidewire
-
-# Use mock backend for testing without a desktop
-guidewire --backend mock
-```
-
-### Connect from Claude Desktop
-
-Add to your `claude_desktop_config.json`:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -149,7 +34,7 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### Connect from Cursor
+### Cursor
 
 Add to `.cursor/mcp.json` in your project root:
 
@@ -164,7 +49,7 @@ Add to `.cursor/mcp.json` in your project root:
 }
 ```
 
-### Connect from Windsurf
+### Windsurf
 
 Add to `.windsurf/mcp.json` in your project root:
 
@@ -179,27 +64,135 @@ Add to `.windsurf/mcp.json` in your project root:
 }
 ```
 
+### VS Code (Copilot / Continue / Cline)
+
+Add to your VS Code MCP settings:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "guidewire": {
+        "command": "guidewire",
+        "args": []
+      }
+    }
+  }
+}
+```
+
+### Any MCP Client
+
+Guidewire is a standard MCP stdio server. Point any MCP client at the `guidewire` command:
+
+```bash
+guidewire                 # auto-detect platform, start MCP server
+guidewire --backend mock  # use mock backend for testing (no desktop needed)
+```
+
+### Install
+
+> **That's it.** `pip install guidewire` + one JSON config block above = done. No API keys, no browser, no extra setup.
+
+```bash
+pip install guidewire
+
+# With platform support (optional — auto-detected at runtime)
+pip install "guidewire[windows]"    # Windows (comtypes)
+pip install "guidewire[linux-x11]"  # Linux X11 focus helper (python-xlib)
+```
+
+<details>
+<summary><strong>Install from source</strong></summary>
+
+```bash
+git clone https://github.com/Mikenahh92/Guidewire.git
+cd Guidewire
+pip install -e ".[dev]"
+```
+
+</details>
+
 ---
 
-## Configuration
+## Usage Examples
 
-Guidewire uses a single CLI flag for backend selection:
+Every example below is an MCP tool call. Your agent makes these calls automatically — you just describe what you want done.
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--backend` | `auto` | Backend mode: `auto` (detect platform), `mock` (test double) |
+### See what's on screen
 
-Auto-detection selects `WindowsBackend` on Windows and `LinuxBackend` on Linux. The `mock` backend returns static test data and requires no desktop environment.
+```python
+# 1. List all open windows — the agent picks the one it needs
+windows = await desktop.list_windows()
+# → [{"title": "Untitled - Notepad", "ref": "w1"}, ...]
+
+# 2. Snapshot the accessibility tree of a window (like a DOM, but for native apps)
+tree = await desktop.snapshot(window_ref="w1")
+# → {"ref": "e1", "role": "window", "name": "Untitled - Notepad",
+#    "children": [{"ref": "e2", "role": "text_edit", ...}]}
+```
+
+### Find and interact with elements
+
+```python
+# Find a text field by role — no CSS selectors or XPath needed
+elements = await desktop.find(window_ref="w1", role="text_edit")
+# → [{"ref": "e3", "role": "text_edit", "name": "Text Editor"}]
+
+# Type into it — just like a human would
+await desktop.type_text(element_ref="e3", text="Hello from Guidewire!")
+
+# Find and click a button by name
+buttons = await desktop.find(window_ref="w1", name="Save")
+await desktop.click(element_ref="e4")  # clicks the Save button
+```
+
+### Wait for something to appear
+
+```python
+# Block until a "Save As" dialog appears (up to 10 seconds, checking every 500ms)
+await desktop.wait_for(
+    condition={"type": "element_appears", "role": "dialog", "name": "Save As"},
+    timeout_ms=10000,
+    interval_ms=500
+)
+```
+
+### Automate a multi-step workflow
+
+```python
+# Batch 2–20 actions into a single call — faster and more reliable
+await desktop.multi_action(actions=[
+    {"tool": "click", "element_ref": "e5"},                          # open menu
+    {"tool": "type_text", "element_ref": "e6", "text": "report.pdf"}, # type filename
+    {"tool": "click", "element_ref": "e7"}                           # confirm save
+])
+```
+
+### Work with tables and trees
+
+```python
+# Read table dimensions and headers
+info = await desktop.get_table_info(element_ref="t1", action="info")
+# → {"rows": 50, "columns": 4, "headers": ["Name", "Size", "Type", "Modified"]}
+
+# Read a specific cell
+cell = await desktop.get_table_info(element_ref="t1", action="read_cell", row=0, col=0)
+# → {"value": "report.pdf"}
+
+# Expand a tree node and read its children
+tree = await desktop.get_tree_info(element_ref="e8", action="expand")
+```
 
 ---
 
-## MCP Tools Reference
+## MCP Tools
 
-All tools are prefixed with `desktop.` in the MCP namespace.
+All 17 tools are available under the `desktop.` namespace immediately after connection — no setup required.
 
 ### Window Management
 
-| Tool | Description |
+| Tool | What it does |
 |------|-------------|
 | `desktop.list_windows` | List visible top-level windows with titles and handles |
 | `desktop.focus_window` | Bring a window to the foreground |
@@ -207,7 +200,7 @@ All tools are prefixed with `desktop.` in the MCP namespace.
 
 ### Element Inspection
 
-| Tool | Description |
+| Tool | What it does |
 |------|-------------|
 | `desktop.snapshot` | Capture the accessibility tree of a window (depth-limited) |
 | `desktop.find` | Find elements by role and/or name within a window |
@@ -217,7 +210,7 @@ All tools are prefixed with `desktop.` in the MCP namespace.
 
 ### Interaction
 
-| Tool | Description |
+| Tool | What it does |
 |------|-------------|
 | `desktop.click` | Click or activate an element |
 | `desktop.type_text` | Type text into a text input element |
@@ -226,71 +219,18 @@ All tools are prefixed with `desktop.` in the MCP namespace.
 
 ### Clipboard
 
-| Tool | Description |
+| Tool | What it does |
 |------|-------------|
 | `desktop.clipboard_read` | Read the current text content of the system clipboard |
 | `desktop.clipboard_write` | Write text to the system clipboard |
 
 ### Orchestration
 
-| Tool | Description |
+| Tool | What it does |
 |------|-------------|
 | `desktop.launch_app` | Launch a desktop application by name or path |
 | `desktop.multi_action` | Execute a batch of 2–20 desktop actions in a single call |
-| `desktop.wait_for` | Async polling — block until a UI condition is met |
-
----
-
-## Usage Examples
-
-### List windows and take a snapshot
-
-```python
-# Via MCP tool calls from an AI agent
-result = await desktop.list_windows()
-# → [{ "title": "Untitled - Notepad", "ref": "w1" }, ...]
-
-result = await desktop.snapshot(window_ref="w1")
-# → { "ref": "e1", "role": "window", "name": "Untitled - Notepad",
-#     "children": [{ "ref": "e2", "role": "text_edit", ... }] }
-```
-
-### Find and interact with an element
-
-```python
-# Find a text field
-result = await desktop.find(window_ref="w1", role="text_edit")
-# → [{ "ref": "e3", "role": "text_edit", "name": "Text Editor" }]
-
-# Type into it
-await desktop.type_text(element_ref="e3", text="Hello, Guidewire!")
-
-# Click a button
-result = await desktop.find(window_ref="w1", name="Save")
-await desktop.click(element_ref="e4")
-```
-
-### Wait for a condition
-
-```python
-# Wait up to 10 seconds for a dialog to appear
-await desktop.wait_for(
-    condition={"type": "element_appears", "role": "dialog", "name": "Save As"},
-    timeout_ms=10000,
-    interval_ms=500
-)
-```
-
-### Batch multiple actions
-
-```python
-# Execute a sequence in one call
-await desktop.multi_action(actions=[
-    {"tool": "click", "element_ref": "e5"},
-    {"tool": "type_text", "element_ref": "e6", "text": "filename.txt"},
-    {"tool": "click", "element_ref": "e7"}
-])
-```
+| `desktop.wait_for` | Block until a UI condition is met (async polling) |
 
 ---
 
@@ -302,20 +242,13 @@ await desktop.multi_action(actions=[
 | **Linux** (GNOME/X11) | `LinuxBackend` | AT-SPI2 (pyatspi) + X11 EWMH | Stable |
 | **macOS** | _Planned_ | Apple Accessibility (AXUIElement) | Not started |
 
-Both backends implement the same `DesktopBackend` abstract interface with 22 methods, providing identical MCP tool behavior regardless of platform.
-
-### Tested Applications
-
-| Platform | Application | Tests |
-|----------|------------|-------|
-| Windows | Notepad, Calculator, Settings, File Explorer | Integration suite |
-| Linux | gedit, GNOME Calculator, Nautilus (Files) | Integration suite |
+Both backends implement the same abstract interface, providing identical tool behavior regardless of platform.
 
 ---
 
 ## Safety Model
 
-Every element-action pair is classified into one of three risk tiers:
+Every action is automatically classified into one of three risk tiers — your agent can use this to gate dangerous operations behind user confirmation.
 
 | Tier | Description | Examples |
 |------|-------------|---------|
@@ -323,36 +256,17 @@ Every element-action pair is classified into one of three risk tiers:
 | **INTERACTION** | Modifies application state | `click`, `type_text`, `press_key` |
 | **SENSITIVE** | Affects system or cross-app state | `clipboard_write`, `launch_app` |
 
-The safety classifier maps 33+ UI roles to default risk levels and flags destructive action patterns. Agents can use risk assessments to gate actions behind user confirmation.
+Additional privacy controls automatically detect password fields, redact sensitive values, and support app-level denylisting.
 
 ---
 
-## Development
+## Configuration
 
-```bash
-# Clone and install with dev dependencies
-git clone https://github.com/Mikenahh92/Guidewire.git
-cd Guidewire
-pip install -e ".[dev]"
+Guidewire auto-detects your platform at startup. One optional flag:
 
-# Run tests
-pytest
-
-# Lint
-ruff check src/ tests/
-
-# Format
-ruff format src/ tests/
-```
-
-### Optional dependency groups
-
-```bash
-pip install -e ".[windows]"      # Windows backend (comtypes)
-pip install -e ".[linux-x11]"    # Linux X11 focus helper (python-xlib)
-pip install -e ".[integration]"  # Integration tests (anthropic SDK)
-pip install -e ".[dev,windows]"  # Combine groups
-```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--backend` | `auto` | Backend mode: `auto` (detect platform), `mock` (test double) |
 
 ---
 
@@ -380,52 +294,6 @@ pytest -k "not integration"
 
 ---
 
-## Project Structure
-
-```
-src/guidewire/
-  __init__.py          Package version
-  __main__.py          CLI entry point (--backend flag)
-  server.py            GuidewireServer (FastMCP wrapper, stdio transport)
-  refs.py              ElementRefStore (short ref to native handle mapping)
-  errors.py            8 structured error types with hint registry
-  safety.py            3-tier risk classification model
-  privacy.py           Password detection, value redaction, app denylisting
-  hints.py             Actionable recovery hints per error code
-  backends/
-    base.py            DesktopBackend ABC (22 abstract methods)
-    types.py           NativeHandle, ElementBounds, DesktopAction types
-    normalize.py       Cross-platform normalization pipeline
-    mock.py            MockBackend for testing
-    windows.py         Windows UI Automation backend
-    linux.py           Linux AT-SPI2 backend
-    _xlib_focus.py     X11 EWMH window focus helper
-  models/
-    __init__.py        NormalizedElement, ElementStates, Bounds
-    mappings.py        Role/control type mapping tables
-  tools/
-    __init__.py        register_all() dispatcher
-    list_windows.py    desktop.list_windows
-    focus_window.py    desktop.focus_window
-    manage_window.py   desktop.manage_window
-    snapshot.py        desktop.snapshot
-    find.py            desktop.find
-    click.py           desktop.click
-    type_text.py       desktop.type_text
-    press_key.py       desktop.press_key
-    get_text.py        desktop.get_text
-    get_tree_info.py   desktop.get_tree_info
-    clipboard_read.py  desktop.clipboard_read
-    clipboard_write.py desktop.clipboard_write
-    get_table_info.py  desktop.get_table_info
-    launch_app.py      desktop.launch_app
-    scroll_to_item.py  desktop.scroll_to_item
-    multi_action.py    desktop.multi_action
-    wait_for.py        desktop.wait_for
-```
-
----
-
 ## Roadmap
 
 | Phase | Focus | Status |
@@ -434,6 +302,12 @@ src/guidewire/
 | **Phase 2** | Clipboard read/write, structured element data, platform normalization | ✅ Complete |
 | **Phase 3** | Error hints with recovery suggestions, `wait_for` async polling, `multi_action` batch execution | ✅ Complete |
 | **Phase 4** | macOS backend (Apple Accessibility / AXUIElement) | 🔜 Planned |
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture details, and the tool authoring guide.
 
 ---
 
