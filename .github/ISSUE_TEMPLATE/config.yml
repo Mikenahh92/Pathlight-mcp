@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/HarmenBakhuis/Guidewire/discussions
+    about: Ask questions, share ideas, and connect with other Guidewire users.
+  - name: Security Vulnerability
+    url: https://github.com/HarmenBakhuis/Guidewire/security/advisories/new
+    about: |
+      Please report security vulnerabilities through GitHub Security Advisories,
+      not as public issues. See SECURITY.md for details.
