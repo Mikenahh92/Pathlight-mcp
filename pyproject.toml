@@ -30,6 +30,7 @@ classifiers = [
 
 dependencies = [
     "mcp",
+    "python-xlib; sys_platform == 'linux'",
 ]
 
 [project.urls]
@@ -49,9 +50,6 @@ dev = [
 ]
 integration = [
     "anthropic>=0.40.0",
-]
-linux-x11 = [
-    "python-xlib",
 ]
 windows = [
     "comtypes>=1.4",

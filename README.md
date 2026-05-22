@@ -99,7 +99,7 @@ pip install guidewire
 
 # With platform support (optional — auto-detected at runtime)
 pip install "guidewire[windows]"    # Windows (comtypes)
-pip install "guidewire[linux-x11]"  # Linux X11 focus helper (python-xlib)
+# Linux X11 support (python-xlib) is included automatically on Linux
 ```
 
 <details>

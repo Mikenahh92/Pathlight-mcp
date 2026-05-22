@@ -128,9 +128,9 @@ source .venv/bin/activate  # Linux/macOS
 pip install -e ".[dev]"
 
 # Optional: install platform-specific backends
-pip install -e ".[linux-x11]"  # Linux X11 support
 pip install -e ".[windows]"    # Windows UI Automation support
 pip install -e ".[integration]"  # Anthropic SDK for integration tests
+# Linux X11 support (python-xlib) is included automatically on Linux
 ```
 
 ## Making Changes

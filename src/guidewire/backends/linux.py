@@ -271,8 +271,7 @@ class LinuxBackend(DesktopBackend):
                 if self._verify_focus(accessible):
                     return
                 atspi_reason = (
-                    "post-activation verification failed "
-                    "(STATE_ACTIVE/STATE_FOCUSED not acquired)"
+                    "post-activation verification failed (STATE_ACTIVE/STATE_FOCUSED not acquired)"
                 )
                 logger.debug("Post-activation verification failed after AT-SPI activate")
             else:
@@ -290,8 +289,7 @@ class LinuxBackend(DesktopBackend):
             if self._verify_focus(accessible):
                 return
             xlib_reason = (
-                "post-activation verification failed "
-                "(STATE_ACTIVE/STATE_FOCUSED not acquired)"
+                "post-activation verification failed (STATE_ACTIVE/STATE_FOCUSED not acquired)"
             )
             logger.debug("Post-activation verification failed after xlib fallback")
         except ImportError:
@@ -313,8 +311,10 @@ class LinuxBackend(DesktopBackend):
         atspi_detail = (
             f"attempted, {atspi_reason}"
             if atspi_tried and atspi_reason
-            else "attempted" if atspi_tried
-            else f"skipped ({atspi_reason})" if atspi_reason
+            else "attempted"
+            if atspi_tried
+            else f"skipped ({atspi_reason})"
+            if atspi_reason
             else "not available"
         )
         parts.append(f"AT-SPI activate: {atspi_detail}")
@@ -322,9 +322,12 @@ class LinuxBackend(DesktopBackend):
         xlib_detail = (
             f"attempted, {xlib_reason}"
             if xlib_tried and xlib_reason
-            else "attempted" if xlib_tried
-            else "unavailable" if xlib_unavailable
-            else f"failed ({xlib_reason})" if xlib_reason
+            else "attempted"
+            if xlib_tried
+            else "unavailable"
+            if xlib_unavailable
+            else f"failed ({xlib_reason})"
+            if xlib_reason
             else "not attempted"
         )
         parts.append(f"xlib fallback: {xlib_detail}")
@@ -953,21 +956,27 @@ class LinuxBackend(DesktopBackend):
             raise ActionNotSupportedError(f"Action '{action_name}' failed: {exc}") from exc
 
     def _action_click(self, accessible: Any) -> None:
-        """Click an element via AT-SPI action.
+        """Click an element via AT-SPI action, with coordinate-based fallback.
 
         Tries 'click' action first, then falls back to 'press' and 'activate'.
+        If no AT-SPI Action interface or click-like action is available (common
+        for Chromium/Electron elements), falls back to an XTest coordinate-based
+        click using the element's bounding box (GW-079).
 
         Args:
             accessible: A ``pyatspi.Accessible`` object.
 
         Raises:
-            ActionNotSupportedError: If no click action is available.
+            ActionNotSupportedError: If no click action is available and
+                coordinate-based click also fails.
         """
         # First check if the Action interface exists at all
         try:
             accessible.queryAction()
         except Exception:
-            raise ActionNotSupportedError("Element does not support the Action interface") from None
+            # No Action interface — fall back to coordinate-based click (GW-079)
+            self._coordinate_click(accessible)
+            return
 
         for action_name in ("click", "press", "activate"):
             try:
@@ -975,9 +984,73 @@ class LinuxBackend(DesktopBackend):
                 return
             except ActionNotSupportedError:
                 continue
-        raise ActionNotSupportedError(
-            "Element does not support any click action (click, press, activate)"
-        )
+
+        # No click/press/activate action found — fall back to coordinate click (GW-079)
+        self._coordinate_click(accessible)
+
+    def _coordinate_click(self, accessible: Any) -> None:
+        """Click an element at its screen coordinates using XTest (GW-079).
+
+        Reads the element's bounding box from AT-SPI ``getExtent``, computes
+        the center point, and performs an XTest button press/release at that
+        position.  This fallback enables clicking Chromium/Electron elements
+        that lack the AT-SPI2 Action interface.
+
+        Args:
+            accessible: A ``pyatspi.Accessible`` object.
+
+        Raises:
+            ActionNotSupportedError: If bounds cannot be read or XTest click
+                fails.
+        """
+        # Read bounding box from AT-SPI (before importing xlib, so we can
+        # fail fast without requiring xlib on non-Linux test environments)
+        try:
+            ext = accessible.getExtent(0)
+            if not ext or not hasattr(ext, "x"):
+                raise ActionNotSupportedError(
+                    "Cannot determine element bounds for coordinate-based click"
+                )
+            x = int(ext.x)
+            y = int(ext.y)
+            width = int(ext.width)
+            height = int(ext.height)
+        except ActionNotSupportedError:
+            raise
+        except Exception as exc:
+            raise ActionNotSupportedError(
+                f"Cannot read element bounds for coordinate-based click: {exc}"
+            ) from exc
+
+        center_x = x + width // 2
+        center_y = y + height // 2
+
+        # Import xlib lazily — only after bounds are validated
+        from Xlib import X  # type: ignore[import-untyped]
+        from Xlib.display import Display  # type: ignore[import-untyped]
+        from Xlib.ext.xtest import fake_input  # type: ignore[import-untyped]
+
+        display = Display()
+        try:
+            # Move pointer to center of element
+            fake_input(display, X.MotionNotify, x=center_x, y=center_y)
+            display.sync()
+
+            # Button press (left button = 1)
+            fake_input(display, X.ButtonPress, 1)
+            display.sync()
+
+            # Button release
+            fake_input(display, X.ButtonRelease, 1)
+            display.sync()
+        except Exception as exc:
+            raise ActionNotSupportedError(
+                f"Coordinate-based click failed at ({center_x}, {center_y}): {exc}"
+            ) from exc
+        finally:
+            display.close()
+
+        logger.info("Coordinate-based click at (%d, %d) for element", center_x, center_y)
 
     def _action_type(self, accessible: Any, **kwargs: Any) -> None:
         """Type text into an element.

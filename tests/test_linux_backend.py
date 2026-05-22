@@ -466,21 +466,162 @@ class TestPerformAction:
         assert result is None
         mock_action.do_action.assert_called_once_with("activate")
 
-    def test_click_raises_when_no_action_available(self, backend: LinuxBackend) -> None:
-        """CLICK raises ActionNotSupportedError when no click action exists."""
+    def test_click_falls_back_to_coordinate_click_when_no_action_available(
+        self, backend: LinuxBackend
+    ) -> None:
+        """CLICK falls back to coordinate-based click when no click action exists (GW-079)."""
         accessible = MagicMock()
-        accessible.queryAction.return_value = None
+        mock_action = MagicMock()
+        mock_action.get_n_actions.return_value = 0
+        accessible.queryAction.return_value = mock_action
+        # Provide bounds for coordinate click
+        ext = MagicMock()
+        ext.x = 100
+        ext.y = 200
+        ext.width = 80
+        ext.height = 40
+        accessible.getExtent.return_value = ext
 
-        with pytest.raises(ActionNotSupportedError, match="click"):
+        with patch.object(backend, "_coordinate_click") as mock_coord_click:
             backend.perform_action(NativeHandle(accessible), DesktopAction.CLICK)
+            mock_coord_click.assert_called_once_with(accessible)
 
-    def test_click_raises_when_action_interface_missing(self, backend: LinuxBackend) -> None:
-        """CLICK raises ActionNotSupportedError when queryAction fails."""
+    def test_click_falls_back_to_coordinate_click_when_action_interface_missing(
+        self, backend: LinuxBackend
+    ) -> None:
+        """CLICK falls back to coordinate-based click when queryAction fails (GW-079)."""
         accessible = MagicMock()
         accessible.queryAction.side_effect = RuntimeError("no action interface")
+        # Provide bounds for coordinate click
+        ext = MagicMock()
+        ext.x = 50
+        ext.y = 100
+        ext.width = 60
+        ext.height = 30
+        accessible.getExtent.return_value = ext
 
-        with pytest.raises(ActionNotSupportedError, match="Action interface"):
+        with patch.object(backend, "_coordinate_click") as mock_coord_click:
             backend.perform_action(NativeHandle(accessible), DesktopAction.CLICK)
+            mock_coord_click.assert_called_once_with(accessible)
+
+    # -- Coordinate-based click (GW-079) -------------------------------------
+
+    def test_coordinate_click_uses_element_center(self, backend: LinuxBackend) -> None:
+        """_coordinate_click reads bounds and clicks at center via XTest (GW-079)."""
+        accessible = MagicMock()
+        ext = MagicMock()
+        ext.x = 100
+        ext.y = 200
+        ext.width = 80
+        ext.height = 40
+        accessible.getExtent.return_value = ext
+
+        mock_display = MagicMock()
+        mock_x = MagicMock()
+        mock_fake_input = MagicMock()
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "Xlib": MagicMock(X=mock_x),
+                    "Xlib.display": MagicMock(Display=MagicMock(return_value=mock_display)),
+                    "Xlib.ext": MagicMock(),
+                    "Xlib.ext.xtest": MagicMock(fake_input=mock_fake_input),
+                },
+            ),
+        ):
+            backend._coordinate_click(accessible)
+
+        # Center: (100 + 80//2, 200 + 40//2) = (140, 220)
+        assert mock_fake_input.call_count == 3
+        # MotionNotify call
+        motion_call = mock_fake_input.call_args_list[0]
+        assert motion_call[1]["x"] == 140
+        assert motion_call[1]["y"] == 220
+        # ButtonPress call
+        press_call = mock_fake_input.call_args_list[1]
+        assert press_call[0][2] == 1  # left button
+        # ButtonRelease call
+        release_call = mock_fake_input.call_args_list[2]
+        assert release_call[0][2] == 1
+        mock_display.close.assert_called_once()
+
+    def test_coordinate_click_raises_on_missing_bounds(self, backend: LinuxBackend) -> None:
+        """_coordinate_click raises ActionNotSupportedError if bounds unavailable (GW-079)."""
+        accessible = MagicMock()
+        accessible.getExtent.return_value = None
+
+        with pytest.raises(ActionNotSupportedError, match="bounds"):
+            backend._coordinate_click(accessible)
+
+    def test_coordinate_click_raises_on_empty_bounds(self, backend: LinuxBackend) -> None:
+        """_coordinate_click raises ActionNotSupportedError if bounds have no x attr (GW-079)."""
+        accessible = MagicMock()
+        ext = MagicMock(spec=[])
+        accessible.getExtent.return_value = ext
+
+        with pytest.raises(ActionNotSupportedError, match="bounds"):
+            backend._coordinate_click(accessible)
+
+    def test_coordinate_click_raises_on_get_extent_exception(self, backend: LinuxBackend) -> None:
+        """_coordinate_click raises ActionNotSupportedError if getExtent raises (GW-079)."""
+        accessible = MagicMock()
+        accessible.getExtent.side_effect = RuntimeError("D-Bus error")
+
+        with pytest.raises(ActionNotSupportedError, match="Cannot read element bounds"):
+            backend._coordinate_click(accessible)
+
+    def test_coordinate_click_closes_display_on_success(self, backend: LinuxBackend) -> None:
+        """_coordinate_click closes the X display even on success (GW-079)."""
+        accessible = MagicMock()
+        ext = MagicMock()
+        ext.x = 10
+        ext.y = 20
+        ext.width = 30
+        ext.height = 40
+        accessible.getExtent.return_value = ext
+
+        mock_display = MagicMock()
+        with patch.dict(
+            "sys.modules",
+            {
+                "Xlib": MagicMock(),
+                "Xlib.display": MagicMock(Display=MagicMock(return_value=mock_display)),
+                "Xlib.ext": MagicMock(),
+                "Xlib.ext.xtest": MagicMock(fake_input=MagicMock()),
+            },
+        ):
+            backend._coordinate_click(accessible)
+
+        mock_display.close.assert_called_once()
+
+    def test_coordinate_click_closes_display_on_xtest_failure(self, backend: LinuxBackend) -> None:
+        """_coordinate_click closes X display even when fake_input fails (GW-079)."""
+        accessible = MagicMock()
+        ext = MagicMock()
+        ext.x = 10
+        ext.y = 20
+        ext.width = 30
+        ext.height = 40
+        accessible.getExtent.return_value = ext
+
+        mock_display = MagicMock()
+        xtest_fail = MagicMock(side_effect=RuntimeError("XTest fail"))
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "Xlib": MagicMock(),
+                    "Xlib.display": MagicMock(Display=MagicMock(return_value=mock_display)),
+                    "Xlib.ext": MagicMock(),
+                    "Xlib.ext.xtest": MagicMock(fake_input=xtest_fail),
+                },
+            ),
+            pytest.raises(ActionNotSupportedError, match="Coordinate-based click failed"),
+        ):
+            backend._coordinate_click(accessible)
+
+        mock_display.close.assert_called_once()
 
     # -- TYPE action ----------------------------------------------------------
 
@@ -2385,9 +2526,7 @@ class TestSnapshotOffscreenSafety:
         else:
             sys.modules["pyatspi"] = original_pyatspi
 
-    def test_snapshot_skips_child_whose_get_state_crashes(
-        self, backend: LinuxBackend
-    ) -> None:
+    def test_snapshot_skips_child_whose_get_state_crashes(self, backend: LinuxBackend) -> None:
         """snapshot() must not crash when a child's getState() raises (pyatspi 2.46 bug).
 
         This simulates the actual bug: an offscreen child whose getState()
@@ -2609,7 +2748,6 @@ class TestSendKeyModifierCombos:
         assert mock_keyboard.press.call_args_list[1] == call("s")
         assert mock_keyboard.release.call_args_list[0] == call("s")
         assert mock_keyboard.release.call_args_list[1] == call(keys["ctrl"])
-
 
 
 class TestFocusWindowDiagnosticMessage:
