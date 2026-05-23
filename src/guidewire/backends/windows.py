@@ -53,6 +53,7 @@ _UIA_CONTROL_TYPE_PROPERTY_ID = 30003  # UIA_PropertyId_UIA_ControlTypePropertyI
 _UIA_WINDOW_CONTROL_TYPE_ID = 50032  # UIA_ControlType_Window (0xC370)
 _UIA_IS_OFFSCREEN_PROPERTY_ID = 30022  # UIA_PropertyId_UIA_IsOffscreenPropertyId
 _UIA_PROCESS_ID_PROPERTY_ID = 30076  # UIA_PropertyId_UIA_ProcessIdPropertyId
+_UIA_NATIVE_WINDOW_HANDLE_PROPERTY_ID = 30020  # UIA_PropertyId_UIA_NativeWindowHandlePropertyId
 _UIA_CLASS_NAME_PROPERTY_ID = 30012  # UIA_PropertyId_UIA_ClassNamePropertyId
 _UIA_BOUNDING_RECTANGLE_PROPERTY_ID = 30001  # UIA_PropertyId_UIA_BoundingRectanglePropertyId
 
@@ -327,6 +328,14 @@ class WindowsBackend(DesktopBackend):
     def _extract_hwnd(window: NativeHandle) -> int:
         """Extract an HWND integer from a :class:`NativeHandle`.
 
+        Handles two internal representations:
+
+        1. **HWND integer** — produced by code paths that already resolved
+           the native handle.  ``int(window)`` succeeds directly.
+        2. **COM IUIAutomationElement** — returned by :meth:`list_windows`.
+           The element's ``NativeWindowHandle`` UIA property (30020) is
+           read to obtain the HWND integer.
+
         Args:
             window: Opaque native window handle.
 
@@ -335,10 +344,30 @@ class WindowsBackend(DesktopBackend):
 
         Raises:
             WindowNotFoundError: If the extracted handle is zero (null window).
+            TypeError: If the handle cannot be converted to an HWND.
         """
         from guidewire.errors import WindowNotFoundError
 
-        hwnd = int(window)
+        # Fast path — already an int.
+        if isinstance(window, int):
+            hwnd = window
+        else:
+            # Try int conversion first (covers NativeHandle wrapping an int).
+            try:
+                hwnd = int(window)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                # COM IUIAutomationElement — read the NativeWindowHandle property.
+                try:
+                    hwnd = int(
+                        window.GetCurrentPropertyValue(  # type: ignore[union-attr]
+                            _UIA_NATIVE_WINDOW_HANDLE_PROPERTY_ID
+                        )
+                    )
+                except Exception as exc:
+                    raise TypeError(
+                        f"Cannot extract HWND from {type(window).__name__}: {exc}"
+                    ) from exc
+
         if hwnd == 0:
             raise WindowNotFoundError("Window handle 0x0 is not a valid window")
         return hwnd

@@ -94,9 +94,9 @@ class TestExtractHwnd:
         with pytest.raises(WindowNotFoundError, match="0x0"):
             WindowsBackend._extract_hwnd(NativeHandle(0))
 
-    def test_non_int_handle_raises_value_error(self) -> None:
-        """_extract_hwnd must raise ValueError for non-int string values."""
-        with pytest.raises(ValueError):
+    def test_non_int_handle_raises_type_error(self) -> None:
+        """_extract_hwnd must raise TypeError for non-int, non-COM values."""
+        with pytest.raises(TypeError, match="Cannot extract HWND"):
             WindowsBackend._extract_hwnd(NativeHandle("not-an-int"))  # type: ignore[arg-type]
 
     def test_negative_handle_passes_through(self) -> None:
@@ -161,10 +161,10 @@ class TestFocusWindow:
         assert mock_user32.SetForegroundWindow.call_count == 2
         mock_user32.keybd_event.assert_called()  # workaround was triggered
 
-    # TC-021-004: ArgumentError (non-int NativeHandle)
-    def test_value_error_for_non_int_handle(self, backend: WindowsBackend) -> None:
-        """focus_window must raise ValueError for non-numeric NativeHandle strings."""
-        with pytest.raises(ValueError):
+    # TC-021-004: TypeError (non-int NativeHandle that is not a COM element)
+    def test_type_error_for_non_int_handle(self, backend: WindowsBackend) -> None:
+        """focus_window must raise TypeError for non-numeric, non-COM NativeHandle strings."""
+        with pytest.raises(TypeError):
             backend.focus_window(NativeHandle("not-an-int"))
 
     # TC-021-005: OSError from ctypes windll
@@ -388,3 +388,224 @@ class TestElementFromHandle:
 
         assert result is mock_element
         backend._uia.ElementFromHandle.assert_called_once_with(hwnd)
+
+
+# ---------------------------------------------------------------------------
+# COM element HWND extraction tests (GW-083 bug fix)
+# ---------------------------------------------------------------------------
+
+
+class TestExtractHwndFromComElement:
+    """Tests for _extract_hwnd handling COM IUIAutomationElement handles.
+
+    GW-083: list_windows returns COM IUIAutomationElement pointers, not HWND
+    integers.  _extract_hwnd must read the NativeWindowHandle property (30020)
+    to extract the HWND from COM elements.
+    """
+
+    @staticmethod
+    def _make_com_element(hwnd: int = 0x12345) -> MagicMock:
+        """Create a mock COM element that raises ValueError on int()."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPropertyValue.return_value = hwnd
+        # Make int() raise ValueError to simulate a real COM pointer
+        mock_element.__int__ = MagicMock(side_effect=ValueError("COM pointer"))
+        return mock_element
+
+    def test_com_element_extracts_hwnd_via_property(self) -> None:
+        """_extract_hwnd must read NativeWindowHandle from COM elements."""
+        mock_element = self._make_com_element(hwnd=0x12345)
+
+        result = WindowsBackend._extract_hwnd(NativeHandle(mock_element))
+
+        assert result == 0x12345
+        mock_element.GetCurrentPropertyValue.assert_called_once_with(30020)
+
+    def test_com_element_with_large_hwnd(self) -> None:
+        """_extract_hwnd must handle large HWND values from COM elements."""
+        mock_element = self._make_com_element(hwnd=0xFFFFFFFF)
+
+        result = WindowsBackend._extract_hwnd(NativeHandle(mock_element))
+
+        assert result == 0xFFFFFFFF
+
+    def test_com_element_zero_hwnd_raises_window_not_found(self) -> None:
+        """_extract_hwnd must raise WindowNotFoundError for COM element with HWND 0."""
+        mock_element = self._make_com_element(hwnd=0)
+
+        with pytest.raises(WindowNotFoundError, match="0x0"):
+            WindowsBackend._extract_hwnd(NativeHandle(mock_element))
+
+    def test_com_element_property_error_raises_type_error(self) -> None:
+        """_extract_hwnd must raise TypeError when COM property read fails."""
+        mock_element = self._make_com_element()
+        mock_element.GetCurrentPropertyValue.side_effect = OSError("COM error")
+
+        with pytest.raises(TypeError, match="Cannot extract HWND"):
+            WindowsBackend._extract_hwnd(NativeHandle(mock_element))
+
+    def test_focus_window_with_com_element_succeeds(self, backend: WindowsBackend) -> None:
+        """focus_window must work with COM elements from list_windows."""
+        mock_element = self._make_com_element(hwnd=12345)
+        mock_user32 = _make_user32(is_window=True, set_fg_result=1)
+        mock_uia_element = MagicMock()
+        backend._uia.ElementFromHandle.return_value = mock_uia_element
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)):
+            result = backend.focus_window(NativeHandle(mock_element))
+
+        assert result is None
+        mock_user32.IsWindow.assert_called_once_with(12345)
+        mock_user32.SetForegroundWindow.assert_called_once_with(12345)
+
+    def test_focus_window_com_element_uses_correct_property_id(
+        self, backend: WindowsBackend
+    ) -> None:
+        """focus_window must read UIA NativeWindowHandle property (30020)."""
+        mock_element = self._make_com_element(hwnd=0xBEEF)
+        mock_user32 = _make_user32(is_window=True, set_fg_result=1)
+        mock_uia_element = MagicMock()
+        backend._uia.ElementFromHandle.return_value = mock_uia_element
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)):
+            backend.focus_window(NativeHandle(mock_element))
+
+        mock_element.GetCurrentPropertyValue.assert_called_with(30020)
+
+    def test_require_hwnd_with_com_element(self, backend: WindowsBackend) -> None:
+        """_require_hwnd must extract HWND from COM elements."""
+        mock_element = self._make_com_element(hwnd=12345)
+        mock_user32 = MagicMock()
+        mock_user32.IsWindow.return_value = True
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)):
+            hwnd = backend._require_hwnd(NativeHandle(mock_element))
+
+        assert hwnd == 12345
+
+    def test_minimize_window_with_com_element(self, backend: WindowsBackend) -> None:
+        """minimize_window must work with COM elements from list_windows."""
+        mock_element = self._make_com_element(hwnd=12345)
+        mock_user32 = MagicMock()
+        mock_user32.IsWindow.return_value = True
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)):
+            backend.minimize_window(NativeHandle(mock_element))
+
+        mock_user32.ShowWindow.assert_called_once_with(12345, backend._SW_MINIMIZE)
+
+    def test_maximize_window_with_com_element(self, backend: WindowsBackend) -> None:
+        """maximize_window must work with COM elements from list_windows."""
+        mock_element = self._make_com_element(hwnd=12345)
+        mock_user32 = MagicMock()
+        mock_user32.IsWindow.return_value = True
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)):
+            backend.maximize_window(NativeHandle(mock_element))
+
+        mock_user32.ShowWindow.assert_called_once_with(12345, backend._SW_MAXIMIZE)
+
+    def test_restore_window_with_com_element(self, backend: WindowsBackend) -> None:
+        """restore_window must work with COM elements from list_windows."""
+        mock_element = self._make_com_element(hwnd=12345)
+        mock_user32 = MagicMock()
+        mock_user32.IsWindow.return_value = True
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)):
+            backend.restore_window(NativeHandle(mock_element))
+
+        mock_user32.ShowWindow.assert_called_once_with(12345, backend._SW_RESTORE)
+
+    def test_move_window_with_com_element(self, backend: WindowsBackend) -> None:
+        """move_window must work with COM elements from list_windows."""
+        mock_element = self._make_com_element(hwnd=12345)
+        mock_user32 = MagicMock()
+        mock_user32.IsWindow.return_value = True
+        # GetWindowRect returns a RECT-like with left/top/right/bottom
+        mock_rect = MagicMock()
+        mock_rect.left = 100
+        mock_rect.top = 200
+        mock_rect.right = 800
+        mock_rect.bottom = 600
+        mock_user32.GetWindowRect.return_value = None
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)), \
+             patch("ctypes.wintypes.RECT", return_value=mock_rect), \
+             patch("ctypes.byref", return_value=mock_rect):
+            backend.move_window(NativeHandle(mock_element), x=50, y=75)
+
+        mock_user32.MoveWindow.assert_called_once_with(12345, 50, 75, 700, 400, True)
+
+    def test_resize_window_with_com_element(self, backend: WindowsBackend) -> None:
+        """resize_window must work with COM elements from list_windows."""
+        mock_element = self._make_com_element(hwnd=12345)
+        mock_user32 = MagicMock()
+        mock_user32.IsWindow.return_value = True
+        mock_rect = MagicMock()
+        mock_rect.left = 100
+        mock_rect.top = 200
+        mock_rect.right = 800
+        mock_rect.bottom = 600
+        mock_user32.GetWindowRect.return_value = None
+
+        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)), \
+             patch("ctypes.wintypes.RECT", return_value=mock_rect), \
+             patch("ctypes.byref", return_value=mock_rect):
+            backend.resize_window(NativeHandle(mock_element), width=1024, height=768)
+
+        mock_user32.MoveWindow.assert_called_once_with(12345, 100, 200, 1024, 768, True)
+
+
+# ---------------------------------------------------------------------------
+# is_valid COM-element tests (AC6)
+# ---------------------------------------------------------------------------
+
+
+class TestIsValidComElement:
+    """Tests for is_valid with COM IUIAutomationElement handles (AC6).
+
+    AC6 requires that is_valid correctly handles COM elements returned by
+    list_windows / find_elements, probing via GetCurrentPropertyValue
+    rather than the Win32 IsWindow API.
+    """
+
+    @staticmethod
+    def _make_com_element() -> MagicMock:
+        """Create a mock COM element that raises ValueError on int()."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPropertyValue.return_value = 1234
+        mock_element.__int__ = MagicMock(side_effect=ValueError("COM pointer"))
+        return mock_element
+
+    def test_is_valid_returns_true_for_live_com_element(
+        self, backend: WindowsBackend
+    ) -> None:
+        """is_valid must return True for a valid COM element."""
+        mock_element = self._make_com_element()
+
+        result = backend.is_valid(NativeHandle(mock_element))
+
+        assert result is True
+        mock_element.GetCurrentPropertyValue.assert_called()
+
+    def test_is_valid_returns_false_for_dead_com_element(
+        self, backend: WindowsBackend
+    ) -> None:
+        """is_valid must return False when COM property read raises."""
+        mock_element = self._make_com_element()
+        mock_element.GetCurrentPropertyValue.side_effect = OSError("COM error")
+
+        result = backend.is_valid(NativeHandle(mock_element))
+
+        assert result is False
+
+    def test_is_valid_returns_false_for_disposed_backend(
+        self, backend: WindowsBackend
+    ) -> None:
+        """is_valid must return False when backend is disposed."""
+        backend._disposed = True
+        mock_element = self._make_com_element()
+
+        result = backend.is_valid(NativeHandle(mock_element))
+
+        assert result is False
