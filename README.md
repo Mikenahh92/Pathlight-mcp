@@ -13,6 +13,9 @@ Guidewire turns any desktop application into a navigable accessibility tree that
 
 > **New to MCP?** The [Model Context Protocol](https://modelcontextprotocol.io/) is the standard way AI agents interact with external tools. If your client supports MCP servers, it supports Guidewire.
 
+> **⚠️ Backend scope — native desktop only**
+> Guidewire's accessibility backends target **native desktop applications** (Notepad, File Explorer, GNOME apps, system dialogs, legacy software, etc.). They do **not** interact with web browsers or browser content — for that, use [Playwright](https://playwright.dev/) or [Puppeteer](https://pptr.dev/). If your window responds to OS accessibility APIs (UI Automation on Windows, AT-SPI2 on Linux), Guidewire can control it.
+
 ---
 
 ## How Agents Connect
