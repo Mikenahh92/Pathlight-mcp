@@ -971,25 +971,27 @@ class WindowsBackend(DesktopBackend):
             raise ActionNotSupportedError(f"Failed to type text: {exc}") from exc
 
     def _action_press_key(self, element: Any, **kwargs: Any) -> None:
-        """Press a key while an element has focus.
+        """Press a key or key combo while an element has focus.
 
         Sets focus on the element, then simulates the key press via
-        ``SendInput``.
+        ``SendInput``.  Supports both single keys (``"Enter"``) and
+        modifier combos (``"ctrl+s"``, ``"ctrl+shift+escape"``).
 
         Args:
             element: COM ``IUIAutomationElement``.
-            **kwargs: Must contain ``key`` (str).
+            **kwargs: Must contain ``keys`` (str) — the normalised key
+                combo string from the tool layer.
 
         Raises:
             ActionNotSupportedError: If the key press cannot be performed.
         """
-        key = kwargs.get("key")
-        if key is None:
-            raise ActionNotSupportedError("PRESS_KEY action requires a 'key' parameter")
+        keys = kwargs.get("keys")
+        if keys is None:
+            raise ActionNotSupportedError("PRESS_KEY action requires a 'keys' parameter")
 
         try:
             element.SetFocus()
-            self._send_key(str(key))
+            self._send_key_combo(str(keys))
         except ActionNotSupportedError:
             raise
         except Exception as exc:
@@ -1267,6 +1269,59 @@ class WindowsBackend(DesktopBackend):
                 ctypes.sizeof(ctypes.windll.user32.INPUT),  # type: ignore[attr-defined]
             )
 
+    # -- Virtual-key code maps ------------------------------------------------
+
+    _MODIFIER_VK: dict[str, int] = {
+        "ctrl": 0x11,       # VK_CONTROL
+        "control": 0x11,
+        "alt": 0x12,        # VK_MENU
+        "shift": 0x10,      # VK_SHIFT
+        "super": 0x5B,      # VK_LWIN
+        "cmd": 0x5B,
+        "command": 0x5B,
+        "win": 0x5B,
+        "meta": 0x5B,
+    }
+
+    _KEY_VK: dict[str, int] = {
+        "enter": 0x0D,
+        "return": 0x0D,
+        "tab": 0x09,
+        "escape": 0x1B,
+        "esc": 0x1B,
+        "backspace": 0x08,
+        "delete": 0x2E,
+        "del": 0x2E,
+        "insert": 0x2D,
+        "arrowup": 0x26,
+        "arrowdown": 0x28,
+        "arrowleft": 0x25,
+        "arrowright": 0x27,
+        "up": 0x26,
+        "down": 0x28,
+        "left": 0x25,
+        "right": 0x27,
+        "home": 0x24,
+        "end": 0x23,
+        "pageup": 0x21,
+        "page_up": 0x21,
+        "pagedown": 0x22,
+        "page_down": 0x22,
+        "f1": 0x70,
+        "f2": 0x71,
+        "f3": 0x72,
+        "f4": 0x73,
+        "f5": 0x74,
+        "f6": 0x75,
+        "f7": 0x76,
+        "f8": 0x77,
+        "f9": 0x78,
+        "f10": 0x79,
+        "f11": 0x7A,
+        "f12": 0x7B,
+        "space": 0x20,
+    }
+
     @staticmethod
     def _send_key(key: str) -> None:
         """Simulate a single key press via ``SendInput`` Win32 API.
@@ -1329,6 +1384,81 @@ class WindowsBackend(DesktopBackend):
             ),
             ctypes.sizeof(user32.INPUT),  # type: ignore[attr-defined]
         )
+
+    @staticmethod
+    def _send_key_combo(combo: str) -> None:
+        """Simulate a key combo via ``SendInput`` Win32 API.
+
+        Parses a normalised key-combo string (e.g. ``"ctrl+s"``,
+        ``"ctrl+shift+escape"``, ``"enter"``) and sends the key events
+        using ``SendInput``:
+
+        1. Press all modifier keys in left-to-right order.
+        2. Press and release the final (non-modifier) key.
+        3. Release all modifier keys in reverse order.
+
+        For single keys (no ``+`` separator), delegates directly to
+        ``_send_key``.
+
+        Args:
+            combo: Normalised key combo string from the tool layer.
+        """
+        import ctypes
+
+        parts = [p.strip() for p in combo.split("+")]
+        if not parts:
+            return
+
+        # Fast path: single key, no modifier
+        if len(parts) == 1:
+            WindowsBackend._send_key(parts[0])
+            return
+
+        modifier_vks: list[int] = []
+        main_key: str = parts[-1]  # last part is always the main key
+
+        for part in parts[:-1]:
+            vk = WindowsBackend._MODIFIER_VK.get(part)
+            if vk is None:
+                # Unknown modifier — treat the entire combo as a single key
+                WindowsBackend._send_key(combo)
+                return
+            modifier_vks.append(vk)
+
+        # Resolve the main key VK
+        main_vk = WindowsBackend._KEY_VK.get(main_key)
+        if main_vk is None:
+            if len(main_key) == 1:
+                main_vk = ctypes.windll.user32.VkKeyScanW(ord(main_key)) & 0xFF  # type: ignore[attr-defined]
+            if not main_vk:
+                return
+
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        keyeventf_keyup = 0x0002
+
+        def _send_keyevent(vk: int, flags: int = 0) -> None:
+            user32.SendInput(
+                1,
+                ctypes.byref(
+                    user32.INPUT(
+                        type=1,  # INPUT_KEYBOARD
+                        ki=user32.KEYBDINPUT(wVk=vk, dwFlags=flags),
+                    )
+                ),
+                ctypes.sizeof(user32.INPUT),
+            )
+
+        # 1. Press modifiers
+        for mod_vk in modifier_vks:
+            _send_keyevent(mod_vk)
+
+        # 2. Press + release main key
+        _send_keyevent(main_vk)
+        _send_keyevent(main_vk, keyeventf_keyup)
+
+        # 3. Release modifiers in reverse order
+        for mod_vk in reversed(modifier_vks):
+            _send_keyevent(mod_vk, keyeventf_keyup)
 
     def get_element_info(self, handle: NativeHandle) -> dict[str, Any]:
         """Return element metadata as a dict.

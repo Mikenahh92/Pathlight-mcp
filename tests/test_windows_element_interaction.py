@@ -734,25 +734,52 @@ class TestPerformActionPressKey:
     """Verify PRESS_KEY action sends key via SendInput."""
 
     def test_press_key_sets_focus_and_sends_key(self, backend: WindowsBackend) -> None:
-        """PRESS_KEY must SetFocus then call _send_key."""
+        """PRESS_KEY must SetFocus then call _send_key_combo with single key."""
         mock_element = MagicMock()
 
-        with patch.object(WindowsBackend, "_send_key", create=True) as mock_send:
+        with patch.object(WindowsBackend, "_send_key_combo", create=True) as mock_send:
             backend.perform_action(
                 NativeHandle(mock_element),
                 DesktopAction.PRESS_KEY,
-                key="Enter",
+                keys="enter",
             )
 
             mock_element.SetFocus.assert_called_once()
-            mock_send.assert_called_once_with("Enter")
+            mock_send.assert_called_once_with("enter")
 
-    def test_press_key_missing_key_param_raises(self, backend: WindowsBackend) -> None:
-        """PRESS_KEY must raise ActionNotSupportedError without 'key' kwarg."""
+    def test_press_key_combo_delegates_to_send_key_combo(self, backend: WindowsBackend) -> None:
+        """PRESS_KEY with modifier combo must delegate to _send_key_combo."""
         mock_element = MagicMock()
 
-        with pytest.raises(ActionNotSupportedError, match="'key' parameter"):
+        with patch.object(WindowsBackend, "_send_key_combo", create=True) as mock_send:
+            backend.perform_action(
+                NativeHandle(mock_element),
+                DesktopAction.PRESS_KEY,
+                keys="ctrl+s",
+            )
+
+            mock_element.SetFocus.assert_called_once()
+            mock_send.assert_called_once_with("ctrl+s")
+
+    def test_press_key_missing_keys_param_raises(self, backend: WindowsBackend) -> None:
+        """PRESS_KEY must raise ActionNotSupportedError without 'keys' kwarg."""
+        mock_element = MagicMock()
+
+        with pytest.raises(ActionNotSupportedError, match="'keys' parameter"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.PRESS_KEY)
+
+    def test_press_key_triple_combo(self, backend: WindowsBackend) -> None:
+        """PRESS_KEY with triple combo (ctrl+shift+escape) delegates correctly."""
+        mock_element = MagicMock()
+
+        with patch.object(WindowsBackend, "_send_key_combo", create=True) as mock_send:
+            backend.perform_action(
+                NativeHandle(mock_element),
+                DesktopAction.PRESS_KEY,
+                keys="ctrl+shift+escape",
+            )
+
+            mock_send.assert_called_once_with("ctrl+shift+escape")
 
 
 # ---------------------------------------------------------------------------
@@ -1267,3 +1294,152 @@ class TestGetElementInfoRoleMapping:
         result = backend.get_element_info(NativeHandle(mock_element))
 
         assert result["role"] == expected_role
+
+
+# ---------------------------------------------------------------------------
+# _send_key_combo tests (GW-084)
+# ---------------------------------------------------------------------------
+
+
+class TestSendKeyCombo:
+    """Verify _send_key_combo correctly handles modifier combos via SendInput."""
+
+    def test_single_key_delegates_to_send_key(self) -> None:
+        """Single key (no +) must delegate to _send_key."""
+        with patch.object(WindowsBackend, "_send_key", create=True) as mock_send:
+            WindowsBackend._send_key_combo("enter")
+            mock_send.assert_called_once_with("enter")
+
+    def test_ctrl_s_combo_sends_modifier_then_key(self) -> None:
+        """ctrl+s must press Ctrl, then S, then release both."""
+        mock_user32 = MagicMock()
+        mock_input = MagicMock()
+        mock_kbinput = MagicMock()
+
+        with (
+            patch("ctypes.windll.user32", mock_user32),
+            patch("ctypes.sizeof", return_value=40),
+            patch("ctypes.byref", side_effect=lambda x: x),
+        ):
+            mock_user32.INPUT = mock_input
+            mock_user32.KEYBDINPUT = mock_kbinput
+
+            WindowsBackend._send_key_combo("ctrl+s")
+
+        # Expected call count: press ctrl, press s, release s, release ctrl = 4
+        assert mock_user32.SendInput.call_count == 4
+
+        # Verify first call is modifier press (VK_CONTROL = 0x11, flags=0)
+        first_call = mock_user32.SendInput.call_args_list[0]
+        mock_input.assert_called_with(type=1, ki=mock_kbinput(wVk=0x11, dwFlags=0))
+
+        # Verify third call is main key release (VK_S, flags=KEYEVENTF_KEYUP=0x0002)
+        # and fourth call is modifier release
+
+    def test_alt_tab_combo(self) -> None:
+        """alt+tab must press Alt, then Tab, then release both."""
+        mock_user32 = MagicMock()
+
+        with (
+            patch("ctypes.windll.user32", mock_user32),
+            patch("ctypes.sizeof", return_value=40),
+            patch("ctypes.byref", side_effect=lambda x: x),
+        ):
+            WindowsBackend._send_key_combo("alt+tab")
+
+        assert mock_user32.SendInput.call_count == 4
+
+    def test_ctrl_shift_escape_triple_combo(self) -> None:
+        """ctrl+shift+escape must press Ctrl, Shift, then Escape, then release all."""
+        mock_user32 = MagicMock()
+
+        with (
+            patch("ctypes.windll.user32", mock_user32),
+            patch("ctypes.sizeof", return_value=40),
+            patch("ctypes.byref", side_effect=lambda x: x),
+        ):
+            WindowsBackend._send_key_combo("ctrl+shift+escape")
+
+        # Expected: press ctrl, press shift, press escape, release escape, release shift, release ctrl = 6
+        assert mock_user32.SendInput.call_count == 6
+
+    def test_empty_combo_returns_early(self) -> None:
+        """Empty string must not send any events."""
+        mock_user32 = MagicMock()
+
+        with patch("ctypes.windll.user32", mock_user32):
+            WindowsBackend._send_key_combo("")
+
+        mock_user32.SendInput.assert_not_called()
+
+    def test_single_key_via_send_key(self) -> None:
+        """Single key like 'enter' must go through _send_key fast path."""
+        with patch.object(WindowsBackend, "_send_key", create=True) as mock_send:
+            WindowsBackend._send_key_combo("tab")
+            mock_send.assert_called_once_with("tab")
+
+    def test_modifier_vk_map_has_ctrl(self) -> None:
+        """_MODIFIER_VK must contain ctrl."""
+        assert WindowsBackend._MODIFIER_VK["ctrl"] == 0x11
+
+    def test_modifier_vk_map_has_alt(self) -> None:
+        """_MODIFIER_VK must contain alt."""
+        assert WindowsBackend._MODIFIER_VK["alt"] == 0x12
+
+    def test_modifier_vk_map_has_shift(self) -> None:
+        """_MODIFIER_VK must contain shift."""
+        assert WindowsBackend._MODIFIER_VK["shift"] == 0x10
+
+    def test_modifier_vk_map_has_super(self) -> None:
+        """_MODIFIER_VK must contain super."""
+        assert WindowsBackend._MODIFIER_VK["super"] == 0x5B
+
+    def test_key_vk_map_has_named_keys(self) -> None:
+        """_KEY_VK must contain common named keys."""
+        assert WindowsBackend._KEY_VK["enter"] == 0x0D
+        assert WindowsBackend._KEY_VK["escape"] == 0x1B
+        assert WindowsBackend._KEY_VK["tab"] == 0x09
+        assert WindowsBackend._KEY_VK["space"] == 0x20
+        assert WindowsBackend._KEY_VK["f12"] == 0x7B
+
+    def test_key_vk_map_has_arrow_aliases(self) -> None:
+        """_KEY_VK must contain both arrow and short names."""
+        assert WindowsBackend._KEY_VK["up"] == 0x26
+        assert WindowsBackend._KEY_VK["down"] == 0x28
+        assert WindowsBackend._KEY_VK["left"] == 0x25
+        assert WindowsBackend._KEY_VK["right"] == 0x27
+
+    def test_ctrl_single_char_resolved_via_vkkeyscan(self) -> None:
+        """ctrl+a must resolve 'a' via VkKeyScanW."""
+        mock_user32 = MagicMock()
+        mock_user32.VkKeyScanW.return_value = 0x41  # VK_A
+
+        with (
+            patch("ctypes.windll.user32", mock_user32),
+            patch("ctypes.sizeof", return_value=40),
+            patch("ctypes.byref", side_effect=lambda x: x),
+        ):
+            WindowsBackend._send_key_combo("ctrl+a")
+
+        # Expected: press ctrl, press+release a, release ctrl = 4
+        assert mock_user32.SendInput.call_count == 4
+        mock_user32.VkKeyScanW.assert_called_once_with(ord("a"))
+
+    def test_unknown_modifier_falls_back_to_send_key(self) -> None:
+        """Unknown modifier in combo must fall back to _send_key."""
+        with patch.object(WindowsBackend, "_send_key", create=True) as mock_send:
+            WindowsBackend._send_key_combo("unknown_mod+x")
+            mock_send.assert_called_once_with("unknown_mod+x")
+
+    def test_ctrl_f5_function_key_combo(self) -> None:
+        """ctrl+f5 must resolve f5 from _KEY_VK."""
+        mock_user32 = MagicMock()
+
+        with (
+            patch("ctypes.windll.user32", mock_user32),
+            patch("ctypes.sizeof", return_value=40),
+            patch("ctypes.byref", side_effect=lambda x: x),
+        ):
+            WindowsBackend._send_key_combo("ctrl+f5")
+
+        assert mock_user32.SendInput.call_count == 4
