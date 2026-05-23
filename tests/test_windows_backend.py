@@ -589,7 +589,7 @@ class TestListWindowsP1:
 
 
 class TestIsValid:
-    """Tests for WindowsBackend.is_valid (GW-024).
+    """Tests for WindowsBackend.is_valid (GW-024, GW-087).
 
     Validates:
     - Disposed backend returns False (never raises).
@@ -599,7 +599,9 @@ class TestIsValid:
     - HWND integer handles: IsWindow returns zero → False.
     - COM errors are caught and return False (never propagate).
     - ctypes errors are caught and return False.
-    - Unknown handle types (e.g. string) → COM probe attempt → False.
+    - String backend_id handles: cache hit + live COM → True.
+    - String backend_id handles: cache hit + stale COM → False.
+    - String backend_id handles: cache miss → False.
     """
 
     @pytest.fixture()
@@ -690,13 +692,30 @@ class TestIsValid:
         with patch.object(ctypes.windll.user32, "IsWindow", side_effect=OSError("ctypes error")):
             assert backend.is_valid(NativeHandle(12345)) is False  # type: ignore[arg-type]
 
-    # -- Edge cases ----------------------------------------------------------
+    # -- String backend_id handles (GW-087) -----------------------------------
 
-    def test_unknown_handle_type_returns_false(self, backend: WindowsBackend) -> None:
-        """A non-int, non-COM handle (e.g. string) → property probe fails → False."""
-        # A string doesn't have GetCurrentPropertyValue, so the COM probe
-        # will raise AttributeError → caught → False.
-        assert backend.is_valid(NativeHandle("not_a_handle")) is False  # type: ignore[arg-type]
+    def test_string_backend_id_in_cache_valid(self, backend: WindowsBackend) -> None:
+        """A string backend_id found in cache → probe cached COM element → True."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPropertyValue.return_value = 1234
+
+        backend._element_cache["cached_123"] = mock_element
+        assert backend.is_valid(NativeHandle("cached_123")) is True  # type: ignore[arg-type]
+        mock_element.GetCurrentPropertyValue.assert_called_once()
+
+    def test_string_backend_id_in_cache_stale(self, backend: WindowsBackend) -> None:
+        """A string backend_id found in cache but COM element is stale → False."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPropertyValue.side_effect = OSError("stale")
+
+        backend._element_cache["cached_456"] = mock_element
+        assert backend.is_valid(NativeHandle("cached_456")) is False  # type: ignore[arg-type]
+
+    def test_string_backend_id_not_in_cache_returns_false(self, backend: WindowsBackend) -> None:
+        """A string backend_id not in cache → False (no stale_element_reference error)."""
+        assert backend.is_valid(NativeHandle("missing_789")) is False  # type: ignore[arg-type]
+
+    # -- Edge cases ----------------------------------------------------------
 
     def test_none_handle_returns_false(self, backend: WindowsBackend) -> None:
         """None handle → COM probe fails → False."""

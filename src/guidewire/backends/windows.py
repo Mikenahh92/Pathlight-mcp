@@ -1756,8 +1756,9 @@ class WindowsBackend(DesktopBackend):
         Args:
             element: Opaque native element handle.  May be a COM
                 ``IUIAutomationElement`` pointer (from ``list_windows`` /
-                ``find_elements``) or a bare HWND ``int`` (from
-                ``focus_window``).
+                ``find_elements``), a bare HWND ``int`` (from
+                ``focus_window``), or a string ``backend_id`` (from the
+                ref store after a snapshot).
 
         Returns:
             ``True`` if the element still exists in the accessibility tree,
@@ -1765,6 +1766,18 @@ class WindowsBackend(DesktopBackend):
         """
         if self._disposed:
             return False
+
+        # String backend_id (from ref store after snapshot) — resolve via
+        # element cache first, then probe the underlying COM element.
+        if isinstance(element, str):
+            cached = self._element_cache.get(element)
+            if cached is None:
+                return False
+            try:
+                cached.GetCurrentPropertyValue(_UIA_PROCESS_ID_PROPERTY_ID)
+                return True
+            except Exception:
+                return False
 
         # HWND integer handles — use Win32 IsWindow API.
         if isinstance(element, int):
