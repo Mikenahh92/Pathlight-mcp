@@ -309,10 +309,10 @@ class TestSnapshotSchema:
 class TestSnapshotRefAssignment:
     """snapshot correctly assigns e-prefixed refs to elements."""
 
-    async def test_ref_store_cleared_on_snapshot(
+    async def test_element_refs_restart_on_snapshot(
         self, mcp: FastMCP, ref_store: ElementRefStore
     ) -> None:
-        """Ref store should be cleared and rebuilt on each snapshot call."""
+        """Element refs should restart from e1 on each snapshot call."""
         # First snapshot
         result1, _ = await mcp.call_tool("desktop.snapshot", arguments={"window_ref": "w1"})
         data1 = json.loads(result1[0].text)
@@ -320,7 +320,7 @@ class TestSnapshotRefAssignment:
         for child in data1["tree"].get("children", []):
             refs_after_first.add(child["ref"])
 
-        # Second snapshot should produce fresh refs
+        # Second snapshot should produce fresh element refs
         result2, _ = await mcp.call_tool("desktop.snapshot", arguments={"window_ref": "w1"})
         data2 = json.loads(result2[0].text)
         refs_after_second = set()
@@ -330,6 +330,38 @@ class TestSnapshotRefAssignment:
         # Same element count, refs should restart from e1
         assert refs_after_first == refs_after_second
         assert "e1" in refs_after_second
+
+    async def test_window_refs_survive_snapshot(
+        self, mcp: FastMCP, ref_store: ElementRefStore
+    ) -> None:
+        """Window refs must survive a snapshot call (GW-082 regression test)."""
+        # Verify w1 is resolvable before snapshot
+        assert ref_store.resolve("w1") is not None
+
+        await mcp.call_tool("desktop.snapshot", arguments={"window_ref": "w1"})
+
+        # w1 must still be resolvable after snapshot
+        assert ref_store.resolve("w1") is not None
+        assert ref_store.is_valid("w1")
+
+    async def test_other_window_refs_survive_snapshot(
+        self, mcp: FastMCP, ref_store: ElementRefStore, backend: MockBackend
+    ) -> None:
+        """Window refs from other windows must not be destroyed by snapshot."""
+        # Register a second window handle
+        ghost = NativeHandle("ghost-window-handle")
+        ref_store.store(ghost, prefix="w")
+
+        # Verify both windows are resolvable before snapshot
+        assert ref_store.resolve("w1") is not None
+        assert ref_store.resolve("w2") is not None
+
+        # Snapshot only w1
+        await mcp.call_tool("desktop.snapshot", arguments={"window_ref": "w1"})
+
+        # w1 AND w2 must both still be resolvable after snapshot
+        assert ref_store.resolve("w1") is not None
+        assert ref_store.resolve("w2") is not None
 
     async def test_deep_tree_refs_assigned(self) -> None:
         """Elements in nested children also get e-prefixed refs."""

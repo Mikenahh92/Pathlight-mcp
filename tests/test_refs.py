@@ -175,6 +175,56 @@ class TestClear:
         assert store.store(_h("b"), prefix="w") == "w1"
 
 
+# -- clear_prefix() ----------------------------------------------------------
+
+
+class TestClearPrefix:
+    def test_clears_only_target_prefix(self) -> None:
+        """clear_prefix('e') removes e-refs but preserves w-refs."""
+        store = ElementRefStore()
+        store.store(_h("a"), prefix="w")
+        store.store(_h("b"))
+        store.store(_h("c"), prefix="w")
+        store.store(_h("d"))
+        store.clear_prefix("e")
+        assert store.is_valid("w1") is True
+        assert store.is_valid("w2") is True
+        assert store.is_valid("e1") is False
+        assert store.is_valid("e2") is False
+
+    def test_resets_counter_for_prefix_only(self) -> None:
+        """Counter for the cleared prefix restarts at 1; others continue."""
+        store = ElementRefStore()
+        store.store(_h("a"), prefix="w")
+        store.store(_h("b"))
+        store.clear_prefix("e")
+        assert store.store(_h("c"), prefix="w") == "w2"  # counter continues
+        assert store.store(_h("d")) == "e1"  # counter reset
+
+    def test_clear_prefix_window(self) -> None:
+        """clear_prefix('w') removes w-refs but preserves e-refs."""
+        store = ElementRefStore()
+        store.store(_h("a"), prefix="w")
+        store.store(_h("b"))
+        store.clear_prefix("w")
+        assert store.is_valid("w1") is False
+        assert store.is_valid("e1") is True
+
+    def test_clear_prefix_on_empty_store(self) -> None:
+        """clear_prefix on an empty store is a no-op."""
+        store = ElementRefStore()
+        store.clear_prefix("e")
+        assert store.size == 0
+
+    def test_clear_prefix_unknown_prefix(self) -> None:
+        """clear_prefix for a prefix with no refs is safe."""
+        store = ElementRefStore()
+        store.store(_h("a"))
+        store.clear_prefix("z")
+        assert store.is_valid("e1") is True
+        assert store.size == 1
+
+
 # -- __len__ and __repr__ -----------------------------------------------------
 
 

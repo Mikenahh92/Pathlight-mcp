@@ -18,7 +18,6 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from guidewire.errors import BackendUnavailableError
-from guidewire.refs import ElementRefStore
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +61,7 @@ def register(mcp: FastMCP, **kwargs: object) -> None:
         except BackendUnavailableError:
             raise
 
-        store = ref_store if ref_store is not None else ElementRefStore()
+        store = ref_store
         windows: list[dict[str, Any]] = []
 
         for handle in handles:

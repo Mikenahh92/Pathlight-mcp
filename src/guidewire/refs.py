@@ -104,6 +104,20 @@ class ElementRefStore:
         self._ref_to_handle.clear()
         self._counters.clear()
 
+    def clear_prefix(self, prefix: str) -> None:
+        """Remove all mappings and reset the counter for a single prefix.
+
+        Refs belonging to other prefixes are preserved.  The counter for
+        *prefix* is reset so the next :meth:`store` call restarts at ``1``.
+
+        Args:
+            prefix: The single-character prefix to clear (e.g. ``"e"``).
+        """
+        keys_to_remove = [k for k in self._ref_to_handle if k.startswith(prefix)]
+        for k in keys_to_remove:
+            del self._ref_to_handle[k]
+        self._counters.pop(prefix, None)
+
     # -- Introspection --------------------------------------------------------
 
     @property

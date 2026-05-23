@@ -231,10 +231,10 @@ def register(
         root.ref = window_ref
 
         # --- Assign e-prefixed refs to all descendants ---
-        # Clear previous element refs but re-register the window ref
-        # so it remains resolvable for subsequent calls.
-        ref_store.clear()
-        ref_store.store(handle, prefix="w")
+        # Clear only element ("e"-prefixed) refs from previous snapshots.
+        # Window ("w"-prefixed) refs must survive so that subsequent tool
+        # calls can still resolve window references across the session.
+        ref_store.clear_prefix("e")
         _assign_refs(root, ref_store)
 
         # --- Apply privacy redaction ---
