@@ -25,7 +25,6 @@ import pytest
 
 from guidewire.backends.types import DesktopAction, NativeHandle
 from guidewire.backends.windows import (
-    _ComHandle,
     _UIA_CONTROL_TYPE_NAMES,
     _UIA_EXPAND_COLLAPSE_PATTERN_ID,
     _UIA_HAS_KEYBOARD_FOCUS_PROPERTY_ID,
@@ -41,10 +40,12 @@ from guidewire.backends.windows import (
     _UIA_RANGE_VALUE_PATTERN_ID,
     _UIA_SCROLL_PATTERN_ID,
     _UIA_SELECTION_ITEM_PATTERN_ID,
+    _UIA_TEXT_PATTERN_ID,
     _UIA_TOGGLE_PATTERN_ID,
     _UIA_TOGGLE_STATE_PROPERTY_ID,
     _UIA_VALUE_PATTERN_ID,
     WindowsBackend,
+    _ComHandle,
 )
 from guidewire.errors import (
     ActionNotSupportedError,
@@ -335,26 +336,69 @@ class TestPerformActionSetValue:
 
 
 class TestPerformActionGetText:
-    """Verify GET_TEXT action reads ValuePattern.CurrentValue."""
+    """Verify GET_TEXT action uses cascading fallback: ValuePattern → TextPattern → CurrentName."""
 
-    def test_get_text_returns_current_value(self, backend: WindowsBackend) -> None:
+    def test_get_text_returns_value_pattern(self, backend: WindowsBackend) -> None:
         """GET_TEXT must return ValuePattern.CurrentValue as string."""
-        mock_pattern = MagicMock()
-        mock_pattern.CurrentValue = "sample text"
+        mock_value_pattern = MagicMock()
+        mock_value_pattern.CurrentValue = "sample text"
         mock_element = MagicMock()
-        mock_element.GetCurrentPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_value_pattern
 
         result = backend.perform_action(NativeHandle(mock_element), DesktopAction.GET_TEXT)
 
         assert result == "sample text"
-        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_VALUE_PATTERN_ID)
+        mock_element.GetCurrentPattern.assert_called_with(_UIA_VALUE_PATTERN_ID)
 
-    def test_get_text_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
-        """GET_TEXT must raise ActionNotSupportedError when ValuePattern absent."""
+    def test_get_text_falls_back_to_text_pattern(self, backend: WindowsBackend) -> None:
+        """GET_TEXT must fall back to TextPattern when ValuePattern is unavailable."""
+        mock_text_range = MagicMock()
+        mock_text_range.GetText.return_value = "text pattern content"
+        mock_text_pattern = MagicMock()
+        mock_text_pattern.DocumentRange = mock_text_range
+
+        def get_pattern(pattern_id: int) -> object:
+            if pattern_id == _UIA_VALUE_PATTERN_ID:
+                return None
+            if pattern_id == _UIA_TEXT_PATTERN_ID:
+                return mock_text_pattern
+            return None
+
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.side_effect = get_pattern
+
+        result = backend.perform_action(NativeHandle(mock_element), DesktopAction.GET_TEXT)
+
+        assert result == "text pattern content"
+
+    def test_get_text_falls_back_to_current_name(self, backend: WindowsBackend) -> None:
+        """GET_TEXT must fall back to CurrentName when no pattern is available."""
         mock_element = MagicMock()
         mock_element.GetCurrentPattern.return_value = None
+        mock_element.CurrentName = "Display is 0"
 
-        with pytest.raises(ActionNotSupportedError, match="Value"):
+        result = backend.perform_action(NativeHandle(mock_element), DesktopAction.GET_TEXT)
+
+        assert result == "Display is 0"
+
+    def test_get_text_all_sources_fail_raises(self, backend: WindowsBackend) -> None:
+        """GET_TEXT must raise ActionNotSupportedError when all sources fail."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+        mock_element.CurrentName = None
+
+        with pytest.raises(ActionNotSupportedError, match="no ValuePattern, TextPattern"):
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.GET_TEXT)
+
+    def test_get_text_current_name_raises_raises(self, backend: WindowsBackend) -> None:
+        """GET_TEXT must raise ActionNotSupportedError when CurrentName access raises."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+        type(mock_element).CurrentName = property(
+            lambda self: (_ for _ in ()).throw(Exception("COM error"))  # noqa: B018
+        )
+
+        with pytest.raises(ActionNotSupportedError, match="GetText failed"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.GET_TEXT)
 
 

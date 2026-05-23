@@ -1262,24 +1262,60 @@ class WindowsBackend(DesktopBackend):
             raise ActionNotSupportedError(f"Scroll failed: {exc}") from exc
 
     def _action_get_text(self, element: Any) -> str:
-        """Get the text value of an element via ValuePattern.
+        """Get the text value of an element via cascading fallback.
+
+        Tries in order:
+        1. ValuePattern.CurrentValue
+        2. TextPattern.DocumentRange.GetText(-1)
+        3. element.CurrentName
 
         Args:
             element: COM ``IUIAutomationElement``.
 
         Returns:
-            The current value string.
+            The current text string.
 
         Raises:
-            ActionNotSupportedError: If ValuePattern is not available.
+            ActionNotSupportedError: If no source yields text.
         """
-        pattern = self._get_pattern(element, _UIA_VALUE_PATTERN_ID)
+        # --- 1. ValuePattern ---
         try:
-            return str(pattern.CurrentValue)
+            pattern = self._get_pattern(element, _UIA_VALUE_PATTERN_ID)
+            value = pattern.CurrentValue
+            if value is not None:
+                return str(value)
         except ActionNotSupportedError:
-            raise
+            pass
+        except Exception:
+            logger.debug("ValuePattern.CurrentValue failed, trying TextPattern", exc_info=True)
+
+        # --- 2. TextPattern ---
+        try:
+            pattern = self._get_pattern(element, _UIA_TEXT_PATTERN_ID)
+            doc_range = pattern.DocumentRange
+            if doc_range is not None:
+                text = doc_range.GetText(-1)
+                if text is not None:
+                    return str(text)
+        except ActionNotSupportedError:
+            pass
+        except Exception:
+            logger.debug(
+                "TextPattern.DocumentRange.GetText failed, trying CurrentName",
+                exc_info=True,
+            )
+
+        # --- 3. CurrentName ---
+        try:
+            name = element.CurrentName
+            if name is not None:
+                return str(name)
         except Exception as exc:
             raise ActionNotSupportedError(f"GetText failed: {exc}") from exc
+
+        raise ActionNotSupportedError(
+            "GetText failed: no ValuePattern, TextPattern, or CurrentName available"
+        )
 
     def _action_toggle(self, element: Any) -> None:
         """Toggle an element via TogglePattern.
