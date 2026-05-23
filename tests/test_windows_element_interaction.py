@@ -67,6 +67,7 @@ def backend() -> WindowsBackend:
         b._com_initialized = True
         b._uia = MagicMock()
         b._disposed = False
+        b._element_cache = {}
         return b
 
 
@@ -178,14 +179,27 @@ class TestUIAConstants:
 class TestUnwrapElement:
     """Verify _unwrap_element helper behavior."""
 
-    def test_none_handle_raises_element_not_found(self) -> None:
+    def test_none_handle_raises_element_not_found(self, backend: WindowsBackend) -> None:
         with pytest.raises(ElementNotFoundError, match="None"):
-            WindowsBackend._unwrap_element(None)
+            backend._unwrap_element(None)
 
-    def test_valid_handle_returns_element(self) -> None:
+    def test_valid_handle_returns_element(self, backend: WindowsBackend) -> None:
         mock_elem = MagicMock()
-        result = WindowsBackend._unwrap_element(NativeHandle(mock_elem))
+        result = backend._unwrap_element(NativeHandle(mock_elem))
         assert result is mock_elem
+
+    def test_string_handle_resolves_from_cache(self, backend: WindowsBackend) -> None:
+        """String backend_id is resolved via element cache to COM element."""
+        mock_elem = MagicMock()
+        elem_id = str(id(mock_elem))
+        backend._element_cache[elem_id] = mock_elem
+        result = backend._unwrap_element(NativeHandle(elem_id))
+        assert result is mock_elem
+
+    def test_string_handle_not_in_cache_raises(self, backend: WindowsBackend) -> None:
+        """String backend_id not in cache raises ElementNotFoundError."""
+        with pytest.raises(ElementNotFoundError, match="not found in backend cache"):
+            backend._unwrap_element(NativeHandle("missing-id"))
 
 
 # ---------------------------------------------------------------------------
@@ -1314,36 +1328,31 @@ class TestSendKeyCombo:
         """ctrl+s must press Ctrl, then S, then release both."""
         mock_user32 = MagicMock()
         mock_input = MagicMock()
-        mock_kbinput = MagicMock()
 
         with (
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
+            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
-            mock_user32.INPUT = mock_input
-            mock_user32.KEYBDINPUT = mock_kbinput
-
             WindowsBackend._send_key_combo("ctrl+s")
 
         # Expected call count: press ctrl, press s, release s, release ctrl = 4
         assert mock_user32.SendInput.call_count == 4
 
-        # Verify first call is modifier press (VK_CONTROL = 0x11, flags=0)
-        first_call = mock_user32.SendInput.call_args_list[0]
-        mock_input.assert_called_with(type=1, ki=mock_kbinput(wVk=0x11, dwFlags=0))
-
-        # Verify third call is main key release (VK_S, flags=KEYEVENTF_KEYUP=0x0002)
-        # and fourth call is modifier release
+        # Verify INPUT struct was created with type=1 (INPUT_KEYBOARD)
+        mock_input.assert_called_with(type=1)
 
     def test_alt_tab_combo(self) -> None:
         """alt+tab must press Alt, then Tab, then release both."""
         mock_user32 = MagicMock()
+        mock_input = MagicMock()
 
         with (
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
+            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
             WindowsBackend._send_key_combo("alt+tab")
 
@@ -1352,11 +1361,13 @@ class TestSendKeyCombo:
     def test_ctrl_shift_escape_triple_combo(self) -> None:
         """ctrl+shift+escape must press Ctrl, Shift, then Escape, then release all."""
         mock_user32 = MagicMock()
+        mock_input = MagicMock()
 
         with (
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
+            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
             WindowsBackend._send_key_combo("ctrl+shift+escape")
 
@@ -1413,11 +1424,13 @@ class TestSendKeyCombo:
         """ctrl+a must resolve 'a' via VkKeyScanW."""
         mock_user32 = MagicMock()
         mock_user32.VkKeyScanW.return_value = 0x41  # VK_A
+        mock_input = MagicMock()
 
         with (
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
+            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
             WindowsBackend._send_key_combo("ctrl+a")
 

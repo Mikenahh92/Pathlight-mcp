@@ -19,6 +19,7 @@ bounds, patterns) for later normalization by the tool layer (GW-022).
 """
 
 import contextlib
+import ctypes
 import logging
 import sys
 from dataclasses import dataclass
@@ -45,6 +46,85 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "WindowsBackend",
 ]
+
+# -- SendInput ctypes struct definitions ------------------------------------
+# The Win32 SendInput API requires properly laid-out INPUT/KEYBDINPUT structs.
+# ctypes does not expose these automatically — they must be defined manually
+# with explicit field offsets matching the Win32 ABI.
+
+# Lazy-initialised module-level cache for the SendInput ctypes structs.
+# Defined on first use to avoid import-time ctypes calls on non-Windows.
+_sendinput_structs: dict[str, type] | None = None
+
+
+def _get_sendinput_structs() -> dict[str, type]:
+    """Return (and lazily create) the ctypes structs needed by SendInput.
+
+    Returns a dict with keys ``"INPUT"``, ``"KEYBDINPUT"``,
+    ``"MOUSEINPUT"``, ``"HARDWAREINPUT"``.
+    """
+    global _sendinput_structs
+    if _sendinput_structs is not None:
+        return _sendinput_structs
+
+    class MOUSEINPUT(ctypes.Structure):
+        _fields_ = [
+            ("dx", ctypes.c_long),
+            ("dy", ctypes.c_long),
+            ("mouseData", ctypes.c_ulong),
+            ("dwFlags", ctypes.c_ulong),
+            ("time", ctypes.c_ulong),
+            ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+        ]
+
+    class KEYBDINPUT(ctypes.Structure):
+        _fields_ = [
+            ("wVk", ctypes.c_ushort),
+            ("wScan", ctypes.c_ushort),
+            ("dwFlags", ctypes.c_ulong),
+            ("time", ctypes.c_ulong),
+            ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+        ]
+
+    class HARDWAREINPUT(ctypes.Structure):
+        _fields_ = [
+            ("uMsg", ctypes.c_ulong),
+            ("wParamL", ctypes.c_ushort),
+            ("wParamH", ctypes.c_ushort),
+        ]
+
+    # Determine pointer size for the union alignment
+    ptr_size = ctypes.sizeof(ctypes.c_void_p)
+
+    class _INPUTUnion(ctypes.Union):
+        _fields_: list[tuple[str, type]] = [  # noqa: RUF012
+            ("ki", KEYBDINPUT),
+            ("mi", MOUSEINPUT),
+            ("hi", HARDWAREINPUT),
+        ]
+
+    # The INPUT struct has: DWORD type (4 bytes), then padding to align
+    # the union to the pointer size, then the union.
+    if ptr_size == 8:  # 64-bit
+        _input_fields: list[tuple[str, type]] = [
+            ("type", ctypes.c_ulong),
+            ("_padding", ctypes.c_ulong),  # 4 bytes padding to reach 8-byte alignment
+        ]
+    else:  # 32-bit
+        _input_fields = [
+            ("type", ctypes.c_ulong),
+        ]
+
+    class INPUT(ctypes.Structure):
+        _fields_: list[tuple[str, type]] = [*_input_fields, ("union", _INPUTUnion)]  # noqa: RUF012
+
+    _sendinput_structs = {
+        "INPUT": INPUT,
+        "KEYBDINPUT": KEYBDINPUT,
+        "MOUSEINPUT": MOUSEINPUT,
+        "HARDWAREINPUT": HARDWAREINPUT,
+    }
+    return _sendinput_structs
 
 # -- UIA constants (architecture §5: module-level) ----------------------------
 
@@ -189,6 +269,9 @@ class WindowsBackend(DesktopBackend):
             interface=comtypes.IUnknown,  # type: ignore[attr-defined]
         )
         self._disposed: bool = False
+        # Maps str(id(element)) → COM IUIAutomationElement so that the ref
+        # store can resolve string backend_ids back to real COM handles.
+        self._element_cache: dict[str, Any] = {}
 
     # -- DesktopBackend interface (16 abstract methods) -------------------------
 
@@ -586,10 +669,16 @@ class WindowsBackend(DesktopBackend):
             except Exception:
                 pass
 
+        # Register the COM element in the backend's element cache so that
+        # the snapshot tool's ref store can later resolve the string backend_id
+        # back to the real COM element via _unwrap_element.
+        elem_id = str(id(element))
+        self._element_cache[elem_id] = element
+
         return normalize_element(
             platform="windows",
-            ref=str(id(element)),
-            backend_id=str(control_type_id),
+            ref=elem_id,
+            backend_id=elem_id,
             role=control_type_name,
             native_role=control_type_name,
             control_type=control_type_name,
@@ -624,9 +713,11 @@ class WindowsBackend(DesktopBackend):
         node = self._walk_recursive(root_element, walker, 0, max_depth, counter, max_nodes)
         if node is None:
             # Root should never be None; return a minimal node as fallback
+            root_id = str(id(root_element))
+            self._element_cache[root_id] = root_element
             fallback = NormalizedElement(
-                ref=str(id(root_element)),
-                backend_id="0",
+                ref=root_id,
+                backend_id=root_id,
                 role="unknown",
             )
             return fallback.to_dict()
@@ -650,9 +741,11 @@ class WindowsBackend(DesktopBackend):
         offscreen nodes).
         """
         if counter[0] >= max_nodes:
+            trunc_id = str(id(element))
+            self._element_cache[trunc_id] = element
             return NormalizedElement(
-                ref=str(id(element)),
-                backend_id="0",
+                ref=trunc_id,
+                backend_id=trunc_id,
                 role="unknown",
             )
 
@@ -890,22 +983,38 @@ class WindowsBackend(DesktopBackend):
             )
         return StaleElementReferenceError(f"Element is no longer available (COM error): {exc}")
 
-    @staticmethod
-    def _unwrap_element(handle: NativeHandle) -> Any:
+    def _unwrap_element(self, handle: NativeHandle) -> Any:
         """Extract the underlying COM element from a NativeHandle.
 
+        Handles three representations:
+
+        1. **COM IUIAutomationElement** — passed through directly.
+        2. **String backend_id** (from ref store after snapshot) — looked up
+           in the backend's element cache to recover the COM element.
+        3. **None** — raises ``ElementNotFoundError``.
+
         Args:
-            handle: Opaque native element handle.
+            handle: Opaque native element handle (COM element or string ID).
 
         Returns:
             The COM ``IUIAutomationElement`` object.
 
         Raises:
-            ElementNotFoundError: If the handle is ``None`` or empty.
+            ElementNotFoundError: If the handle is ``None``, empty, or not
+                found in the element cache.
         """
         element = handle
         if element is None:
             raise ElementNotFoundError("Element handle is None")
+        # If the ref store resolved to a string backend_id (e.g. from a
+        # snapshot element), look up the cached COM element.
+        if isinstance(element, str):
+            cached = self._element_cache.get(element)
+            if cached is not None:
+                return cached
+            raise ElementNotFoundError(
+                f"Element reference '{element}' not found in backend cache"
+            )
         return element
 
     def _get_pattern(self, element: Any, pattern_id: int) -> Any:
@@ -1277,26 +1386,18 @@ class WindowsBackend(DesktopBackend):
         Args:
             text: The text string to type.
         """
-        import ctypes
-
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        structs = _get_sendinput_structs()
+        input_cls = structs["INPUT"]
 
         for char in text:
-            vk = ctypes.windll.user32.VkKeyScanW(ord(char)) & 0xFF  # type: ignore[attr-defined]
+            vk = user32.VkKeyScanW(ord(char)) & 0xFF  # type: ignore[attr-defined]
             if vk == 0xFF:
                 continue
-            user32.SendInput(  # type: ignore[attr-defined]
-                1,
-                ctypes.byref(
-                    ctypes.windll.user32.INPUT(  # type: ignore[attr-defined]
-                        type=1,  # INPUT_KEYBOARD
-                        ki=ctypes.windll.user32.KEYBDINPUT(  # type: ignore[attr-defined]
-                            wVk=vk,
-                        ),
-                    )
-                ),
-                ctypes.sizeof(ctypes.windll.user32.INPUT),  # type: ignore[attr-defined]
-            )
+
+            inp = input_cls(type=1)  # INPUT_KEYBOARD
+            inp.union.ki.wVk = vk
+            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(input_cls))  # type: ignore[attr-defined]
 
     # -- Virtual-key code maps ------------------------------------------------
 
@@ -1360,8 +1461,6 @@ class WindowsBackend(DesktopBackend):
         Args:
             key: The key name (e.g. ``"Enter"``, ``"Tab"``, ``"Escape"``).
         """
-        import ctypes
-
         _key_map: dict[str, int] = {
             "enter": 0x0D,
             "tab": 0x09,
@@ -1403,16 +1502,12 @@ class WindowsBackend(DesktopBackend):
             return
 
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
-        user32.SendInput(  # type: ignore[attr-defined]
-            1,
-            ctypes.byref(
-                user32.INPUT(  # type: ignore[attr-defined]
-                    type=1,
-                    ki=user32.KEYBDINPUT(wVk=vk),
-                )
-            ),
-            ctypes.sizeof(user32.INPUT),  # type: ignore[attr-defined]
-        )
+        structs = _get_sendinput_structs()
+        input_cls = structs["INPUT"]
+
+        inp = input_cls(type=1)  # INPUT_KEYBOARD
+        inp.union.ki.wVk = vk
+        user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(input_cls))  # type: ignore[attr-defined]
 
     @staticmethod
     def _send_key_combo(combo: str) -> None:
@@ -1432,8 +1527,6 @@ class WindowsBackend(DesktopBackend):
         Args:
             combo: Normalised key combo string from the tool layer.
         """
-        import ctypes
-
         parts = [p.strip() for p in combo.split("+")]
         if not parts:
             return
@@ -1463,19 +1556,15 @@ class WindowsBackend(DesktopBackend):
                 return
 
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        structs = _get_sendinput_structs()
+        input_cls = structs["INPUT"]
         keyeventf_keyup = 0x0002
 
         def _send_keyevent(vk: int, flags: int = 0) -> None:
-            user32.SendInput(
-                1,
-                ctypes.byref(
-                    user32.INPUT(
-                        type=1,  # INPUT_KEYBOARD
-                        ki=user32.KEYBDINPUT(wVk=vk, dwFlags=flags),
-                    )
-                ),
-                ctypes.sizeof(user32.INPUT),
-            )
+            inp = input_cls(type=1)  # INPUT_KEYBOARD
+            inp.union.ki.wVk = vk
+            inp.union.ki.dwFlags = flags
+            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(input_cls))
 
         # 1. Press modifiers
         for mod_vk in modifier_vks:
@@ -1704,8 +1793,6 @@ class WindowsBackend(DesktopBackend):
             BackendUnavailableError: If the clipboard cannot be opened or
                 does not contain text.
         """
-        import ctypes
-
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
 
@@ -1714,6 +1801,8 @@ class WindowsBackend(DesktopBackend):
         # HANDLE values on 64-bit Windows, causing silent data loss or
         # spurious "backend_unavailable" errors.
         kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
         user32.GetClipboardData.restype = ctypes.c_void_p
 
         cf_unicode_text = 13  # Win32 CF_UNICODETEXT format
@@ -1753,19 +1842,22 @@ class WindowsBackend(DesktopBackend):
             BackendUnavailableError: If the clipboard cannot be opened or
                 the operation fails.
         """
-        import ctypes
-
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
 
-        # Declare restype for 64-bit handle-returning Win32 API functions.
-        # Without these, ctypes defaults to c_int (32-bit) which truncates
-        # HANDLE values on 64-bit Windows, causing spurious
-        # "backend_unavailable" errors.
+        # Declare restype and argtypes for 64-bit handle-returning and
+        # handle-accepting Win32 API functions.  Without these, ctypes
+        # defaults to c_int (32-bit) which truncates HANDLE values on
+        # 64-bit Windows, causing spurious "backend_unavailable" errors.
         kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalAlloc.argtypes = [ctypes.c_ulong, ctypes.c_ulong]
         kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+        kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
         kernel32.GlobalFree.restype = ctypes.c_void_p
+        kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
         user32.SetClipboardData.restype = ctypes.c_void_p
+        user32.SetClipboardData.argtypes = [ctypes.c_ulong, ctypes.c_void_p]
 
         # Allocate and copy text to global memory
         text_bytes = text.encode("utf-16-le") + b"\x00\x00"

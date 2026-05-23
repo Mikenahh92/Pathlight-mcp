@@ -167,6 +167,7 @@ class TestStubMethods:
             uia_mock.ControlViewWalker.GetNextSiblingElement.return_value = None
             b._uia = uia_mock
             b._disposed = False
+            b._element_cache = {}
             return b
 
     def test_list_windows_returns_handles(self, backend: WindowsBackend) -> None:
@@ -410,6 +411,7 @@ class TestListWindowsP0:
             b._com_initialized = True
             b._uia = MagicMock()
             b._disposed = False
+            b._element_cache = {}
             return b
 
     def test_tc_lw_004_get_root_element_called_once(self, backend: WindowsBackend) -> None:
@@ -491,6 +493,7 @@ class TestListWindowsP1:
             b._com_initialized = True
             b._uia = MagicMock()
             b._disposed = False
+            b._element_cache = {}
             return b
 
     def test_create_property_condition_uses_control_type_property_id(
@@ -610,6 +613,7 @@ class TestIsValid:
             b._com_initialized = True
             b._uia = MagicMock()
             b._disposed = False
+            b._element_cache = {}
             return b
 
     # -- Disposed backend ---------------------------------------------------

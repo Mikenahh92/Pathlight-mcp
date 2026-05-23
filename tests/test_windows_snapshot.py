@@ -112,6 +112,7 @@ def _make_backend() -> tuple[WindowsBackend, MagicMock]:
         uia_mock.ControlViewWalker = walker_mock
         backend._uia = uia_mock
         backend._disposed = False
+        backend._element_cache = {}
         return backend, walker_mock
 
 

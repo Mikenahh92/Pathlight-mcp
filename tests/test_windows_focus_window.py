@@ -49,6 +49,7 @@ def backend() -> WindowsBackend:
         b._com_initialized = True
         b._uia = MagicMock()
         b._disposed = False
+        b._element_cache = {}
         return b
 
 
