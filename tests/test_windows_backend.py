@@ -23,7 +23,11 @@ import pytest
 from guidewire.backends.base import DesktopBackend
 from guidewire.backends.types import NativeHandle
 from guidewire.backends.windows import WindowsBackend
-from guidewire.errors import BackendUnavailableError, StaleElementReferenceError
+from guidewire.errors import (
+    BackendUnavailableError,
+    StaleElementReferenceError,
+    WindowNotFoundError,
+)
 
 # ---------------------------------------------------------------------------
 # Structural tests (run on any platform)
@@ -221,18 +225,85 @@ class TestStubMethods:
         with pytest.raises(BackendUnavailableError, match="enumerate windows"):
             backend.list_windows()
 
-    def test_get_window_info_raises_not_implemented(self, backend: WindowsBackend) -> None:
+    def test_get_window_info_returns_metadata(self, backend: WindowsBackend) -> None:
+        """get_window_info returns title, app_name, focused, bounds from COM element."""
         from guidewire.backends.types import NativeHandle
 
-        with pytest.raises(NotImplementedError, match="get_window_info"):
+        mock_element = MagicMock()
+        # Set up property values: Name, ClassName, HasKeyboardFocus, BoundingRectangle, ProcessId
+        prop_values = {
+            30005: "Calculator",  # Name → title
+            30012: "CalcFrame",  # ClassName → app_name
+            30008: True,  # HasKeyboardFocus → focused
+            30001: MagicMock(left=10, top=20, right=810, bottom=620),  # BoundingRectangle
+            30076: 1234,  # ProcessId → liveness probe
+        }
+        mock_element.GetCurrentPropertyValue.side_effect = lambda pid: prop_values[pid]
+
+        result = backend.get_window_info(NativeHandle(mock_element))
+
+        assert result["title"] == "Calculator"
+        assert result["app_name"] == "CalcFrame"
+        assert result["focused"] is True
+        assert result["bounds"] == {"x": 10, "y": 20, "width": 800, "height": 600}
+
+    def test_get_window_info_bounds_as_tuple(self, backend: WindowsBackend) -> None:
+        """get_window_info handles BoundingRectangle returned as a tuple."""
+        from guidewire.backends.types import NativeHandle
+
+        mock_element = MagicMock()
+        prop_values = {
+            30005: "Notepad",
+            30012: "Notepad",
+            30008: False,
+            30001: (100, 200, 500, 600),
+            30076: 5678,
+        }
+        mock_element.GetCurrentPropertyValue.side_effect = lambda pid: prop_values[pid]
+
+        result = backend.get_window_info(NativeHandle(mock_element))
+
+        assert result["bounds"] == {"x": 100, "y": 200, "width": 400, "height": 400}
+
+    def test_get_window_info_null_bounds(self, backend: WindowsBackend) -> None:
+        """get_window_info returns None for bounds when rect is None."""
+        from guidewire.backends.types import NativeHandle
+
+        mock_element = MagicMock()
+        prop_values = {
+            30005: "Untitled",
+            30012: "Chrome_WidgetWin_1",
+            30008: False,
+            30001: None,
+            30076: 9999,
+        }
+        mock_element.GetCurrentPropertyValue.side_effect = lambda pid: prop_values[pid]
+
+        result = backend.get_window_info(NativeHandle(mock_element))
+
+        assert result["bounds"] is None
+
+    def test_get_window_info_disposed_raises(self, backend: WindowsBackend) -> None:
+        """get_window_info on a disposed backend raises WindowNotFoundError."""
+        backend._disposed = True
+        with pytest.raises(WindowNotFoundError, match="disposed"):
             backend.get_window_info(NativeHandle("fake"))
+
+    def test_get_window_info_com_error_raises_window_not_found(
+        self, backend: WindowsBackend
+    ) -> None:
+        """COM errors in get_window_info are translated to WindowNotFoundError."""
+
+        mock_element = MagicMock()
+        mock_element.GetCurrentPropertyValue.side_effect = RuntimeError("COM error")
+
+        with pytest.raises(WindowNotFoundError, match="read window info"):
+            backend.get_window_info(NativeHandle(mock_element))
 
     def test_focus_window_invalid_handle_raises_window_not_found(
         self, backend: WindowsBackend
     ) -> None:
         """focus_window is implemented (GW-021); invalid handle raises WindowNotFoundError."""
-        from guidewire.backends.types import NativeHandle
-        from guidewire.errors import WindowNotFoundError
 
         with pytest.raises(WindowNotFoundError):
             backend.focus_window(NativeHandle(0))

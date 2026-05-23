@@ -7,6 +7,7 @@ imported on non-Windows platforms without error (the constructor will raise
 
 Implementation status:
 - ``list_windows`` — implemented (GW-020)
+- ``get_window_info`` — implemented (GW-081)
 - ``focus_window`` — implemented (GW-021)
 - ``snapshot``, ``find_elements`` — implemented (GW-022)
 - ``perform_action``, ``get_element_info``, ``is_valid`` — implemented (GW-023)
@@ -17,6 +18,7 @@ extracting raw element properties (ControlType, Name, Value, IsEnabled,
 bounds, patterns) for later normalization by the tool layer (GW-022).
 """
 
+import contextlib
 import logging
 import sys
 from dataclasses import dataclass
@@ -51,6 +53,8 @@ _UIA_CONTROL_TYPE_PROPERTY_ID = 30003  # UIA_PropertyId_UIA_ControlTypePropertyI
 _UIA_WINDOW_CONTROL_TYPE_ID = 50032  # UIA_ControlType_Window (0xC370)
 _UIA_IS_OFFSCREEN_PROPERTY_ID = 30022  # UIA_PropertyId_UIA_IsOffscreenPropertyId
 _UIA_PROCESS_ID_PROPERTY_ID = 30076  # UIA_PropertyId_UIA_ProcessIdPropertyId
+_UIA_CLASS_NAME_PROPERTY_ID = 30012  # UIA_PropertyId_UIA_ClassNamePropertyId
+_UIA_BOUNDING_RECTANGLE_PROPERTY_ID = 30001  # UIA_PropertyId_UIA_BoundingRectanglePropertyId
 
 
 @dataclass(slots=True)
@@ -231,8 +235,11 @@ class WindowsBackend(DesktopBackend):
     def get_window_info(self, window: NativeHandle) -> dict[str, Any]:
         """Return window metadata as a dict.
 
-        .. todo:: Implement via ``IUIAutomationElement`` properties
-           (CurrentName, CurrentClassName, CurrentBoundingRectangle).
+        Reads the following UIA properties from the COM element:
+        - ``CurrentName`` → ``title``
+        - ``CurrentClassName`` → ``app_name``
+        - ``CurrentHasKeyboardFocus`` → ``focused``
+        - ``CurrentBoundingRectangle`` → ``bounds``
 
         Args:
             window: Opaque native window handle.
@@ -243,7 +250,76 @@ class WindowsBackend(DesktopBackend):
         Raises:
             WindowNotFoundError: If the handle is invalid.
         """
-        raise NotImplementedError("get_window_info not yet implemented — see GW-021")
+        if self._disposed:
+            raise WindowNotFoundError("WindowsBackend has been disposed")
+
+        element = self._unwrap_element(window)
+
+        try:
+            # Liveness probe — verify the element is reachable.
+            # If this raises, the element is stale / invalid and the outer
+            # handler will translate it to WindowNotFoundError.
+            element.GetCurrentPropertyValue(_UIA_PROCESS_ID_PROPERTY_ID)
+
+            # Title — CurrentName property
+            title = ""
+            with contextlib.suppress(Exception):
+                title = element.GetCurrentPropertyValue(_UIA_NAME_PROPERTY_ID) or ""
+
+            # App name — CurrentClassName as a stable identifier
+            app_name = ""
+            with contextlib.suppress(Exception):
+                app_name = (
+                    element.GetCurrentPropertyValue(_UIA_CLASS_NAME_PROPERTY_ID) or ""
+                )
+
+            # Focused — CurrentHasKeyboardFocus
+            focused = False
+            with contextlib.suppress(Exception):
+                focused = bool(
+                    element.GetCurrentPropertyValue(_UIA_HAS_KEYBOARD_FOCUS_PROPERTY_ID)
+                )
+
+            # Bounds — CurrentBoundingRectangle (tagRECT: left, top, width, height)
+            bounds: dict[str, int] | None = None
+            with contextlib.suppress(Exception):
+                rect = element.GetCurrentPropertyValue(
+                    _UIA_BOUNDING_RECTANGLE_PROPERTY_ID
+                )
+                if rect is not None:
+                    # comtypes returns a tagRECT with left/top/right/bottom
+                    # or sometimes a tuple depending on the COM variant
+                    if hasattr(rect, "left"):
+                        bounds = {
+                            "x": int(rect.left),
+                            "y": int(rect.top),
+                            "width": int(rect.right - rect.left)
+                            if rect.right is not None
+                            else 0,
+                            "height": int(rect.bottom - rect.top)
+                            if rect.bottom is not None
+                            else 0,
+                        }
+                    elif isinstance(rect, (tuple, list)) and len(rect) >= 4:
+                        bounds = {
+                            "x": int(rect[0]),
+                            "y": int(rect[1]),
+                            "width": int(rect[2] - rect[0]),
+                            "height": int(rect[3] - rect[1]),
+                        }
+
+            return {
+                "title": str(title),
+                "app_name": str(app_name),
+                "focused": focused,
+                "bounds": bounds,
+            }
+        except (WindowNotFoundError, BackendUnavailableError):
+            raise
+        except Exception as exc:
+            raise WindowNotFoundError(
+                f"Failed to read window info: {exc}"
+            ) from exc
 
     # -- Private helpers (section 4.2-4.4) -----------------------------------
 
