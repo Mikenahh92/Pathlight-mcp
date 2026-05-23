@@ -986,15 +986,18 @@ class WindowsBackend(DesktopBackend):
     def _unwrap_element(self, handle: NativeHandle) -> Any:
         """Extract the underlying COM element from a NativeHandle.
 
-        Handles three representations:
+        Handles four representations:
 
         1. **COM IUIAutomationElement** — passed through directly.
         2. **String backend_id** (from ref store after snapshot) — looked up
            in the backend's element cache to recover the COM element.
-        3. **None** — raises ``ElementNotFoundError``.
+        3. **_ComHandle wrapper** (from ref store after find) — the
+           ``.element`` attribute is extracted to obtain the raw COM pointer.
+        4. **None** — raises ``ElementNotFoundError``.
 
         Args:
-            handle: Opaque native element handle (COM element or string ID).
+            handle: Opaque native element handle (COM element, string ID, or
+                ``_ComHandle`` wrapper).
 
         Returns:
             The COM ``IUIAutomationElement`` object.
@@ -1015,6 +1018,10 @@ class WindowsBackend(DesktopBackend):
             raise ElementNotFoundError(
                 f"Element reference '{element}' not found in backend cache"
             )
+        # If the ref store resolved to a _ComHandle wrapper (e.g. from
+        # find_elements via the find tool), extract the raw COM element.
+        if isinstance(element, _ComHandle):
+            return element.element
         return element
 
     def _get_pattern(self, element: Any, pattern_id: int) -> Any:
@@ -1031,7 +1038,7 @@ class WindowsBackend(DesktopBackend):
             ActionNotSupportedError: If the pattern is not available.
         """
         try:
-            pattern = self._uia.GetPattern(element, pattern_id)
+            pattern = element.GetCurrentPattern(pattern_id)
             if pattern is None:
                 pattern_name = {
                     _UIA_INVOKE_PATTERN_ID: "Invoke",
@@ -1778,6 +1785,11 @@ class WindowsBackend(DesktopBackend):
                 return True
             except Exception:
                 return False
+
+        # _ComHandle wrapper (from ref store after find) — extract inner
+        # COM element and fall through to the standard COM probe below.
+        if isinstance(element, _ComHandle):
+            element = element.element
 
         # HWND integer handles — use Win32 IsWindow API.
         if isinstance(element, int):

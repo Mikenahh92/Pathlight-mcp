@@ -25,6 +25,7 @@ import pytest
 
 from guidewire.backends.types import DesktopAction, NativeHandle
 from guidewire.backends.windows import (
+    _ComHandle,
     _UIA_CONTROL_TYPE_NAMES,
     _UIA_EXPAND_COLLAPSE_PATTERN_ID,
     _UIA_HAS_KEYBOARD_FOCUS_PROPERTY_ID,
@@ -201,6 +202,13 @@ class TestUnwrapElement:
         with pytest.raises(ElementNotFoundError, match="not found in backend cache"):
             backend._unwrap_element(NativeHandle("missing-id"))
 
+    def test_comhandle_wrapper_extracts_element(self, backend: WindowsBackend) -> None:
+        """_ComHandle wrapper from find_elements is unwrapped to the raw COM element."""
+        mock_elem = MagicMock()
+        com_handle = _ComHandle(element=mock_elem, _uia=backend._uia)
+        result = backend._unwrap_element(NativeHandle(com_handle))
+        assert result is mock_elem
+
 
 # ---------------------------------------------------------------------------
 # _get_pattern tests
@@ -214,7 +222,7 @@ class TestGetPattern:
         """When element supports the pattern, return it."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         result = backend._get_pattern(mock_element, _UIA_INVOKE_PATTERN_ID)
         assert result is mock_pattern
@@ -222,7 +230,7 @@ class TestGetPattern:
     def test_pattern_unavailable_raises_action_not_supported(self, backend: WindowsBackend) -> None:
         """When element does not support the pattern, raise ActionNotSupportedError."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="Invoke"):
             backend._get_pattern(mock_element, _UIA_INVOKE_PATTERN_ID)
@@ -230,7 +238,7 @@ class TestGetPattern:
     def test_pattern_com_error_raises_action_not_supported(self, backend: WindowsBackend) -> None:
         """COM errors in GetPattern are translated to ActionNotSupportedError."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.side_effect = RuntimeError("COM error")
+        mock_element.GetCurrentPattern.side_effect = RuntimeError("COM error")
 
         with pytest.raises(ActionNotSupportedError, match="Failed to get pattern"):
             backend._get_pattern(mock_element, _UIA_INVOKE_PATTERN_ID)
@@ -238,7 +246,7 @@ class TestGetPattern:
     def test_unknown_pattern_id_includes_id_in_message(self, backend: WindowsBackend) -> None:
         """Unknown pattern IDs should include the numeric ID in the error."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="99999"):
             backend._get_pattern(mock_element, 99999)
@@ -256,17 +264,17 @@ class TestPerformActionClick:
         """CLICK must call InvokePattern.Invoke()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
 
-        backend._uia.GetPattern.assert_called_once_with(mock_element, _UIA_INVOKE_PATTERN_ID)
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_INVOKE_PATTERN_ID)
         mock_pattern.Invoke.assert_called_once()
 
     def test_click_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """CLICK must raise ActionNotSupportedError when InvokePattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="Invoke"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
@@ -276,7 +284,7 @@ class TestPerformActionClick:
         mock_pattern = MagicMock()
         mock_pattern.Invoke.side_effect = RuntimeError("Element not visible")
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         with pytest.raises(ActionNotSupportedError, match="Invoke failed"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
@@ -294,11 +302,11 @@ class TestPerformActionSetValue:
         """SET_VALUE must call ValuePattern.SetValue()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.SET_VALUE, value="hello")
 
-        backend._uia.GetPattern.assert_called_once_with(mock_element, _UIA_VALUE_PATTERN_ID)
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_VALUE_PATTERN_ID)
         mock_pattern.SetValue.assert_called_once_with("hello")
 
     def test_set_value_missing_param_raises(self, backend: WindowsBackend) -> None:
@@ -311,7 +319,7 @@ class TestPerformActionSetValue:
     def test_set_value_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """SET_VALUE must raise ActionNotSupportedError when ValuePattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="Value"):
             backend.perform_action(
@@ -334,17 +342,17 @@ class TestPerformActionGetText:
         mock_pattern = MagicMock()
         mock_pattern.CurrentValue = "sample text"
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         result = backend.perform_action(NativeHandle(mock_element), DesktopAction.GET_TEXT)
 
         assert result == "sample text"
-        backend._uia.GetPattern.assert_called_once_with(mock_element, _UIA_VALUE_PATTERN_ID)
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_VALUE_PATTERN_ID)
 
     def test_get_text_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """GET_TEXT must raise ActionNotSupportedError when ValuePattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="Value"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.GET_TEXT)
@@ -362,17 +370,17 @@ class TestPerformActionToggle:
         """TOGGLE must call TogglePattern.Toggle()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.TOGGLE)
 
-        backend._uia.GetPattern.assert_called_once_with(mock_element, _UIA_TOGGLE_PATTERN_ID)
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_TOGGLE_PATTERN_ID)
         mock_pattern.Toggle.assert_called_once()
 
     def test_toggle_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """TOGGLE must raise ActionNotSupportedError when TogglePattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="Toggle"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.TOGGLE)
@@ -390,19 +398,19 @@ class TestPerformActionSelect:
         """SELECT must call SelectionItemPattern.Select()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.SELECT)
 
-        backend._uia.GetPattern.assert_called_once_with(
-            mock_element, _UIA_SELECTION_ITEM_PATTERN_ID
+        mock_element.GetCurrentPattern.assert_called_once_with(
+            _UIA_SELECTION_ITEM_PATTERN_ID
         )
         mock_pattern.Select.assert_called_once()
 
     def test_select_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """SELECT must raise ActionNotSupportedError when SelectionItemPattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="SelectionItem"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.SELECT)
@@ -420,19 +428,19 @@ class TestPerformActionSelectItem:
         """SELECT_ITEM must call SelectionItemPattern.Select()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.SELECT_ITEM)
 
-        backend._uia.GetPattern.assert_called_once_with(
-            mock_element, _UIA_SELECTION_ITEM_PATTERN_ID
+        mock_element.GetCurrentPattern.assert_called_once_with(
+            _UIA_SELECTION_ITEM_PATTERN_ID
         )
         mock_pattern.Select.assert_called_once()
 
     def test_select_item_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """SELECT_ITEM must raise ActionNotSupportedError when pattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="SelectionItem"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.SELECT_ITEM)
@@ -445,19 +453,19 @@ class TestPerformActionDeselectItem:
         """DESELECT_ITEM must call SelectionItemPattern.RemoveFromSelection()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.DESELECT_ITEM)
 
-        backend._uia.GetPattern.assert_called_once_with(
-            mock_element, _UIA_SELECTION_ITEM_PATTERN_ID
+        mock_element.GetCurrentPattern.assert_called_once_with(
+            _UIA_SELECTION_ITEM_PATTERN_ID
         )
         mock_pattern.RemoveFromSelection.assert_called_once()
 
     def test_deselect_item_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """DESELECT_ITEM must raise ActionNotSupportedError when pattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="SelectionItem"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.DESELECT_ITEM)
@@ -470,19 +478,19 @@ class TestPerformActionAddToSelection:
         """ADD_TO_SELECTION must call SelectionItemPattern.AddToSelection()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.ADD_TO_SELECTION)
 
-        backend._uia.GetPattern.assert_called_once_with(
-            mock_element, _UIA_SELECTION_ITEM_PATTERN_ID
+        mock_element.GetCurrentPattern.assert_called_once_with(
+            _UIA_SELECTION_ITEM_PATTERN_ID
         )
         mock_pattern.AddToSelection.assert_called_once()
 
     def test_add_to_selection_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         """ADD_TO_SELECTION must raise ActionNotSupportedError when pattern absent."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="SelectionItem"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.ADD_TO_SELECTION)
@@ -500,12 +508,12 @@ class TestPerformActionExpandCollapse:
         """EXPAND must call ExpandCollapsePattern.Expand()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.EXPAND)
 
-        backend._uia.GetPattern.assert_called_once_with(
-            mock_element, _UIA_EXPAND_COLLAPSE_PATTERN_ID
+        mock_element.GetCurrentPattern.assert_called_once_with(
+            _UIA_EXPAND_COLLAPSE_PATTERN_ID
         )
         mock_pattern.Expand.assert_called_once()
 
@@ -513,25 +521,25 @@ class TestPerformActionExpandCollapse:
         """COLLAPSE must call ExpandCollapsePattern.Collapse()."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.COLLAPSE)
 
-        backend._uia.GetPattern.assert_called_once_with(
-            mock_element, _UIA_EXPAND_COLLAPSE_PATTERN_ID
+        mock_element.GetCurrentPattern.assert_called_once_with(
+            _UIA_EXPAND_COLLAPSE_PATTERN_ID
         )
         mock_pattern.Collapse.assert_called_once()
 
     def test_expand_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="ExpandCollapse"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.EXPAND)
 
     def test_collapse_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="ExpandCollapse"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.COLLAPSE)
@@ -549,7 +557,7 @@ class TestPerformActionScroll:
         """SCROLL with horizontal=False must call ScrollVertical."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.SCROLL)
 
@@ -560,7 +568,7 @@ class TestPerformActionScroll:
         """SCROLL with horizontal=True must call ScrollHorizontal."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(
             NativeHandle(mock_element),
@@ -575,7 +583,7 @@ class TestPerformActionScroll:
         """Negative scroll_amount should use SmallDecrement (1)."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(
             NativeHandle(mock_element),
@@ -589,7 +597,7 @@ class TestPerformActionScroll:
         """Positive scroll_amount should use SmallIncrement (3)."""
         mock_pattern = MagicMock()
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(
             NativeHandle(mock_element),
@@ -601,7 +609,7 @@ class TestPerformActionScroll:
 
     def test_scroll_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="Scroll"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.SCROLL)
@@ -623,7 +631,7 @@ class TestPerformActionIncrementDecrement:
         mock_pattern.Maximum = 100.0
         mock_pattern.Minimum = 0.0
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.INCREMENT)
 
@@ -637,7 +645,7 @@ class TestPerformActionIncrementDecrement:
         mock_pattern.Maximum = 100.0
         mock_pattern.Minimum = 0.0
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.INCREMENT)
 
@@ -651,7 +659,7 @@ class TestPerformActionIncrementDecrement:
         mock_pattern.Maximum = 100.0
         mock_pattern.Minimum = 0.0
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.DECREMENT)
 
@@ -665,7 +673,7 @@ class TestPerformActionIncrementDecrement:
         mock_pattern.Maximum = 100.0
         mock_pattern.Minimum = 0.0
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.DECREMENT)
 
@@ -679,7 +687,7 @@ class TestPerformActionIncrementDecrement:
         mock_pattern.Maximum = 100.0
         mock_pattern.Minimum = 0.0
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.INCREMENT)
 
@@ -687,14 +695,14 @@ class TestPerformActionIncrementDecrement:
 
     def test_increment_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="RangeValue"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.INCREMENT)
 
     def test_decrement_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with pytest.raises(ActionNotSupportedError, match="RangeValue"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.DECREMENT)
@@ -713,7 +721,7 @@ class TestPerformActionType:
         mock_pattern = MagicMock()
         mock_pattern.CurrentValue = "existing"
         mock_element = MagicMock()
-        backend._uia.GetPattern.return_value = mock_pattern
+        mock_element.GetCurrentPattern.return_value = mock_pattern
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.TYPE, text="hello")
 
@@ -730,7 +738,7 @@ class TestPerformActionType:
         """TYPE must fall back to SetFocus + SendInput when ValuePattern absent."""
         mock_element = MagicMock()
         # First call (ValuePattern) returns None, then pattern for other calls
-        backend._uia.GetPattern.return_value = None
+        mock_element.GetCurrentPattern.return_value = None
 
         with patch.object(WindowsBackend, "_send_text", create=True) as mock_send:
             backend.perform_action(NativeHandle(mock_element), DesktopAction.TYPE, text="abc")
@@ -820,7 +828,7 @@ class TestPerformActionErrors:
     def test_com_error_translated_to_action_not_supported(self, backend: WindowsBackend) -> None:
         """Generic COM errors are translated to ActionNotSupportedError."""
         mock_element = MagicMock()
-        backend._uia.GetPattern.side_effect = RuntimeError("COM failure")
+        mock_element.GetCurrentPattern.side_effect = RuntimeError("COM failure")
 
         with pytest.raises(ActionNotSupportedError, match="Failed to get pattern"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
@@ -830,7 +838,7 @@ class TestPerformActionErrors:
         mock_element = MagicMock()
         com_err = RuntimeError("Element not available")
         com_err.hresult = 0x80040201
-        backend._uia.GetPattern.side_effect = com_err
+        mock_element.GetCurrentPattern.side_effect = com_err
 
         with pytest.raises(StaleElementReferenceError, match="no longer available"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
@@ -840,7 +848,7 @@ class TestPerformActionErrors:
         mock_element = MagicMock()
         com_err = RuntimeError("Access denied")
         com_err.hresult = 0x80070005
-        backend._uia.GetPattern.side_effect = com_err
+        mock_element.GetCurrentPattern.side_effect = com_err
 
         with pytest.raises(StaleElementReferenceError, match="no longer available"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
@@ -850,7 +858,7 @@ class TestPerformActionErrors:
         mock_element = MagicMock()
         com_err = RuntimeError("Invalid argument")
         com_err.hresult = 0x80070057
-        backend._uia.GetPattern.side_effect = com_err
+        mock_element.GetCurrentPattern.side_effect = com_err
 
         with pytest.raises(ActionNotSupportedError, match="Invalid argument"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
@@ -860,7 +868,7 @@ class TestPerformActionErrors:
         mock_element = MagicMock()
         com_err = RuntimeError("Unknown COM error")
         com_err.hresult = 0x8000FFFF
-        backend._uia.GetPattern.side_effect = com_err
+        mock_element.GetCurrentPattern.side_effect = com_err
 
         with pytest.raises(StaleElementReferenceError, match="no longer available"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
@@ -1203,6 +1211,22 @@ class TestIsValid:
 
         # Must probe with a UIA property ID (implementation uses ProcessId 30076)
         mock_element.GetCurrentPropertyValue.assert_called_once()
+
+    def test_comhandle_wrapper_valid_returns_true(self, backend: WindowsBackend) -> None:
+        """_ComHandle wrapper from find_elements must be unwrapped for is_valid check."""
+        mock_inner = MagicMock()
+        com_handle = _ComHandle(element=mock_inner, _uia=backend._uia)
+        result = backend.is_valid(NativeHandle(com_handle))
+        assert result is True
+        mock_inner.GetCurrentPropertyValue.assert_called_once()
+
+    def test_comhandle_wrapper_stale_returns_false(self, backend: WindowsBackend) -> None:
+        """_ComHandle wrapper with stale inner element must return False."""
+        mock_inner = MagicMock()
+        mock_inner.GetCurrentPropertyValue.side_effect = OSError("stale")
+        com_handle = _ComHandle(element=mock_inner, _uia=backend._uia)
+        result = backend.is_valid(NativeHandle(com_handle))
+        assert result is False
 
 
 # ---------------------------------------------------------------------------
