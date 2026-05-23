@@ -1709,6 +1709,13 @@ class WindowsBackend(DesktopBackend):
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
 
+        # Declare restype for 64-bit handle-returning Win32 API functions.
+        # Without these, ctypes defaults to c_int (32-bit) which truncates
+        # HANDLE values on 64-bit Windows, causing silent data loss or
+        # spurious "backend_unavailable" errors.
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        user32.GetClipboardData.restype = ctypes.c_void_p
+
         cf_unicode_text = 13  # Win32 CF_UNICODETEXT format
 
         if not user32.OpenClipboard(0):  # type: ignore[attr-defined]
@@ -1750,6 +1757,15 @@ class WindowsBackend(DesktopBackend):
 
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+
+        # Declare restype for 64-bit handle-returning Win32 API functions.
+        # Without these, ctypes defaults to c_int (32-bit) which truncates
+        # HANDLE values on 64-bit Windows, causing spurious
+        # "backend_unavailable" errors.
+        kernel32.GlobalAlloc.restype = ctypes.c_void_p
+        kernel32.GlobalLock.restype = ctypes.c_void_p
+        kernel32.GlobalFree.restype = ctypes.c_void_p
+        user32.SetClipboardData.restype = ctypes.c_void_p
 
         # Allocate and copy text to global memory
         text_bytes = text.encode("utf-16-le") + b"\x00\x00"
