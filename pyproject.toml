@@ -31,6 +31,7 @@ classifiers = [
 dependencies = [
     "mcp",
     "python-xlib; sys_platform == 'linux'",
+    "websocket-client>=1.6",
 ]
 
 [project.urls]
