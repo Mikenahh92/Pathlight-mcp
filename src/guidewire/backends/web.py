@@ -1,4 +1,4 @@
-"""WebBackend — CDP-based accessibility backend for web browsers (GW-095, GW-096).
+"""WebBackend — CDP-based accessibility backend for web browsers (GW-095, GW-096, GW-101).
 
 Uses the Chrome DevTools Protocol (CDP) Accessibility domain to query the
 browser's accessibility tree and the Input domain for action dispatch.
@@ -14,6 +14,9 @@ Architecture overview:
       produces an AX node tree that is converted to
       :class:`~guidewire.models.NormalizedElement`
       via the ``"web"`` platform mapping tables.
+      Multi-frame support: discovers iframes via ``Page.getFrameTree``,
+      attaches CDP sessions to each child frame target, and merges their
+      AX trees into the main snapshot (GW-101).
     - ``find_elements`` →
       :meth:`~guidewire.cdp.domains.accessibility.AccessibilityDomain.query_ax_tree`
       for server-side filtering by role/name.
@@ -24,16 +27,19 @@ Architecture overview:
     - Stale element detection before action dispatch (GW-096).
     - Cache invalidation on each ``snapshot`` call so stale AX node IDs are
       not reused across tree generations.
+    - Virtualized list detection via ``aria-rowcount`` / ``aria-setsize``
+      heuristics with scroll-to-item via CDP Input domain (GW-101).
 
 Implementation status:
     - ``list_windows``, ``get_window_info``, ``focus_window`` — GW-095
-    - ``snapshot`` — GW-095
+    - ``snapshot`` (incl. multi-frame / iframe) — GW-095, GW-101
     - ``find_elements`` — GW-095
     - ``perform_action`` (click, type, scroll, toggle, press_key, get_text) — GW-095, GW-096
     - Bounds caching and stale element detection — GW-096
     - ``get_element_info``, ``is_valid`` — GW-095
     - Window state management (minimize, maximize, etc.) — GW-095
     - ``clipboard_read``, ``clipboard_write`` — GW-095
+    - ``scroll_to_item`` (virtualized list scroll-retry) — GW-101
     - ``dispose`` — GW-095
 """
 
@@ -47,12 +53,15 @@ from guidewire.backends.web_normalize import (
     build_normalized_tree,
     fetch_bounds_from_dom,
     find_root_ax_node,
+    is_virtualized_container,
 )
 from guidewire.cdp._types import AXNode, CDPTarget
 from guidewire.cdp.browser import CDPBrowser
 from guidewire.cdp.domains.accessibility import AccessibilityDomain
 from guidewire.cdp.domains.dom import DOMDomain
 from guidewire.cdp.domains.input import InputDomain
+from guidewire.cdp.domains.page import PageDomain
+from guidewire.cdp.domains.target import TargetDomain
 from guidewire.cdp.session import CDPSession
 from guidewire.errors import (
     ActionNotSupportedError,
@@ -118,8 +127,11 @@ class WebBackend(DesktopBackend):
         # Session cache: target_id → CDPSession
         self._sessions: dict[str, CDPSession] = {}
 
-        # Domain cache: target_id → (AccessibilityDomain, DOMDomain, InputDomain)
-        self._domains: dict[str, tuple[AccessibilityDomain, DOMDomain, InputDomain]] = {}
+        # Domain cache: target_id → domain tuple
+        self._domains: dict[
+            str,
+            tuple[AccessibilityDomain, DOMDomain, InputDomain, PageDomain, TargetDomain],
+        ] = {}
 
     # -- Connection management ------------------------------------------------
 
@@ -170,14 +182,18 @@ class WebBackend(DesktopBackend):
         self._sessions[target_id] = session
         return session
 
-    def _get_domains(self, target_id: str) -> tuple[AccessibilityDomain, DOMDomain, InputDomain]:
+    def _get_domains(
+        self,
+        target_id: str,
+    ) -> tuple[AccessibilityDomain, DOMDomain, InputDomain, PageDomain, TargetDomain]:
         """Get or create domain wrappers for the given target.
 
         Args:
             target_id: The browser target identifier.
 
         Returns:
-            A tuple of (AccessibilityDomain, DOMDomain, InputDomain).
+            A tuple of (AccessibilityDomain, DOMDomain, InputDomain,
+            PageDomain, TargetDomain).
         """
         domains = self._domains.get(target_id)
         if domains is not None:
@@ -187,8 +203,10 @@ class WebBackend(DesktopBackend):
         acc = AccessibilityDomain(session)
         dom = DOMDomain(session)
         inp = InputDomain(session)
-        self._domains[target_id] = (acc, dom, inp)
-        return (acc, dom, inp)
+        page = PageDomain(session)
+        target = TargetDomain(session)
+        self._domains[target_id] = (acc, dom, inp, page, target)
+        return (acc, dom, inp, page, target)
 
     # -- DesktopBackend interface ---------------------------------------------
 
@@ -265,6 +283,11 @@ class WebBackend(DesktopBackend):
         to :class:`~guidewire.models.NormalizedElement` via the ``"web"``
         platform mapping tables, and applies depth/node limits.
 
+        Multi-frame support (GW-101): discovers child frames (iframes) via
+        ``Page.getFrameTree``, attaches CDP sessions to each iframe target,
+        and merges their AX trees into the main snapshot.  Iframe content
+        appears as children of inline frame AX nodes.
+
         The AX node cache is rebuilt on every snapshot call so that stale
         node IDs from previous snapshots are not reused.
 
@@ -284,12 +307,18 @@ class WebBackend(DesktopBackend):
         self._require_connected()
 
         target = self._resolve_target(window)
-        acc, dom, _ = self._get_domains(target.id)
+        acc, dom, _, page, _ = self._get_domains(target.id)
 
         # Fetch the full AX tree and rebuild the cache
         ax_nodes = acc.get_full_ax_tree()
         self._ax_cache = {n.node_id: n for n in ax_nodes}
         self._bounds_cache = {}  # Invalidate bounds cache on new snapshot (GW-096)
+
+        # Discover child frames (iframes) and merge their AX trees (GW-101)
+        iframe_ax_nodes = self._collect_iframe_ax_trees(target.id, page)
+        if iframe_ax_nodes:
+            ax_nodes = ax_nodes + iframe_ax_nodes
+            self._ax_cache = {n.node_id: n for n in ax_nodes}
 
         # Find the root node (webArea or the first node with no parent reference)
         root_node = find_root_ax_node(ax_nodes)
@@ -347,7 +376,7 @@ class WebBackend(DesktopBackend):
             return []
 
         target = self._resolve_target(window)
-        acc, _, _ = self._get_domains(target.id)
+        acc, _, _, _, _ = self._get_domains(target.id)
 
         results: list[NativeHandle] = []
 
@@ -459,7 +488,7 @@ class WebBackend(DesktopBackend):
 
         # Find the session that owns this element — use the first active session
         session = self._get_active_session()
-        _, dom, inp = self._get_domains(session.target.id)
+        _, dom, inp, _, _ = self._get_domains(session.target.id)
 
         try:
             if action == DesktopAction.CLICK:
@@ -703,11 +732,17 @@ class WebBackend(DesktopBackend):
         the target element into the viewport. It searches the AX cache for
         the matching element.
 
+        For virtualized containers (detected via ``aria-rowcount`` /
+        ``aria-setsize``), performs a scroll-retry loop: scrolls the
+        container down via mouse wheel dispatch, re-reads the AX tree, and
+        checks if the target item has been materialized (GW-101).
+
         Args:
             container: Opaque native handle for the container element.
             item_name: Name of the target item (case-insensitive substring).
             item_index: Zero-based index of the target item.
-            max_retries: Unused for web (kept for API compat).
+            max_retries: Maximum scroll iterations before giving up
+                (default 10 for virtualized containers).
 
         Returns:
             A :class:`NativeHandle` for the found item, or ``None``.
@@ -719,13 +754,14 @@ class WebBackend(DesktopBackend):
 
         # Search the AX cache for children of the container
         container_id = self._resolve_element_id(container)
+        container_node = self._ax_cache.get(container_id)
+
+        # First pass: try to find the item in already-rendered children
         children = self._find_cached_children(container_id)
 
-        # Filter by name or index
         if item_name is not None:
             for child in children:
                 if child.name and item_name.lower() in (child.name or "").lower():
-                    # Scroll into view
                     self._scroll_node_into_view(child)
                     return NativeHandle(child.node_id)
         elif item_index is not None and 0 <= item_index < len(children):
@@ -733,9 +769,140 @@ class WebBackend(DesktopBackend):
             self._scroll_node_into_view(child)
             return NativeHandle(child.node_id)
 
+        # If not found and the container is virtualized, try scroll-retry (GW-101)
+        if container_node is not None and is_virtualized_container(container_node):
+            return self._virtualized_scroll_retry(
+                container_node,
+                item_name=item_name,
+                item_index=item_index,
+                max_retries=max_retries,
+            )
+
+        return None
+
+    def _virtualized_scroll_retry(
+        self,
+        container: AXNode,
+        *,
+        item_name: str | None,
+        item_index: int | None,
+        max_retries: int,
+    ) -> NativeHandle | None:
+        """Scroll-retry loop for virtualized containers (GW-101).
+
+        Repeatedly scrolls the container down via mouse wheel dispatch and
+        checks if the target item has been materialized in the AX cache.
+
+        Args:
+            container: The virtualized container :class:`AXNode`.
+            item_name: Name of the target item.
+            item_index: Index of the target item.
+            max_retries: Maximum scroll iterations.
+
+        Returns:
+            A :class:`NativeHandle` for the found item, or ``None``.
+        """
+        session = self._get_active_session()
+        _, dom, inp, _, _ = self._get_domains(session.target.id)
+
+        for _attempt in range(max_retries):
+            # Scroll the container down via mouse wheel
+            self._action_scroll(container, dom, inp, direction="down", delta=300.0)
+
+            # Re-fetch children from the AX cache (may have changed after scroll)
+            children = self._find_cached_children(container.node_id)
+
+            if item_name is not None:
+                for child in children:
+                    if child.name and item_name.lower() in (child.name or "").lower():
+                        self._scroll_node_into_view(child)
+                        return NativeHandle(child.node_id)
+            elif item_index is not None and 0 <= item_index < len(children):
+                child = children[item_index]
+                self._scroll_node_into_view(child)
+                return NativeHandle(child.node_id)
+
+        logger.debug(
+            "scroll_to_item: item not found after %d retries in container %s",
+            max_retries,
+            container.node_id,
+        )
         return None
 
     # -- Internal helpers -------------------------------------------------------
+
+    def _collect_iframe_ax_trees(self, target_id: str, page: PageDomain) -> list[AXNode]:
+        """Collect AX trees from child frames (iframes) for multi-frame snapshots.
+
+        Uses ``Page.getFrameTree`` to discover child frames, then for each
+        child frame creates a CDP session via ``Target.attachToTarget`` and
+        fetches the AX tree.  Iframe AX node IDs are prefixed with the frame
+        ID to avoid collisions with the main frame's node IDs.
+
+        Args:
+            target_id: The main page target identifier.
+            page: The :class:`PageDomain` for the main page.
+
+        Returns:
+            List of AX nodes from all child frames, with prefixed node IDs.
+        """
+        all_iframe_nodes: list[AXNode] = []
+
+        try:
+            frames = page.get_frame_tree()
+        except Exception:
+            logger.debug("get_frame_tree failed for target %s", target_id, exc_info=True)
+            return all_iframe_nodes
+
+        # Filter to child frames (skip the main frame which is always first)
+        child_frames = [f for f in frames if f.get("parentId")]
+
+        for frame_info in child_frames:
+            frame_id = frame_info.get("id", "")
+            if not frame_id:
+                continue
+
+            try:
+                # Attach to the iframe target via the browser connection
+                iframe_target = CDPTarget(
+                    id=frame_id,
+                    type="iframe",
+                    title=frame_info.get("name", ""),
+                    url=frame_info.get("url", ""),
+                )
+                iframe_session = self._browser.attach(iframe_target)
+                self._sessions[f"iframe:{frame_id}"] = iframe_session
+
+                iframe_acc = AccessibilityDomain(iframe_session)
+                iframe_nodes = iframe_acc.get_full_ax_tree()
+
+                # Prefix node IDs with frame ID to avoid collisions
+                prefixed_nodes: list[AXNode] = []
+                for node in iframe_nodes:
+                    prefixed = AXNode(
+                        node_id=f"{frame_id}:{node.node_id}",
+                        role=node.role,
+                        name=node.name,
+                        description=node.description,
+                        value=node.value,
+                        backend_dom_node_id=node.backend_dom_node_id,
+                        child_ids=tuple(f"{frame_id}:{cid}" for cid in node.child_ids),
+                        bounds=node.bounds,
+                        properties=node.properties,
+                        raw=node.raw,
+                    )
+                    prefixed_nodes.append(prefixed)
+
+                all_iframe_nodes.extend(prefixed_nodes)
+
+            except Exception:
+                logger.debug(
+                    "Failed to collect AX tree for iframe %s",
+                    frame_id,
+                    exc_info=True,
+                )
+
+        return all_iframe_nodes
 
     @staticmethod
     def _resolve_target(window: NativeHandle) -> CDPTarget:
@@ -838,7 +1005,7 @@ class WebBackend(DesktopBackend):
             return
         try:
             session = self._get_active_session()
-            _, dom, _ = self._get_domains(session.target.id)
+            _, dom, _, _, _ = self._get_domains(session.target.id)
             dom.scroll_into_view_if_needed(backend_node_id=node.backend_dom_node_id)
         except Exception:
             logger.debug("scroll_into_view failed for node %s", node.node_id, exc_info=True)
@@ -865,9 +1032,7 @@ class WebBackend(DesktopBackend):
                 "Take a new snapshot and re-resolve the element reference."
             )
 
-    def _resolve_bounds(
-        self, node: AXNode, dom: DOMDomain
-    ) -> dict[str, float] | None:
+    def _resolve_bounds(self, node: AXNode, dom: DOMDomain) -> dict[str, float] | None:
         """Resolve element bounds with lazy caching (GW-096).
 
         Checks the AX node inline bounds first, then the lazy bounds cache,
@@ -899,9 +1064,7 @@ class WebBackend(DesktopBackend):
 
         return None
 
-    def _action_click(
-        self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any
-    ) -> None:
+    def _action_click(self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any) -> None:
         """Click an element at its center coordinates.
 
         Resolves the element bounds (from AX node, cache, or DOM box model)
@@ -929,16 +1092,10 @@ class WebBackend(DesktopBackend):
         y = float(bounds.get("y", 0)) + float(bounds.get("height", 0)) / 2
         click_count = int(kwargs.get("click_count", 1))
 
-        inp.dispatch_mouse_event(
-            "mousePressed", x, y, button="left", click_count=click_count
-        )
-        inp.dispatch_mouse_event(
-            "mouseReleased", x, y, button="left", click_count=click_count
-        )
+        inp.dispatch_mouse_event("mousePressed", x, y, button="left", click_count=click_count)
+        inp.dispatch_mouse_event("mouseReleased", x, y, button="left", click_count=click_count)
 
-    def _action_type(
-        self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any
-    ) -> None:
+    def _action_type(self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any) -> None:
         """Type text into an element via focus + ``Input.insertText``.
 
         Focuses the element via the DOM domain (if it has a backend DOM node)
@@ -1067,9 +1224,7 @@ class WebBackend(DesktopBackend):
             return str(node.name)
         return ""
 
-    def _action_scroll(
-        self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any
-    ) -> None:
+    def _action_scroll(self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any) -> None:
         """Scroll an element via mouse wheel at its center.
 
         Supports directional scrolling via the ``direction`` kwarg:
@@ -1124,4 +1279,3 @@ class WebBackend(DesktopBackend):
                 dom.focus(backend_node_id=node.backend_dom_node_id)
             except Exception:
                 logger.debug("DOM focus failed for node %s", node.node_id, exc_info=True)
-

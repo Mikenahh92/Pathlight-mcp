@@ -132,7 +132,9 @@ def _setup_domains(connected_backend, mock_browser, acc_mock=None, dom_mock=None
     acc = acc_mock or MagicMock()
     dom = dom_mock or MagicMock()
     inp = inp_mock or MagicMock()
-    connected_backend._domains[target.id] = (acc, dom, inp)
+    page_mock = MagicMock()
+    tgt_mock = MagicMock()
+    connected_backend._domains[target.id] = (acc, dom, inp, page_mock, tgt_mock)
     return target, acc, dom, inp
 
 
@@ -290,7 +292,9 @@ class TestSnapshot:
         # Mock the InputDomain
         inp_mock = MagicMock()
 
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
     def test_basic_snapshot(self, connected_backend, mock_browser) -> None:
         ax_nodes = [
@@ -390,7 +394,9 @@ class TestFindElements:
         acc_mock.query_ax_tree.return_value = []  # Default: no results
         dom_mock = MagicMock()
         inp_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         # Populate the cache
         connected_backend._ax_cache = {n.node_id: n for n in ax_nodes}
@@ -514,7 +520,9 @@ class TestPerformAction:
         acc_mock = MagicMock()
         dom_mock = MagicMock()
         inp_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         # Populate the cache with a button node
         connected_backend._ax_cache = {
@@ -828,7 +836,9 @@ class TestLazyBoundsFetching:
         dom_mock.get_box_model.return_value = box
 
         inp_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         result = connected_backend.snapshot(NativeHandle(target))
         # The button should have bounds from the DOM
@@ -1002,7 +1012,9 @@ class TestScrollToItem:
         acc_mock = MagicMock()
         dom_mock = MagicMock()
         inp_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         # Set up cache with a list and children
         connected_backend._ax_cache = {
@@ -1031,7 +1043,9 @@ class TestScrollToItem:
         acc_mock = MagicMock()
         dom_mock = MagicMock()
         inp_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "list1": _make_ax_node(node_id="list1", role="list", child_ids=("item1", "item2")),
@@ -1084,7 +1098,9 @@ class TestBoundsCaching:
         dom_mock.get_box_model.return_value = box
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         # Node without inline bounds but with backend_dom_node_id
         node = _make_ax_node(
@@ -1152,7 +1168,9 @@ class TestBoundsCaching:
         acc_mock.get_full_ax_tree.return_value = ax_nodes
         dom_mock = MagicMock()
         inp_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend.snapshot(NativeHandle(target))
         assert connected_backend._bounds_cache == {}
@@ -1203,7 +1221,9 @@ class TestStaleElementDetection:
         acc_mock = MagicMock()
         dom_mock = MagicMock()
         inp_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         # Put node in cache then remove it (simulating staleness between snapshot and action)
         connected_backend._ax_cache = {
@@ -1243,7 +1263,9 @@ class TestFocusBeforeType:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "input1": _make_ax_node(
@@ -1275,7 +1297,9 @@ class TestFocusBeforeType:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "input1": _make_ax_node(
@@ -1316,7 +1340,9 @@ class TestClearBeforeType:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "input1": _make_ax_node(
@@ -1354,7 +1380,9 @@ class TestClearBeforeType:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "input1": _make_ax_node(
@@ -1389,7 +1417,9 @@ class TestDirectionalScrolling:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "scroll1": _make_ax_node(
@@ -1465,7 +1495,9 @@ class TestDoubleClick:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "btn1": _make_ax_node(
@@ -1494,7 +1526,9 @@ class TestDoubleClick:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "btn1": _make_ax_node(
@@ -1540,7 +1574,9 @@ class TestClickBoundsCaching:
         dom_mock.get_box_model.return_value = box
         inp_mock = MagicMock()
         acc_mock = MagicMock()
-        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
         connected_backend._ax_cache = {
             "btn1": _make_ax_node(
@@ -1560,4 +1596,502 @@ class TestClickBoundsCaching:
         # Second click — uses cached bounds
         connected_backend.perform_action(NativeHandle("btn1"), DesktopAction.CLICK)
         assert dom_mock.get_box_model.call_count == 1  # No additional fetch
+
+
+# -- GW-101: Virtualized list detection ----------------------------------------
+
+
+class TestIsVirtualizedContainer:
+    """GW-101: is_virtualized_container detects aria-rowcount/setsize heuristics."""
+
+    def test_table_with_rowcount(self) -> None:
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(
+            node_id="grid1",
+            role="grid",
+            child_ids=("row1", "row2"),
+            properties={"rowcount": 100},
+        )
+        assert is_virtualized_container(node) is True
+
+    def test_grid_with_matching_rowcount(self) -> None:
+        """Grid where rowcount equals children is NOT virtualized."""
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(
+            node_id="grid1",
+            role="grid",
+            child_ids=("row1", "row2"),
+            properties={"rowcount": 2},
+        )
+        assert is_virtualized_container(node) is False
+
+    def test_listbox_with_setsize(self) -> None:
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(
+            node_id="lb1",
+            role="listbox",
+            child_ids=("opt1", "opt2"),
+            properties={"setsize": 50},
+        )
+        assert is_virtualized_container(node) is True
+
+    def test_list_with_setsize(self) -> None:
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(
+            node_id="l1",
+            role="list",
+            child_ids=("item1",),
+            properties={"setsize": 10},
+        )
+        assert is_virtualized_container(node) is True
+
+    def test_tree_with_setsize(self) -> None:
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(
+            node_id="t1",
+            role="tree",
+            child_ids=("ti1",),
+            properties={"setsize": 20},
+        )
+        assert is_virtualized_container(node) is True
+
+    def test_non_container_not_virtualized(self) -> None:
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(node_id="btn1", role="button")
+        assert is_virtualized_container(node) is False
+
+    def test_table_without_rowcount_not_virtualized(self) -> None:
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(
+            node_id="grid1",
+            role="grid",
+            child_ids=("row1",),
+        )
+        assert is_virtualized_container(node) is False
+
+    def test_invalid_rowcount_type_ignored(self) -> None:
+        from guidewire.backends.web_normalize import is_virtualized_container
+
+        node = _make_ax_node(
+            node_id="grid1",
+            role="grid",
+            child_ids=("row1",),
+            properties={"rowcount": "not-a-number"},
+        )
+        assert is_virtualized_container(node) is False
+
+
+class TestVirtualizedActions:
+    """GW-101: Virtualized containers get scroll + scroll_to_item actions."""
+
+    def test_virtualized_grid_has_scroll_to_item(self) -> None:
+        from guidewire.backends.web_normalize import infer_ax_actions
+
+        node = _make_ax_node(
+            node_id="grid1",
+            role="grid",
+            child_ids=("row1", "row2"),
+            properties={"rowcount": 100},
+        )
+        actions = infer_ax_actions(node)
+        assert "scroll" in actions
+        assert "scroll_to_item" in actions
+
+    def test_virtualized_listbox_has_scroll_to_item(self) -> None:
+        from guidewire.backends.web_normalize import infer_ax_actions
+
+        node = _make_ax_node(
+            node_id="lb1",
+            role="listbox",
+            child_ids=("opt1",),
+            properties={"setsize": 50},
+        )
+        actions = infer_ax_actions(node)
+        assert "scroll_to_item" in actions
+
+    def test_non_virtualized_no_scroll_to_item(self) -> None:
+        from guidewire.backends.web_normalize import infer_ax_actions
+
+        node = _make_ax_node(node_id="list1", role="list", child_ids=("a", "b"))
+        actions = infer_ax_actions(node)
+        assert "scroll_to_item" not in actions
+
+
+class TestVirtualizedTreeMarker:
+    """GW-101: build_normalized_tree marks virtualized containers with is_virtualized."""
+
+    def test_virtualized_grid_marked(self) -> None:
+        ax_nodes = [
+            _make_ax_node(
+                node_id="root",
+                role="webArea",
+                child_ids=("grid1",),
+                bounds={"x": 0, "y": 0, "width": 800, "height": 600},
+            ),
+            _make_ax_node(
+                node_id="grid1",
+                role="grid",
+                child_ids=("row1",),
+                properties={"rowcount": 100},
+                bounds={"x": 10, "y": 10, "width": 400, "height": 300},
+            ),
+            _make_ax_node(
+                node_id="row1",
+                role="row",
+                bounds={"x": 10, "y": 10, "width": 400, "height": 30},
+            ),
+        ]
+        cache = {n.node_id: n for n in ax_nodes}
+        dom_mock = MagicMock()
+
+        counter = [0]
+        result = build_normalized_tree(ax_nodes[0], 0, 4, counter, 500, dom_mock, cache)
+        assert result is not None
+
+        grid_elem = result.children[0]
+        assert grid_elem.is_virtualized is True
+        assert "scroll_to_item" in grid_elem.actions
+
+    def test_non_virtualized_not_marked(self) -> None:
+        ax_nodes = [
+            _make_ax_node(
+                node_id="root",
+                role="webArea",
+                child_ids=("list1",),
+                bounds={"x": 0, "y": 0, "width": 800, "height": 600},
+            ),
+            _make_ax_node(
+                node_id="list1",
+                role="list",
+                child_ids=("item1", "item2"),
+                bounds={"x": 10, "y": 10, "width": 200, "height": 100},
+            ),
+        ]
+        cache = {n.node_id: n for n in ax_nodes}
+        dom_mock = MagicMock()
+
+        counter = [0]
+        result = build_normalized_tree(ax_nodes[0], 0, 4, counter, 500, dom_mock, cache)
+        assert result is not None
+
+        list_elem = result.children[0]
+        assert list_elem.is_virtualized is None
+
+
+# -- GW-101: Multi-frame (iframe) snapshot -------------------------------------
+
+
+class TestMultiFrameSnapshot:
+    """GW-101: snapshot merges AX trees from child iframe frames."""
+
+    def test_snapshot_with_iframes(self, connected_backend, mock_browser) -> None:
+        """Snapshot discovers iframes via Page.getFrameTree and merges AX trees."""
+        # Main frame AX tree
+        main_ax_nodes = [
+            _make_ax_node(node_id="root", role="webArea", name="Main", child_ids=("iframe1",)),
+            _make_ax_node(
+                node_id="iframe1",
+                role="iframe",
+                name="Embedded Frame",
+                child_ids=(),
+            ),
+        ]
+
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        acc_mock.get_full_ax_tree.return_value = main_ax_nodes
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        # Return frame tree with one child iframe
+        page_mock.get_frame_tree.return_value = [
+            {"id": "main-frame", "url": "https://example.com"},
+            {"id": "iframe-abc", "parentId": "main-frame", "url": "https://other.com/embed"},
+        ]
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        # Set up the iframe session and its AX tree
+        iframe_session = MagicMock()
+        iframe_session.is_attached = True
+        iframe_session.send_command.return_value = {}
+        mock_browser.attach.side_effect = [session, iframe_session]
+
+        iframe_acc_mock = MagicMock()
+        iframe_acc_mock.get_full_ax_tree.return_value = [
+            _make_ax_node(node_id="iframe-root", role="webArea", name="Iframe Content", child_ids=("btn-ifr",)),
+            _make_ax_node(node_id="btn-ifr", role="button", name="Iframe Button"),
+        ]
+
+        with patch("guidewire.backends.web.AccessibilityDomain", return_value=iframe_acc_mock):
+            result = connected_backend.snapshot(NativeHandle(target))
+
+        # The main tree should include iframe nodes with prefixed IDs
+        assert result["role"] == "window"
+        assert result["name"] == "Main"
+
+        # Verify iframe nodes were added to the cache with prefixed IDs
+        assert "iframe-abc:iframe-root" in connected_backend._ax_cache
+        assert "iframe-abc:btn-ifr" in connected_backend._ax_cache
+
+    def test_snapshot_without_iframes(self, connected_backend, mock_browser) -> None:
+        """Snapshot works normally when no child frames exist."""
+        ax_nodes = [
+            _make_ax_node(node_id="root", role="webArea", name="Simple Page"),
+        ]
+
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        acc_mock.get_full_ax_tree.return_value = ax_nodes
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        # No child frames
+        page_mock.get_frame_tree.return_value = [
+            {"id": "main-frame", "url": "https://example.com"},
+        ]
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        assert result["role"] == "window"
+        assert result["name"] == "Simple Page"
+
+    def test_snapshot_iframe_failure_graceful(self, connected_backend, mock_browser) -> None:
+        """Snapshot continues when iframe AX tree fetch fails."""
+        ax_nodes = [
+            _make_ax_node(node_id="root", role="webArea", name="Main Page"),
+        ]
+
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        acc_mock.get_full_ax_tree.return_value = ax_nodes
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        page_mock.get_frame_tree.return_value = [
+            {"id": "main-frame", "url": "https://example.com"},
+            {"id": "bad-iframe", "parentId": "main-frame", "url": "https://bad.com"},
+        ]
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        # Make the iframe attach fail
+        def attach_side_effect(tgt):
+            if tgt.id == "bad-iframe":
+                raise RuntimeError("Cannot attach to iframe")
+            return session
+
+        mock_browser.attach.side_effect = attach_side_effect
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        assert result["role"] == "window"
+        assert result["name"] == "Main Page"
+
+    def test_snapshot_get_frame_tree_failure_graceful(self, connected_backend, mock_browser) -> None:
+        """Snapshot continues when Page.getFrameTree fails."""
+        ax_nodes = [
+            _make_ax_node(node_id="root", role="webArea", name="Page"),
+        ]
+
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        acc_mock.get_full_ax_tree.return_value = ax_nodes
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        page_mock.get_frame_tree.side_effect = RuntimeError("CDP error")
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        assert result["role"] == "window"
+        assert result["name"] == "Page"
+
+
+# -- GW-101: Virtualized scroll-retry -------------------------------------------
+
+
+class TestVirtualizedScrollRetry:
+    """GW-101: scroll_to_item uses scroll-retry for virtualized containers."""
+
+    def test_scroll_retry_finds_item_after_scroll(self, connected_backend, mock_browser) -> None:
+        """Virtualized container: scroll-retry finds item after scrolling."""
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        # Virtualized list with setsize=100 but only 2 rendered items
+        container_node = _make_ax_node(
+            node_id="vlist",
+            role="list",
+            child_ids=("item0", "item1"),
+            bounds={"x": 50, "y": 50, "width": 200, "height": 200},
+            properties={"setsize": 100},
+        )
+
+        # Simulate: after scroll, a new item appears
+        item_after_scroll = _make_ax_node(
+            node_id="item-scrolled",
+            role="listitem",
+            name="Target Item",
+            backend_dom_node_id=99,
+        )
+
+        connected_backend._ax_cache = {
+            "vlist": container_node,
+            "item0": _make_ax_node(node_id="item0", role="listitem", name="First"),
+            "item1": _make_ax_node(node_id="item1", role="listitem", name="Second"),
+        }
+
+        # After first scroll, add a new child to simulate materialization
+        original_find = connected_backend._find_cached_children
+
+        def find_with_materialization(parent_id):
+            if parent_id == "vlist":
+                # After scroll, simulate new items appearing
+                children = original_find(parent_id)
+                if len(children) == 2:
+                    # First call (before scroll), return just the 2 original
+                    # Add a new item to cache and return all 3
+                    connected_backend._ax_cache["item-scrolled"] = item_after_scroll
+                    updated_container = _make_ax_node(
+                        node_id="vlist",
+                        role="list",
+                        child_ids=("item0", "item1", "item-scrolled"),
+                        bounds={"x": 50, "y": 50, "width": 200, "height": 200},
+                        properties={"setsize": 100},
+                    )
+                    connected_backend._ax_cache["vlist"] = updated_container
+                    return [connected_backend._ax_cache[cid] for cid in updated_container.child_ids if cid in connected_backend._ax_cache]
+                return children
+            return original_find(parent_id)
+
+        connected_backend._find_cached_children = find_with_materialization
+
+        result = connected_backend.scroll_to_item(NativeHandle("vlist"), item_name="Target")
+        assert result is not None
+        assert result == NativeHandle("item-scrolled")
+
+    def test_scroll_retry_returns_none_when_exhausted(
+        self, connected_backend, mock_browser
+    ) -> None:
+        """Virtualized container: scroll-retry returns None after max retries."""
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        container_node = _make_ax_node(
+            node_id="vlist",
+            role="list",
+            child_ids=("item0",),
+            bounds={"x": 50, "y": 50, "width": 200, "height": 200},
+            properties={"setsize": 100},
+        )
+
+        connected_backend._ax_cache = {
+            "vlist": container_node,
+            "item0": _make_ax_node(node_id="item0", role="listitem", name="First"),
+        }
+
+        result = connected_backend.scroll_to_item(
+            NativeHandle("vlist"), item_name="NonExistent", max_retries=2
+        )
+        assert result is None
+        # Should have scrolled 2 times (the retry count)
+        assert inp_mock.dispatch_mouse_event.call_count == 2
+
+    def test_non_virtualized_no_scroll_retry(self, connected_backend, mock_browser) -> None:
+        """Non-virtualized container: no scroll-retry, returns None directly."""
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        container_node = _make_ax_node(
+            node_id="normallist",
+            role="list",
+            child_ids=("item0",),
+        )
+
+        connected_backend._ax_cache = {
+            "normallist": container_node,
+            "item0": _make_ax_node(node_id="item0", role="listitem", name="First"),
+        }
+
+        result = connected_backend.scroll_to_item(
+            NativeHandle("normallist"), item_name="NonExistent"
+        )
+        assert result is None
+        # Should NOT have scrolled (no retry)
+        inp_mock.dispatch_mouse_event.assert_not_called()
 

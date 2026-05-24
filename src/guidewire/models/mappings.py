@@ -582,6 +582,7 @@ _WEB_ACTIONS: dict[str, str] = {
     "scroll_down": "scroll",
     "scroll_left": "scroll",
     "scroll_right": "scroll",
+    "scroll_to_item": "scroll_to_item",
 }
 
 # ---------------------------------------------------------------------------

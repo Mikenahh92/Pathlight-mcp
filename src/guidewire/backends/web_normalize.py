@@ -29,6 +29,7 @@ __all__ = [
     "fetch_bounds_from_dom",
     "find_root_ax_node",
     "infer_ax_actions",
+    "is_virtualized_container",
 ]
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,52 @@ def fetch_bounds_from_dom(dom: DOMDomain, backend_dom_node_id: int) -> dict[str,
             exc_info=True,
         )
     return None
+
+
+def is_virtualized_container(node: AXNode) -> bool:
+    """Detect whether an AX node represents a virtualized list or grid.
+
+    Virtualized containers (React Window, AG Grid, etc.) expose ARIA
+    heuristics that indicate more items exist than are currently rendered.
+    Detection uses:
+    - ``aria-rowcount`` (tables/grids with more rows than rendered children)
+    - ``aria-setsize`` (listboxes with more items than rendered children)
+
+    Args:
+        node: An :class:`AXNode`.
+
+    Returns:
+        ``True`` if the node appears to be a virtualized container.
+    """
+    props = node.properties or {}
+    role = (node.role or "").lower()
+
+    # Table-like roles with aria-rowcount
+    if role in ("table", "grid", "treegrid"):
+        rowcount = props.get("rowcount")
+        if rowcount is not None:
+            try:
+                total_rows = int(rowcount)
+                rendered_children = len(node.child_ids)
+                # Virtualized if reported total exceeds rendered children
+                if total_rows > rendered_children:
+                    return True
+            except (TypeError, ValueError):
+                pass
+
+    # List-like roles with aria-setsize
+    if role in ("listbox", "list", "tree"):
+        setsize = props.get("setsize")
+        if setsize is not None:
+            try:
+                total_items = int(setsize)
+                rendered_children = len(node.child_ids)
+                if total_items > rendered_children:
+                    return True
+            except (TypeError, ValueError):
+                pass
+
+    return False
 
 
 def infer_ax_actions(node: AXNode) -> list[str]:
@@ -156,6 +203,12 @@ def infer_ax_actions(node: AXNode) -> list[str]:
     if role in ("slider", "spinbutton", "progressbar"):
         actions.extend(["increment", "decrement", "set_value"])
 
+    # Virtualized containers support scroll_to_item
+    if is_virtualized_container(node):
+        if "scroll" not in actions:
+            actions.append("scroll")
+        actions.append("scroll_to_item")
+
     return actions
 
 
@@ -215,6 +268,10 @@ def build_normalized_tree(
         bounds=bounds,
         raw_actions=raw_actions,
     )
+
+    # Mark virtualized containers (GW-101)
+    if is_virtualized_container(node):
+        normalized.is_virtualized = True
 
     # Recurse into children
     if depth < max_depth and node.child_ids:
