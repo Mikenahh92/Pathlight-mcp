@@ -23,6 +23,19 @@ Usage::
         text=None,
         children=None,
     )
+
+Web / CDP AX normalization::
+
+    element = normalize_element(
+        platform="web",
+        ref="e0",
+        backend_id="ax-node-1",
+        role="button",
+        name="Submit",
+        raw_states={"disabled": False, "focused": True},
+        bounds={"x": 10, "y": 20, "width": 100, "height": 30},
+        raw_actions=["click", "invoke"],
+    )
 """
 
 from dataclasses import fields
@@ -48,7 +61,7 @@ _ELEMENT_STATES_FIELDS: frozenset[str] = frozenset(f.name for f in fields(Elemen
 
 # -- Platform literal type ---------------------------------------------------
 
-Platform = Literal["windows", "linux"]
+Platform = Literal["windows", "linux", "web"]
 
 
 def normalize_states(
@@ -63,7 +76,7 @@ def normalize_states(
     skipped so that future platform additions are safe.
 
     Args:
-        platform: ``"windows"`` or ``"linux"``.
+        platform: ``"windows"``, ``"linux"``, or ``"web"``.
         raw_states: Mapping of native state/property names to their raw values
             (e.g. ``{"IsEnabled": True, "ToggleState": 1}``).
 
@@ -95,7 +108,7 @@ def normalize_actions(
     Filters to only recognized actions and deduplicates while preserving order.
 
     Args:
-        platform: ``"windows"`` or ``"linux"``.
+        platform: ``"windows"``, ``"linux"``, or ``"web"``.
         raw_actions: List of native action or pattern identifiers
             (e.g. ``["InvokePattern", "ValuePattern"]``).
 
@@ -171,7 +184,7 @@ def normalize_element(
     tables have no entry, so the consumer always gets *some* role string.
 
     Args:
-        platform: ``"windows"`` or ``"linux"``.
+        platform: ``"windows"``, ``"linux"``, or ``"web"``.
         ref: Short-lived reference handle (e.g. ``"e42"``).
         backend_id: Opaque platform-specific identifier.
         role: The raw platform role string (e.g. ``"Button"``, ``"push button"``).

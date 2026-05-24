@@ -433,3 +433,378 @@ class TestResolveAction:
     def test_case_insensitive_platform(self) -> None:
         assert resolve_action("Windows", "Click") == "click"
         assert resolve_action("LINUX", "click") == "click"
+
+
+# ---------------------------------------------------------------------------
+# Web / CDP AX role mappings
+# ---------------------------------------------------------------------------
+
+
+class TestWebRoles:
+    """Web / CDP AX role strings → normalized role."""
+
+    def test_button(self) -> None:
+        assert ROLE_MAP[("web", "button")] == "button"
+
+    def test_checkbox(self) -> None:
+        assert ROLE_MAP[("web", "checkbox")] == "checkbox"
+
+    def test_combobox(self) -> None:
+        assert ROLE_MAP[("web", "combobox")] == "combobox"
+
+    def test_textbox(self) -> None:
+        assert ROLE_MAP[("web", "textbox")] == "text_input"
+
+    def test_link(self) -> None:
+        assert ROLE_MAP[("web", "link")] == "link"
+
+    def test_image(self) -> None:
+        assert ROLE_MAP[("web", "img")] == "image"
+        assert ROLE_MAP[("web", "image")] == "image"
+
+    def test_list(self) -> None:
+        assert ROLE_MAP[("web", "list")] == "list"
+        assert ROLE_MAP[("web", "listbox")] == "list"
+        assert ROLE_MAP[("web", "listitem")] == "list_item"
+        assert ROLE_MAP[("web", "option")] == "list_item"
+
+    def test_table(self) -> None:
+        assert ROLE_MAP[("web", "table")] == "table"
+        assert ROLE_MAP[("web", "grid")] == "table"
+        assert ROLE_MAP[("web", "gridcell")] == "table_cell"
+        assert ROLE_MAP[("web", "cell")] == "table_cell"
+        assert ROLE_MAP[("web", "columnheader")] == "header_item"
+        assert ROLE_MAP[("web", "rowheader")] == "header_item"
+
+    def test_tab(self) -> None:
+        assert ROLE_MAP[("web", "tablist")] == "tab"
+        assert ROLE_MAP[("web", "tab")] == "tab_item"
+        assert ROLE_MAP[("web", "tabpanel")] == "pane"
+
+    def test_tree(self) -> None:
+        assert ROLE_MAP[("web", "tree")] == "tree"
+        assert ROLE_MAP[("web", "treegrid")] == "tree"
+        assert ROLE_MAP[("web", "treeitem")] == "tree_item"
+
+    def test_dialog(self) -> None:
+        assert ROLE_MAP[("web", "dialog")] == "dialog"
+        assert ROLE_MAP[("web", "alertdialog")] == "dialog"
+        assert ROLE_MAP[("web", "alert")] == "dialog"
+
+    def test_menu(self) -> None:
+        assert ROLE_MAP[("web", "menu")] == "menu_bar"
+        assert ROLE_MAP[("web", "menubar")] == "menu_bar"
+        assert ROLE_MAP[("web", "menuitem")] == "menu_item"
+        assert ROLE_MAP[("web", "menuitemcheckbox")] == "menu_item"
+        assert ROLE_MAP[("web", "menuitemradio")] == "menu_item"
+
+    def test_slider(self) -> None:
+        assert ROLE_MAP[("web", "slider")] == "slider"
+
+    def test_progress_bar(self) -> None:
+        assert ROLE_MAP[("web", "progressbar")] == "progress_bar"
+
+    def test_radio(self) -> None:
+        assert ROLE_MAP[("web", "radio")] == "radio_button"
+        assert ROLE_MAP[("web", "radiogroup")] == "group"
+
+    def test_toolbar(self) -> None:
+        assert ROLE_MAP[("web", "toolbar")] == "toolbar"
+
+    def test_tooltip(self) -> None:
+        assert ROLE_MAP[("web", "tooltip")] == "tooltip"
+
+    def test_scrollbar(self) -> None:
+        assert ROLE_MAP[("web", "scrollbar")] == "scroll_bar"
+
+    def test_separator(self) -> None:
+        assert ROLE_MAP[("web", "separator")] == "separator"
+
+    def test_spinner(self) -> None:
+        assert ROLE_MAP[("web", "spinbutton")] == "spinner"
+
+    def test_document(self) -> None:
+        assert ROLE_MAP[("web", "document")] == "document"
+
+    def test_landmark_roles(self) -> None:
+        assert ROLE_MAP[("web", "main")] == "pane"
+        assert ROLE_MAP[("web", "navigation")] == "pane"
+        assert ROLE_MAP[("web", "banner")] == "pane"
+        assert ROLE_MAP[("web", "contentinfo")] == "pane"
+        assert ROLE_MAP[("web", "region")] == "pane"
+
+    def test_chrome_specific_roles(self) -> None:
+        assert ROLE_MAP[("web", "generic")] == "pane"
+        assert ROLE_MAP[("web", "staticText")] == "text"
+        assert ROLE_MAP[("web", "inlineTextBox")] == "text"
+        assert ROLE_MAP[("web", "webArea")] == "window"
+        assert ROLE_MAP[("web", "iframe")] == "window"
+        assert ROLE_MAP[("web", "titleBar")] == "title_bar"
+
+    def test_input_types(self) -> None:
+        assert ROLE_MAP[("web", "input")] == "text_input"
+        assert ROLE_MAP[("web", "input#password")] == "text_input"
+        assert ROLE_MAP[("web", "input#checkbox")] == "checkbox"
+        assert ROLE_MAP[("web", "input#radio")] == "radio_button"
+        assert ROLE_MAP[("web", "input#range")] == "slider"
+        assert ROLE_MAP[("web", "input#submit")] == "button"
+        assert ROLE_MAP[("web", "input#file")] == "button"
+
+    def test_hidden_roles(self) -> None:
+        assert ROLE_MAP[("web", "none")] == "custom"
+        assert ROLE_MAP[("web", "presentation")] == "custom"
+
+    def test_status(self) -> None:
+        assert ROLE_MAP[("web", "status")] == "status_bar"
+
+    def test_application(self) -> None:
+        assert ROLE_MAP[("web", "application")] == "window"
+
+
+# ---------------------------------------------------------------------------
+# Web / CDP AX state mappings
+# ---------------------------------------------------------------------------
+
+
+class TestWebStates:
+    """Web / CDP AX state properties → ElementStates fields."""
+
+    def test_disabled_maps_to_enabled(self) -> None:
+        field, transform = STATE_MAP[("web", "disabled")]
+        assert field == "enabled"
+        assert transform(True) is False
+        assert transform(False) is True
+
+    def test_focused(self) -> None:
+        field, _ = STATE_MAP[("web", "focused")]
+        assert field == "focused"
+
+    def test_selected(self) -> None:
+        field, _ = STATE_MAP[("web", "selected")]
+        assert field == "selected"
+
+    def test_checked_string_values(self) -> None:
+        field, transform = STATE_MAP[("web", "checked")]
+        assert field == "checked"
+        assert transform("true") is True
+        assert transform("false") is False
+        assert transform("mixed") == "mixed"
+
+    def test_checked_bool_values(self) -> None:
+        _, transform = STATE_MAP[("web", "checked")]
+        assert transform(True) is True
+        assert transform(False) is False
+
+    def test_expanded(self) -> None:
+        field, _ = STATE_MAP[("web", "expanded")]
+        assert field == "expanded"
+
+    def test_readonly(self) -> None:
+        field, _ = STATE_MAP[("web", "readonly")]
+        assert field == "read_only"
+
+    def test_required(self) -> None:
+        field, _ = STATE_MAP[("web", "required")]
+        assert field == "required"
+
+    def test_visible(self) -> None:
+        field, _ = STATE_MAP[("web", "visible")]
+        assert field == "visible"
+
+    def test_offscreen(self) -> None:
+        field, _ = STATE_MAP[("web", "offscreen")]
+        assert field == "offscreen"
+
+    def test_focusable(self) -> None:
+        field, _ = STATE_MAP[("web", "focusable")]
+        assert field == "focusable"
+
+    def test_editable(self) -> None:
+        field, transform = STATE_MAP[("web", "editable")]
+        assert field == "read_only"
+        assert transform(True) is False
+        assert transform(False) is True
+
+    def test_modal(self) -> None:
+        field, _ = STATE_MAP[("web", "modal")]
+        assert field == "modal"
+
+    def test_multiselectable(self) -> None:
+        field, _ = STATE_MAP[("web", "multiselectable")]
+        assert field == "multi_selectable"
+
+    def test_is_password(self) -> None:
+        field, _ = STATE_MAP[("web", "is_password")]
+        assert field == "is_password"
+
+    def test_aria_checked(self) -> None:
+        field, transform = STATE_MAP[("web", "aria-checked")]
+        assert field == "checked"
+        assert transform("true") is True
+        assert transform("false") is False
+        assert transform("mixed") == "mixed"
+
+    def test_aria_disabled(self) -> None:
+        field, transform = STATE_MAP[("web", "aria-disabled")]
+        assert field == "enabled"
+        assert transform(True) is False
+        assert transform(False) is True
+
+    def test_aria_expanded(self) -> None:
+        field, _ = STATE_MAP[("web", "aria-expanded")]
+        assert field == "expanded"
+
+    def test_aria_selected(self) -> None:
+        field, _ = STATE_MAP[("web", "aria-selected")]
+        assert field == "selected"
+
+    def test_aria_readonly(self) -> None:
+        field, _ = STATE_MAP[("web", "aria-readonly")]
+        assert field == "read_only"
+
+    def test_aria_required(self) -> None:
+        field, _ = STATE_MAP[("web", "aria-required")]
+        assert field == "required"
+
+    def test_aria_modal(self) -> None:
+        field, _ = STATE_MAP[("web", "aria-modal")]
+        assert field == "modal"
+
+    def test_aria_hidden(self) -> None:
+        field, transform = STATE_MAP[("web", "aria-hidden")]
+        assert field == "visible"
+        assert transform(True) is False
+        assert transform(False) is True
+
+    def test_aria_multiselectable(self) -> None:
+        field, _ = STATE_MAP[("web", "aria-multiselectable")]
+        assert field == "multi_selectable"
+
+    def test_hidden(self) -> None:
+        field, transform = STATE_MAP[("web", "hidden")]
+        assert field == "visible"
+        assert transform(True) is False
+        assert transform(False) is True
+
+
+# ---------------------------------------------------------------------------
+# Web / CDP AX action mappings
+# ---------------------------------------------------------------------------
+
+
+class TestWebActions:
+    """Web / CDP AX actions → normalized action string."""
+
+    def test_click(self) -> None:
+        assert ACTION_MAP[("web", "click")] == "click"
+        assert ACTION_MAP[("web", "press")] == "click"
+
+    def test_invoke(self) -> None:
+        assert ACTION_MAP[("web", "invoke")] == "invoke"
+
+    def test_toggle(self) -> None:
+        assert ACTION_MAP[("web", "toggle")] == "toggle"
+
+    def test_select(self) -> None:
+        assert ACTION_MAP[("web", "select")] == "select_item"
+        assert ACTION_MAP[("web", "deselect")] == "deselect_item"
+
+    def test_add_to_selection(self) -> None:
+        assert ACTION_MAP[("web", "add_to_selection")] == "add_to_selection"
+        assert ACTION_MAP[("web", "extend_selection")] == "add_to_selection"
+
+    def test_expand_collapse(self) -> None:
+        assert ACTION_MAP[("web", "expand")] == "expand"
+        assert ACTION_MAP[("web", "collapse")] == "collapse"
+
+    def test_set_value(self) -> None:
+        assert ACTION_MAP[("web", "set_value")] == "set_value"
+
+    def test_increment_decrement(self) -> None:
+        assert ACTION_MAP[("web", "increment")] == "increment"
+        assert ACTION_MAP[("web", "decrement")] == "decrement"
+
+    def test_type(self) -> None:
+        assert ACTION_MAP[("web", "type")] == "type"
+
+    def test_focus(self) -> None:
+        assert ACTION_MAP[("web", "focus")] == "focus"
+
+    def test_scroll(self) -> None:
+        assert ACTION_MAP[("web", "scroll")] == "scroll"
+        assert ACTION_MAP[("web", "scroll_up")] == "scroll"
+        assert ACTION_MAP[("web", "scroll_down")] == "scroll"
+        assert ACTION_MAP[("web", "scroll_left")] == "scroll"
+        assert ACTION_MAP[("web", "scroll_right")] == "scroll"
+
+
+# ---------------------------------------------------------------------------
+# Web resolver helper tests
+# ---------------------------------------------------------------------------
+
+
+class TestWebResolveRole:
+    """Tests for resolve_role() with web platform."""
+
+    def test_web_resolve_button(self) -> None:
+        assert resolve_role("web", "button") == "button"
+
+    def test_web_resolve_textbox(self) -> None:
+        assert resolve_role("web", "textbox") == "text_input"
+
+    def test_web_resolve_checkbox(self) -> None:
+        assert resolve_role("web", "checkbox") == "checkbox"
+
+    def test_web_resolve_web_area(self) -> None:
+        assert resolve_role("web", "webArea") == "window"
+
+    def test_web_resolve_unknown(self) -> None:
+        assert resolve_role("web", "nonexistentRole") is None
+
+    def test_web_case_insensitive_platform(self) -> None:
+        assert resolve_role("Web", "button") == "button"
+        assert resolve_role("WEB", "link") == "link"
+
+
+class TestWebResolveState:
+    """Tests for resolve_state() with web platform."""
+
+    def test_web_checked(self) -> None:
+        result = resolve_state("web", "checked", "true")
+        assert result == ("checked", True)
+
+    def test_web_checked_mixed(self) -> None:
+        result = resolve_state("web", "checked", "mixed")
+        assert result == ("checked", "mixed")
+
+    def test_web_disabled(self) -> None:
+        result = resolve_state("web", "disabled", True)
+        assert result == ("enabled", False)
+
+    def test_web_expanded(self) -> None:
+        result = resolve_state("web", "expanded", True)
+        assert result == ("expanded", True)
+
+    def test_web_unknown_state(self) -> None:
+        assert resolve_state("web", "nonexistent", True) is None
+
+    def test_web_case_insensitive_platform(self) -> None:
+        assert resolve_state("Web", "disabled", True) == ("enabled", False)
+        assert resolve_state("WEB", "focused", True) == ("focused", True)
+
+
+class TestWebResolveAction:
+    """Tests for resolve_action() with web platform."""
+
+    def test_web_resolve_click(self) -> None:
+        assert resolve_action("web", "click") == "click"
+
+    def test_web_resolve_toggle(self) -> None:
+        assert resolve_action("web", "toggle") == "toggle"
+
+    def test_web_resolve_unknown(self) -> None:
+        assert resolve_action("web", "nonexistentAction") is None
+
+    def test_web_case_insensitive_platform(self) -> None:
+        assert resolve_action("Web", "click") == "click"
+        assert resolve_action("WEB", "toggle") == "toggle"

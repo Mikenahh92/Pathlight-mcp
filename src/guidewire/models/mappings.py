@@ -9,6 +9,8 @@ Usage::
 
     norm_role = ROLE_MAP[("windows", "Button")]
     assert norm_role == "button"
+    norm_role = ROLE_MAP[("web", "button")]
+    assert norm_role == "button"
 """
 
 from collections.abc import Callable
@@ -48,6 +50,26 @@ def _atspi_bool_or_mixed(value: Any) -> bool | str:
         return value
     mapping = {0: False, 1: True, 2: "mixed"}
     return mapping.get(int(value), bool(value))
+
+
+def _aria_checked_to_checked(value: Any) -> bool | str:
+    """Convert ARIA ``aria-checked`` / CDP ``checked`` property value.
+
+    CDP AX nodes report ``checked`` as a string:
+    ``"false"`` → ``False``, ``"true"`` → ``True``, ``"mixed"`` → ``"mixed"``.
+    Boolean and mixed values are also handled.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        mapping = {"false": False, "true": True, "mixed": "mixed"}
+        return mapping.get(value.lower(), False)
+    return bool(value)
+
+
+def _aria_disabled_to_enabled(value: Any) -> bool:
+    """Convert ARIA ``disabled`` / CDP ``disabled`` to ``enabled`` (inverted)."""
+    return not bool(value)
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +234,132 @@ _LINUX_ROLES: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
+# Web / CDP AX role strings  →  normalized role
+#
+# CDP Accessibility domain uses ARIA role names and Chrome AX role strings.
+# These are the ``role.value`` field from CDP AX nodes.
+# See: https://chromedevtools.github.io/devtools-protocol/tot/Accuracy/
+# See: https://www.w3.org/TR/wai-aria-1.2/#role_definitions
+# ---------------------------------------------------------------------------
+
+_WEB_ROLES: dict[str, str] = {
+    # ARIA landmark / structural roles
+    "main": "pane",
+    "navigation": "pane",
+    "banner": "pane",
+    "contentinfo": "pane",
+    "complementary": "pane",
+    "region": "pane",
+    "search": "pane",
+    "form": "pane",
+    # ARIA widget roles
+    "alert": "dialog",
+    "alertdialog": "dialog",
+    "button": "button",
+    "checkbox": "checkbox",
+    "combobox": "combobox",
+    "dialog": "dialog",
+    "grid": "table",
+    "gridcell": "table_cell",
+    "link": "link",
+    "list": "list",
+    "listbox": "list",
+    "listitem": "list_item",
+    "option": "list_item",
+    "log": "pane",
+    "marquee": "pane",
+    "menu": "menu_bar",
+    "menubar": "menu_bar",
+    "menuitem": "menu_item",
+    "menuitemcheckbox": "menu_item",
+    "menuitemradio": "menu_item",
+    "note": "pane",
+    "progressbar": "progress_bar",
+    "radio": "radio_button",
+    "radiogroup": "group",
+    "row": "list_item",
+    "rowgroup": "group",
+    "rowheader": "header_item",
+    "scrollbar": "scroll_bar",
+    "separator": "separator",
+    "slider": "slider",
+    "spinbutton": "spinner",
+    "status": "status_bar",
+    "tab": "tab_item",
+    "table": "table",
+    "tablist": "tab",
+    "tabpanel": "pane",
+    "textbox": "text_input",
+    "timer": "pane",
+    "toolbar": "toolbar",
+    "tooltip": "tooltip",
+    "tree": "tree",
+    "treegrid": "tree",
+    "treeitem": "tree_item",
+    # ARIA document structure roles
+    "application": "window",
+    "article": "group",
+    "cell": "table_cell",
+    "columnheader": "header_item",
+    "definition": "text",
+    "directory": "list",
+    "document": "document",
+    "feed": "list",
+    "figure": "group",
+    "group": "group",
+    "heading": "text",
+    "img": "image",
+    "math": "custom",
+    "none": "custom",
+    "presentation": "custom",
+    "term": "text",
+    # Chrome-specific AX role strings
+    # (reported by CDP AX tree for HTML elements without explicit ARIA)
+    "generic": "pane",
+    "text": "text",
+    "inlineTextBox": "text",
+    "layoutTable": "table",
+    "layoutTableCell": "table_cell",
+    "layoutTableColumn": "header_item",
+    "layoutTableRow": "list_item",
+    "lineBreak": "separator",
+    "paragraph": "text",
+    "staticText": "text",
+    "image": "image",
+    "imageMap": "image",
+    "svgRoot": "image",
+    "svg": "image",
+    "popupButton": "combobox",
+    "details": "group",
+    "summary": "button",
+    "input": "text_input",
+    "input#password": "text_input",
+    "input#email": "text_input",
+    "input#tel": "text_input",
+    "input#number": "text_input",
+    "input#search": "text_input",
+    "input#url": "text_input",
+    "input#date": "text_input",
+    "input#time": "text_input",
+    "input#datetime-local": "text_input",
+    "input#month": "text_input",
+    "input#week": "text_input",
+    "input#checkbox": "checkbox",
+    "input#radio": "radio_button",
+    "input#range": "slider",
+    "input#color": "button",
+    "input#file": "button",
+    "input#submit": "button",
+    "input#reset": "button",
+    "input#button": "button",
+    "input#image": "button",
+    "titleBar": "title_bar",
+    "webArea": "window",
+    "iframe": "window",
+    "frame": "window",
+}
+
+# ---------------------------------------------------------------------------
 # Composite ROLE_MAP: (platform, native_key) → normalized role
 # ---------------------------------------------------------------------------
 
@@ -220,6 +368,8 @@ for _key, _val in _WINDOWS_ROLES.items():
     ROLE_MAP[("windows", _key)] = _val
 for _key, _val in _LINUX_ROLES.items():
     ROLE_MAP[("linux", _key)] = _val
+for _key, _val in _WEB_ROLES.items():
+    ROLE_MAP[("web", _key)] = _val
 
 # ---------------------------------------------------------------------------
 # Windows UIA property / pattern state names  →  (ElementStates field, transform)
@@ -281,6 +431,45 @@ _LINUX_STATES: dict[str, StateMapping] = {
 }
 
 # ---------------------------------------------------------------------------
+# Web / CDP AX state properties  →  (ElementStates field, transform)
+#
+# CDP AX nodes expose states as properties in the ``properties`` list.
+# Each property has ``name`` and ``value`` fields.
+# See: https://chromedevtools.github.io/devtools-protocol/tot/Accability/
+# ---------------------------------------------------------------------------
+
+_WEB_STATES: dict[str, StateMapping] = {
+    # CDP AX property names
+    "disabled": ("enabled", _aria_disabled_to_enabled),
+    "focused": ("focused", bool),
+    "selected": ("selected", bool),
+    "checked": ("checked", _aria_checked_to_checked),
+    "expanded": ("expanded", bool),
+    "modal": ("modal", bool),
+    "readonly": ("read_only", bool),
+    "required": ("required", bool),
+    "visible": ("visible", bool),
+    "offscreen": ("offscreen", bool),
+    "focusable": ("focusable", bool),
+    "editable": ("read_only", _invert_bool),
+    "multiselectable": ("multi_selectable", bool),
+    # ARIA attribute names (may appear in properties)
+    "aria-disabled": ("enabled", _aria_disabled_to_enabled),
+    "aria-expanded": ("expanded", bool),
+    "aria-checked": ("checked", _aria_checked_to_checked),
+    "aria-selected": ("selected", bool),
+    "aria-readonly": ("read_only", bool),
+    "aria-required": ("required", bool),
+    "aria-modal": ("modal", bool),
+    "aria-multiselectable": ("multi_selectable", bool),
+    "aria-hidden": ("visible", _invert_bool),
+    # HTML attribute equivalents
+    "disabled_attr": ("enabled", _aria_disabled_to_enabled),
+    "hidden": ("visible", _invert_bool),
+    "is_password": ("is_password", bool),
+}
+
+# ---------------------------------------------------------------------------
 # Composite STATE_MAP: (platform, native_key) → (field, transform)
 # ---------------------------------------------------------------------------
 
@@ -289,6 +478,8 @@ for _key, _val in _WINDOWS_STATES.items():
     STATE_MAP[("windows", _key)] = _val
 for _key, _val in _LINUX_STATES.items():
     STATE_MAP[("linux", _key)] = _val
+for _key, _val in _WEB_STATES.items():
+    STATE_MAP[("web", _key)] = _val
 
 # ---------------------------------------------------------------------------
 # Windows UIA patterns / actions  →  normalized action string
@@ -356,6 +547,44 @@ _LINUX_ACTIONS: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
+# Web / CDP AX actions  →  normalized action string
+#
+# Web elements support actions based on their ARIA roles and HTML semantics.
+# These represent the actions a web element can perform, derived from
+# CDP AX node properties and ARIA role capabilities.
+# ---------------------------------------------------------------------------
+
+_WEB_ACTIONS: dict[str, str] = {
+    # Click / invoke
+    "click": "click",
+    "invoke": "invoke",
+    "press": "click",
+    # Toggle (checkbox, switch)
+    "toggle": "toggle",
+    # Selection
+    "select": "select_item",
+    "deselect": "deselect_item",
+    "add_to_selection": "add_to_selection",
+    "extend_selection": "add_to_selection",
+    # Expand / collapse
+    "expand": "expand",
+    "collapse": "collapse",
+    # Value manipulation
+    "set_value": "set_value",
+    "increment": "increment",
+    "decrement": "decrement",
+    # Text input
+    "type": "type",
+    "focus": "focus",
+    # Scroll
+    "scroll": "scroll",
+    "scroll_up": "scroll",
+    "scroll_down": "scroll",
+    "scroll_left": "scroll",
+    "scroll_right": "scroll",
+}
+
+# ---------------------------------------------------------------------------
 # Composite ACTION_MAP: (platform, native_key) → normalized action string
 # ---------------------------------------------------------------------------
 
@@ -364,6 +593,8 @@ for _key, _val in _WINDOWS_ACTIONS.items():
     ACTION_MAP[("windows", _key)] = _val
 for _key, _val in _LINUX_ACTIONS.items():
     ACTION_MAP[("linux", _key)] = _val
+for _key, _val in _WEB_ACTIONS.items():
+    ACTION_MAP[("web", _key)] = _val
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +606,7 @@ def resolve_role(platform: str, native_role: str) -> str | None:
     """Resolve a platform-specific role string to a normalized role.
 
     Args:
-        platform: One of ``"windows"``, ``"linux"``.
+        platform: One of ``"windows"``, ``"linux"``, ``"web"``.
         native_role: The platform-specific role or control-type identifier.
 
     Returns:
@@ -392,7 +623,7 @@ def resolve_state(
     """Resolve a single platform-specific state to a normalized field/value pair.
 
     Args:
-        platform: One of ``"windows"``, ``"linux"``.
+        platform: One of ``"windows"``, ``"linux"``, ``"web"``.
         native_state_key: The platform-specific state or property name.
         native_value: The raw value from the accessibility API.
 
@@ -412,7 +643,7 @@ def resolve_action(platform: str, native_action: str) -> str | None:
     """Resolve a platform-specific action string to a normalized action.
 
     Args:
-        platform: One of ``"windows"``, ``"linux"``.
+        platform: One of ``"windows"``, ``"linux"``, ``"web"``.
         native_action: The platform-specific action or pattern identifier.
 
     Returns:
