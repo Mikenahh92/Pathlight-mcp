@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75.0", "setuptools-scm"]
+requires = ["setuptools>=80", "setuptools-scm>=8.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Desktop Accessibility MCP — a Playwright-like MCP for non-browser desktop applications powered by OS accessibility APIs."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     { name = "Mikenahh92" },
 ]
@@ -16,7 +16,8 @@ keywords = ["mcp", "accessibility", "desktop-automation", "uia", "a11y"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -30,6 +31,7 @@ classifiers = [
 
 dependencies = [
     "mcp",
+    "comtypes>=1.4; sys_platform == 'win32'",
     "python-xlib; sys_platform == 'linux'",
     "websocket-client>=1.6",
 ]
@@ -52,9 +54,6 @@ dev = [
 integration = [
     "anthropic>=0.40.0",
 ]
-windows = [
-    "comtypes>=1.4",
-]
 
 [project.scripts]
 guidewire = "guidewire.__main__:main"
@@ -63,6 +62,7 @@ guidewire = "guidewire.__main__:main"
 where = ["src"]
 
 [tool.setuptools_scm]
+fallback_version = '0.0.0'
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
