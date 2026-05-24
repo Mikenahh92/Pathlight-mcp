@@ -1,20 +1,17 @@
 # Guidewire
 
-**The zero-code desktop MCP server.** Connect any AI agent to native desktop applications in 30 seconds — no configuration, no API keys, no browser required.
+**The zero-code desktop + web MCP server.** Connect any AI agent to native desktop applications and web browsers in 30 seconds — no configuration, no API keys required.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://pypi.org/project/guidewire/)
 [![MCP](https://img.shields.io/badge/MCP-stdio-purple.svg)](https://modelcontextprotocol.io/)
-[![Platform: Windows / Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey.svg)](#supported-platforms)
+[![Platform: Windows / Linux / Web](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Web-lightgrey.svg)](#supported-platforms)
 [![Tests](https://img.shields.io/badge/tests-65%2B%20files-brightgreen.svg)](#testing)
 
-Guidewire turns any desktop application into a navigable accessibility tree that AI agents can see, click, type into, and control — through standard MCP tool calls. It works where Playwright cannot: native apps, system dialogs, legacy software, control panels, and any window that responds to OS accessibility APIs.
+Guidewire turns any desktop application or web browser into a navigable accessibility tree that AI agents can see, click, type into, and control — through standard MCP tool calls. It works where Playwright cannot: native apps, system dialogs, legacy software, control panels, and any window that responds to OS accessibility APIs. It also connects to Chromium-based browsers via the Chrome DevTools Protocol for web accessibility automation.
 
 > **New to MCP?** The [Model Context Protocol](https://modelcontextprotocol.io/) is the standard way AI agents interact with external tools. If your client supports MCP servers, it supports Guidewire.
-
-> **⚠️ Backend scope — native desktop only**
-> Guidewire's accessibility backends target **native desktop applications** (Notepad, File Explorer, GNOME apps, system dialogs, legacy software, etc.). They do **not** interact with web browsers or browser content — for that, use [Playwright](https://playwright.dev/) or [Puppeteer](https://pptr.dev/). If your window responds to OS accessibility APIs (UI Automation on Windows, AT-SPI2 on Linux), Guidewire can control it.
 
 ---
 
@@ -243,9 +240,27 @@ All 17 tools are available under the `desktop.` namespace immediately after conn
 |----------|---------|-------------------|--------|
 | **Windows** 10+ | `WindowsBackend` | UI Automation (comtypes) | Stable |
 | **Linux** (GNOME/X11) | `LinuxBackend` | AT-SPI2 (pyatspi) + X11 EWMH | Stable |
+| **Web** (Chrome / Edge / Brave) | `WebBackend` | Chrome DevTools Protocol (CDP) | Stable |
 | **macOS** | _Planned_ | Apple Accessibility (AXUIElement) | Not started |
 
-Both backends implement the same abstract interface, providing identical tool behavior regardless of platform.
+All backends implement the same abstract interface, providing identical tool behavior regardless of platform.
+
+### Web Backend Setup
+
+The web backend connects to any Chromium-based browser launched with `--remote-debugging-port`. See the [Web Backend Setup Guide](docs/web-backend-setup.md) for browser-specific instructions.
+
+```bash
+# Launch Chrome with remote debugging
+google-chrome --remote-debugging-port=9222
+```
+
+```python
+from guidewire.backends.web import WebBackend
+
+backend = WebBackend(host="localhost", port=9222)
+backend.connect()
+windows = backend.list_windows()  # lists open browser tabs
+```
 
 ---
 
@@ -304,7 +319,7 @@ pytest -k "not integration"
 | **Phase 1** | Core server, Windows & Linux backends, 17 MCP tools, element refs, safety model | ✅ Complete |
 | **Phase 2** | Clipboard read/write, structured element data, platform normalization | ✅ Complete |
 | **Phase 3** | Error hints with recovery suggestions, `wait_for` async polling, `multi_action` batch execution | ✅ Complete |
-| **Phase 4** | macOS backend (Apple Accessibility / AXUIElement) | 🔜 Planned |
+| **Phase 4** | Web accessibility backend (Chrome DevTools Protocol), browser tab control, iframe support | ✅ Complete |
 
 ---
 
