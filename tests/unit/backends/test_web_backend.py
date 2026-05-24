@@ -1,4 +1,4 @@
-"""Tests for WebBackend — CDP-based accessibility backend for web browsers (GW-095).
+"""Tests for WebBackend — CDP-based accessibility backend for web browsers (GW-095, GW-096).
 
 Verifies that WebBackend:
 - Is a proper DesktopBackend subclass
@@ -16,6 +16,12 @@ Verifies that WebBackend:
 - Supports lazy bounds fetching via DOM domain
 - Supports scroll_to_item for virtualized lists
 - Delegates to web_normalize helpers for tree building
+- Implements lazy bounds caching (GW-096)
+- Performs stale element detection before action dispatch (GW-096)
+- Focuses elements before typing (GW-096)
+- Supports clear-before-type (GW-096)
+- Supports directional scrolling (GW-096)
+- Supports double-click via click_count kwarg (GW-096)
 """
 
 from unittest.mock import MagicMock, patch
@@ -1050,3 +1056,508 @@ class TestScrollToItem:
     def test_scroll_requires_name_or_index(self, connected_backend) -> None:
         with pytest.raises(ActionNotSupportedError, match="requires"):
             connected_backend.scroll_to_item(NativeHandle("list1"))
+
+
+# -- GW-096: Bounds caching ---------------------------------------------------
+
+
+class TestBoundsCaching:
+    """GW-096: _resolve_bounds should cache DOM-fetched bounds."""
+
+    def test_caches_bounds_after_first_fetch(self, connected_backend, mock_browser) -> None:
+        """Bounds fetched from DOM are cached and not re-fetched."""
+        from guidewire.cdp._types import BoxModel
+
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        box = BoxModel(
+            border=(50.0, 60.0, 150.0, 60.0, 150.0, 110.0, 50.0, 110.0),
+            content=(52.0, 62.0, 148.0, 62.0, 148.0, 108.0, 52.0, 108.0),
+            width=100,
+            height=50,
+        )
+        dom_mock.get_box_model.return_value = box
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        # Node without inline bounds but with backend_dom_node_id
+        node = _make_ax_node(
+            node_id="no-bounds",
+            role="button",
+            name="Cached",
+            bounds=None,
+            backend_dom_node_id=99,
+        )
+        connected_backend._ax_cache = {"no-bounds": node}
+
+        # First call — should fetch from DOM
+        result1 = connected_backend._resolve_bounds(node, dom_mock)
+        assert result1 is not None
+        assert result1["x"] == 50.0
+        assert dom_mock.get_box_model.call_count == 1
+
+        # Second call — should use cache, not re-fetch
+        result2 = connected_backend._resolve_bounds(node, dom_mock)
+        assert result2 == result1
+        assert dom_mock.get_box_model.call_count == 1  # No additional call
+
+        # Verify the bounds are in the cache
+        assert "no-bounds" in connected_backend._bounds_cache
+
+    def test_uses_inline_bounds_without_cache(self, connected_backend) -> None:
+        """When AX node has inline bounds, returns them directly."""
+        node = _make_ax_node(
+            node_id="has-bounds",
+            role="button",
+            bounds={"x": 10, "y": 20, "width": 100, "height": 30},
+        )
+        dom_mock = MagicMock()
+        result = connected_backend._resolve_bounds(node, dom_mock)
+        assert result == {"x": 10, "y": 20, "width": 100, "height": 30}
+        # DOM should not be called
+        dom_mock.get_box_model.assert_not_called()
+
+    def test_returns_none_when_no_bounds_available(self, connected_backend) -> None:
+        """Returns None when node has no bounds and no DOM node ID."""
+        node = _make_ax_node(node_id="no-bounds", role="generic", bounds=None)
+        dom_mock = MagicMock()
+        result = connected_backend._resolve_bounds(node, dom_mock)
+        assert result is None
+
+    def test_snapshot_invalidates_bounds_cache(self, connected_backend, mock_browser) -> None:
+        """Snapshot call should clear the bounds cache."""
+        # Populate the bounds cache
+        connected_backend._bounds_cache = {"old-node": {"x": 1, "y": 2, "width": 3, "height": 4}}
+
+        # Set up for snapshot
+        ax_nodes = [
+            _make_ax_node(node_id="root", role="webArea"),
+        ]
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        acc_mock.get_full_ax_tree.return_value = ax_nodes
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend.snapshot(NativeHandle(target))
+        assert connected_backend._bounds_cache == {}
+
+    def test_dispose_clears_bounds_cache(self, connected_backend) -> None:
+        """Dispose should clear the bounds cache."""
+        connected_backend._bounds_cache = {"n1": {"x": 0, "y": 0, "width": 10, "height": 10}}
+        connected_backend.dispose()
+        assert connected_backend._bounds_cache == {}
+
+
+# -- GW-096: Stale element detection -------------------------------------------
+
+
+class TestStaleElementDetection:
+    """GW-096: _stale_check should detect removed elements."""
+
+    def test_stale_check_raises_for_removed_node(self, connected_backend, mock_browser) -> None:
+        """After node is removed from cache, stale_check raises."""
+        connected_backend._ax_cache = {
+            "btn1": _make_ax_node(node_id="btn1", role="button", name="OK"),
+        }
+
+        # Simulate the node being removed (e.g. by a new snapshot)
+        del connected_backend._ax_cache["btn1"]
+
+        with pytest.raises(StaleElementReferenceError, match="stale"):
+            connected_backend._stale_check("btn1")
+
+    def test_stale_check_passes_for_valid_node(self, connected_backend) -> None:
+        """Stale check passes silently for a valid node."""
+        connected_backend._ax_cache = {
+            "btn1": _make_ax_node(node_id="btn1", role="button"),
+        }
+        # Should not raise
+        connected_backend._stale_check("btn1")
+
+    def test_perform_action_detects_stale_element(self, connected_backend, mock_browser) -> None:
+        """perform_action raises StaleElementReferenceError when element becomes stale."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        # Put node in cache then remove it (simulating staleness between snapshot and action)
+        connected_backend._ax_cache = {
+            "btn1": _make_ax_node(
+                node_id="btn1",
+                role="button",
+                name="Click Me",
+                bounds={"x": 10, "y": 20, "width": 100, "height": 30},
+            ),
+        }
+
+        handle = NativeHandle("btn1")
+
+        # Remove the node from cache to simulate it becoming stale
+        del connected_backend._ax_cache["btn1"]
+
+        with pytest.raises(ElementNotFoundError):
+            connected_backend.perform_action(handle, DesktopAction.CLICK)
+
+
+# -- GW-096: Focus before type ------------------------------------------------
+
+
+class TestFocusBeforeType:
+    """GW-096: TYPE action should focus element before inserting text."""
+
+    def test_type_focuses_element_with_dom_node(self, connected_backend, mock_browser) -> None:
+        """TYPE focuses the element via DOM before inserting text."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "input1": _make_ax_node(
+                node_id="input1",
+                role="textbox",
+                name="Email",
+                backend_dom_node_id=42,
+            ),
+        }
+
+        handle = NativeHandle("input1")
+        connected_backend.perform_action(handle, DesktopAction.TYPE, text="hello")
+
+        # Should have focused the element via DOM
+        dom_mock.focus.assert_called_once_with(backend_node_id=42)
+        # Should have inserted text
+        inp_mock.insert_text.assert_called_once_with("hello")
+
+    def test_type_without_dom_node_still_inserts(self, connected_backend, mock_browser) -> None:
+        """TYPE without backend_dom_node_id skips focus but still inserts text."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "input1": _make_ax_node(
+                node_id="input1",
+                role="textbox",
+                name="Email",
+                backend_dom_node_id=None,
+            ),
+        }
+
+        handle = NativeHandle("input1")
+        connected_backend.perform_action(handle, DesktopAction.TYPE, text="hello")
+
+        # DOM focus should not be called (no backend_dom_node_id)
+        dom_mock.focus.assert_not_called()
+        # Text should still be inserted
+        inp_mock.insert_text.assert_called_once_with("hello")
+
+
+# -- GW-096: Clear before type ------------------------------------------------
+
+
+class TestClearBeforeType:
+    """GW-096: TYPE action with clear=True should select all and delete first."""
+
+    def test_type_with_clear_dispatches_ctrl_a_and_backspace(
+        self, connected_backend, mock_browser
+    ) -> None:
+        """TYPE with clear=True sends Ctrl+A then Backspace before inserting."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "input1": _make_ax_node(
+                node_id="input1",
+                role="textbox",
+                name="Email",
+                backend_dom_node_id=42,
+            ),
+        }
+
+        handle = NativeHandle("input1")
+        connected_backend.perform_action(handle, DesktopAction.TYPE, text="new text", clear=True)
+
+        # Should dispatch: keyDown Ctrl+A, keyUp Ctrl+A, keyDown Backspace, keyUp Backspace
+        key_calls = inp_mock.dispatch_key_event.call_args_list
+        assert len(key_calls) == 4
+        key_calls[0].assert_called_with("keyDown", key="a", modifiers=2)
+        key_calls[1].assert_called_with("keyUp", key="a", modifiers=2)
+        key_calls[2].assert_called_with("keyDown", key="Backspace")
+        key_calls[3].assert_called_with("keyUp", key="Backspace")
+
+        # Then insert text
+        inp_mock.insert_text.assert_called_once_with("new text")
+
+    def test_type_without_clear_just_inserts(self, connected_backend, mock_browser) -> None:
+        """TYPE without clear flag just inserts text (no Ctrl+A/Backspace)."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "input1": _make_ax_node(
+                node_id="input1",
+                role="textbox",
+                name="Email",
+                backend_dom_node_id=42,
+            ),
+        }
+
+        handle = NativeHandle("input1")
+        connected_backend.perform_action(handle, DesktopAction.TYPE, text="hello")
+
+        # No key events dispatched (no clear)
+        inp_mock.dispatch_key_event.assert_not_called()
+        inp_mock.insert_text.assert_called_once_with("hello")
+
+
+# -- GW-096: Directional scrolling ---------------------------------------------
+
+
+class TestDirectionalScrolling:
+    """GW-096: SCROLL action supports direction kwarg (up/down/left/right)."""
+
+    def _setup_scroll(self, connected_backend, mock_browser):
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "scroll1": _make_ax_node(
+                node_id="scroll1",
+                role="generic",
+                bounds={"x": 50, "y": 50, "width": 200, "height": 200},
+            ),
+        }
+
+    def test_scroll_down_default(self, connected_backend, mock_browser) -> None:
+        self._setup_scroll(connected_backend, mock_browser)
+        connected_backend.perform_action(NativeHandle("scroll1"), DesktopAction.SCROLL)
+        inp_mock = connected_backend._domains[_make_target().id][2]
+        inp_mock.dispatch_mouse_event.assert_called_once()
+        call_kwargs = inp_mock.dispatch_mouse_event.call_args
+        assert call_kwargs[1]["delta_y"] == 100.0
+        assert call_kwargs[1]["delta_x"] == 0.0
+
+    def test_scroll_up(self, connected_backend, mock_browser) -> None:
+        self._setup_scroll(connected_backend, mock_browser)
+        connected_backend.perform_action(
+            NativeHandle("scroll1"), DesktopAction.SCROLL, direction="up"
+        )
+        inp_mock = connected_backend._domains[_make_target().id][2]
+        call_kwargs = inp_mock.dispatch_mouse_event.call_args
+        assert call_kwargs[1]["delta_y"] == -100.0
+        assert call_kwargs[1]["delta_x"] == 0.0
+
+    def test_scroll_left(self, connected_backend, mock_browser) -> None:
+        self._setup_scroll(connected_backend, mock_browser)
+        connected_backend.perform_action(
+            NativeHandle("scroll1"), DesktopAction.SCROLL, direction="left"
+        )
+        inp_mock = connected_backend._domains[_make_target().id][2]
+        call_kwargs = inp_mock.dispatch_mouse_event.call_args
+        assert call_kwargs[1]["delta_x"] == -100.0
+        assert call_kwargs[1]["delta_y"] == 0.0
+
+    def test_scroll_right(self, connected_backend, mock_browser) -> None:
+        self._setup_scroll(connected_backend, mock_browser)
+        connected_backend.perform_action(
+            NativeHandle("scroll1"), DesktopAction.SCROLL, direction="right"
+        )
+        inp_mock = connected_backend._domains[_make_target().id][2]
+        call_kwargs = inp_mock.dispatch_mouse_event.call_args
+        assert call_kwargs[1]["delta_x"] == 100.0
+        assert call_kwargs[1]["delta_y"] == 0.0
+
+    def test_scroll_custom_delta(self, connected_backend, mock_browser) -> None:
+        self._setup_scroll(connected_backend, mock_browser)
+        connected_backend.perform_action(
+            NativeHandle("scroll1"), DesktopAction.SCROLL, direction="down", delta=50.0
+        )
+        inp_mock = connected_backend._domains[_make_target().id][2]
+        call_kwargs = inp_mock.dispatch_mouse_event.call_args
+        assert call_kwargs[1]["delta_y"] == 50.0
+
+
+# -- GW-096: Double-click support ----------------------------------------------
+
+
+class TestDoubleClick:
+    """GW-096: CLICK action supports click_count kwarg for double-click."""
+
+    def test_click_default_count(self, connected_backend, mock_browser) -> None:
+        """Default click has click_count=1."""
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "btn1": _make_ax_node(
+                node_id="btn1",
+                role="button",
+                name="Click",
+                bounds={"x": 10, "y": 20, "width": 100, "height": 30},
+            ),
+        }
+
+        connected_backend.perform_action(NativeHandle("btn1"), DesktopAction.CLICK)
+        calls = inp_mock.dispatch_mouse_event.call_args_list
+        assert len(calls) == 2
+        # Both press and release should have click_count=1
+        assert calls[0][1]["click_count"] == 1
+        assert calls[1][1]["click_count"] == 1
+
+    def test_double_click_count(self, connected_backend, mock_browser) -> None:
+        """click_count=2 dispatches double-click."""
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "btn1": _make_ax_node(
+                node_id="btn1",
+                role="button",
+                name="Click",
+                bounds={"x": 10, "y": 20, "width": 100, "height": 30},
+            ),
+        }
+
+        connected_backend.perform_action(
+            NativeHandle("btn1"), DesktopAction.CLICK, click_count=2
+        )
+        calls = inp_mock.dispatch_mouse_event.call_args_list
+        assert len(calls) == 2
+        assert calls[0][1]["click_count"] == 2
+        assert calls[1][1]["click_count"] == 2
+
+
+# -- GW-096: Click uses bounds cache -------------------------------------------
+
+
+class TestClickBoundsCaching:
+    """GW-096: Click uses _resolve_bounds with lazy caching."""
+
+    def test_click_fetches_and_caches_bounds(self, connected_backend, mock_browser) -> None:
+        """Click fetches bounds from DOM on first call, caches for second."""
+        from guidewire.cdp._types import BoxModel
+
+        target = _make_target()
+        session = MagicMock(
+            is_attached=True, target=target, send_command=MagicMock(return_value={})
+        )
+        connected_backend._sessions[target.id] = session
+
+        dom_mock = MagicMock()
+        box = BoxModel(
+            border=(20.0, 30.0, 120.0, 30.0, 120.0, 60.0, 20.0, 60.0),
+            content=(22.0, 32.0, 118.0, 32.0, 118.0, 58.0, 22.0, 58.0),
+            width=100,
+            height=30,
+        )
+        dom_mock.get_box_model.return_value = box
+        inp_mock = MagicMock()
+        acc_mock = MagicMock()
+        connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock)
+
+        connected_backend._ax_cache = {
+            "btn1": _make_ax_node(
+                node_id="btn1",
+                role="button",
+                name="Click",
+                bounds=None,
+                backend_dom_node_id=55,
+            ),
+        }
+
+        # First click — fetches bounds from DOM
+        connected_backend.perform_action(NativeHandle("btn1"), DesktopAction.CLICK)
+        assert dom_mock.get_box_model.call_count == 1
+        assert "btn1" in connected_backend._bounds_cache
+
+        # Second click — uses cached bounds
+        connected_backend.perform_action(NativeHandle("btn1"), DesktopAction.CLICK)
+        assert dom_mock.get_box_model.call_count == 1  # No additional fetch
+

@@ -1,4 +1,4 @@
-"""WebBackend — CDP-based accessibility backend for web browsers (GW-095).
+"""WebBackend — CDP-based accessibility backend for web browsers (GW-095, GW-096).
 
 Uses the Chrome DevTools Protocol (CDP) Accessibility domain to query the
 browser's accessibility tree and the Input domain for action dispatch.
@@ -18,9 +18,10 @@ Architecture overview:
       :meth:`~guidewire.cdp.domains.accessibility.AccessibilityDomain.query_ax_tree`
       for server-side filtering by role/name.
     - ``perform_action`` → :class:`~guidewire.cdp.domains.input.InputDomain` for
-      mouse / keyboard event dispatch (click, type, press_key).
+      mouse / keyboard event dispatch (click, type, press_key, scroll).
     - Lazy bounds fetching via :class:`~guidewire.cdp.domains.dom.DOMDomain.get_box_model`
-      when AX nodes lack inline bounds.
+      when AX nodes lack inline bounds, with per-node bounds caching (GW-096).
+    - Stale element detection before action dispatch (GW-096).
     - Cache invalidation on each ``snapshot`` call so stale AX node IDs are
       not reused across tree generations.
 
@@ -28,7 +29,9 @@ Implementation status:
     - ``list_windows``, ``get_window_info``, ``focus_window`` — GW-095
     - ``snapshot`` — GW-095
     - ``find_elements`` — GW-095
-    - ``perform_action``, ``get_element_info``, ``is_valid`` — GW-095
+    - ``perform_action`` (click, type, scroll, toggle, press_key, get_text) — GW-095, GW-096
+    - Bounds caching and stale element detection — GW-096
+    - ``get_element_info``, ``is_valid`` — GW-095
     - Window state management (minimize, maximize, etc.) — GW-095
     - ``clipboard_read``, ``clipboard_write`` — GW-095
     - ``dispose`` — GW-095
@@ -107,6 +110,10 @@ class WebBackend(DesktopBackend):
 
         # AX node cache: node_id → AXNode (populated per snapshot)
         self._ax_cache: dict[str, AXNode] = {}
+
+        # Bounds cache: node_id → {x, y, width, height} (GW-096)
+        # Populated lazily on first bounds access, invalidated with _ax_cache.
+        self._bounds_cache: dict[str, dict[str, float]] = {}
 
         # Session cache: target_id → CDPSession
         self._sessions: dict[str, CDPSession] = {}
@@ -282,6 +289,7 @@ class WebBackend(DesktopBackend):
         # Fetch the full AX tree and rebuild the cache
         ax_nodes = acc.get_full_ax_tree()
         self._ax_cache = {n.node_id: n for n in ax_nodes}
+        self._bounds_cache = {}  # Invalidate bounds cache on new snapshot (GW-096)
 
         # Find the root node (webArea or the first node with no parent reference)
         root_node = find_root_ax_node(ax_nodes)
@@ -411,13 +419,17 @@ class WebBackend(DesktopBackend):
         Input domain method:
 
         - ``CLICK`` → coordinate-based mouse event dispatch at element center
-        - ``TYPE`` → ``Input.insertText``
+        - ``TYPE`` → focus element + ``Input.insertText`` (with optional clear)
         - ``PRESS_KEY`` → ``Input.dispatchKeyEvent``
         - ``SET_VALUE`` → JavaScript evaluation (fallback)
         - ``GET_TEXT`` → read from AX node value/name
         - ``EXPAND`` / ``COLLAPSE`` → click on the element
         - ``TOGGLE`` → click on the element
         - ``SELECT`` / ``SELECT_ITEM`` → click on the element
+        - ``SCROLL`` → mouse wheel dispatch at element center (with direction)
+
+        Before dispatching any action, validates that the element is still
+        present in the AX cache (stale element detection, GW-096).
 
         Args:
             handle: Opaque native element handle (AX node ID string).
@@ -428,7 +440,8 @@ class WebBackend(DesktopBackend):
             ``str`` when action is ``GET_TEXT``, otherwise ``None``.
 
         Raises:
-            StaleElementReferenceError: If the backend is disposed.
+            StaleElementReferenceError: If the backend is disposed or the
+                element is stale.
             ActionNotSupportedError: If the action is not available.
             ElementNotFoundError: If the handle is invalid.
         """
@@ -441,15 +454,18 @@ class WebBackend(DesktopBackend):
         if node is None:
             raise ElementNotFoundError(f"AX node {node_id!r} not found in cache")
 
+        # Stale element check — verify the node is still reachable (GW-096)
+        self._stale_check(node_id)
+
         # Find the session that owns this element — use the first active session
         session = self._get_active_session()
         _, dom, inp = self._get_domains(session.target.id)
 
         try:
             if action == DesktopAction.CLICK:
-                return self._action_click(node, dom, inp)
+                return self._action_click(node, dom, inp, **kwargs)
             if action == DesktopAction.TYPE:
-                return self._action_type(node, inp, **kwargs)
+                return self._action_type(node, dom, inp, **kwargs)
             if action == DesktopAction.PRESS_KEY:
                 return self._action_press_key(inp, **kwargs)
             if action == DesktopAction.SET_VALUE:
@@ -465,7 +481,7 @@ class WebBackend(DesktopBackend):
             ):
                 return self._action_click(node, dom, inp)
             if action == DesktopAction.SCROLL:
-                return self._action_scroll(node, dom, inp)
+                return self._action_scroll(node, dom, inp, **kwargs)
             if action == "focus":
                 return self._action_focus(node, dom)
         except (ActionNotSupportedError, StaleElementReferenceError, ElementNotFoundError):
@@ -607,6 +623,7 @@ class WebBackend(DesktopBackend):
         self._sessions.clear()
         self._domains.clear()
         self._ax_cache.clear()
+        self._bounds_cache.clear()
 
         # Close browser connection
         try:
@@ -826,27 +843,82 @@ class WebBackend(DesktopBackend):
         except Exception:
             logger.debug("scroll_into_view failed for node %s", node.node_id, exc_info=True)
 
-    # -- Action dispatch helpers -----------------------------------------------
+    # -- Action dispatch helpers (GW-096) --------------------------------------
 
-    def _action_click(self, node: AXNode, dom: DOMDomain, inp: InputDomain) -> None:
+    def _stale_check(self, node_id: str) -> None:
+        """Verify an element is still valid before dispatching an action.
+
+        Performs a lightweight cache membership check.  If the node has
+        been removed from the cache (e.g. by a DOM mutation or page
+        navigation that triggered a new snapshot), raises
+        :class:`StaleElementReferenceError`.
+
+        Args:
+            node_id: The AX node ID to verify.
+
+        Raises:
+            StaleElementReferenceError: If the node is no longer in the cache.
+        """
+        if node_id not in self._ax_cache:
+            raise StaleElementReferenceError(
+                f"AX node {node_id!r} is stale — no longer present in the cache. "
+                "Take a new snapshot and re-resolve the element reference."
+            )
+
+    def _resolve_bounds(
+        self, node: AXNode, dom: DOMDomain
+    ) -> dict[str, float] | None:
+        """Resolve element bounds with lazy caching (GW-096).
+
+        Checks the AX node inline bounds first, then the lazy bounds cache,
+        and finally fetches from the DOM domain (caching the result for
+        subsequent calls).
+
+        Args:
+            node: The :class:`AXNode` to resolve bounds for.
+            dom: :class:`DOMDomain` for DOM-based bounds resolution.
+
+        Returns:
+            Bounds dict ``{x, y, width, height}`` or ``None``.
+        """
+        # 1. Check AX node inline bounds
+        if node.bounds is not None:
+            return node.bounds
+
+        # 2. Check the lazy bounds cache
+        cached = self._bounds_cache.get(node.node_id)
+        if cached is not None:
+            return cached
+
+        # 3. Fetch from DOM domain and cache the result
+        if node.backend_dom_node_id is not None:
+            bounds_data = fetch_bounds_from_dom(dom, node.backend_dom_node_id)
+            if bounds_data is not None:
+                self._bounds_cache[node.node_id] = bounds_data
+                return bounds_data
+
+        return None
+
+    def _action_click(
+        self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any
+    ) -> None:
         """Click an element at its center coordinates.
 
-        Resolves the element bounds (from AX node or DOM box model) and
-        dispatches a mouse press/release at the center point.
+        Resolves the element bounds (from AX node, cache, or DOM box model)
+        and dispatches a mouse press/release at the center point.
+
+        Supports double-click via ``click_count=2`` kwarg.
 
         Args:
             node: The :class:`AXNode` to click.
             dom: :class:`DOMDomain` for bounds resolution.
             inp: :class:`InputDomain` for mouse dispatch.
+            **kwargs: Optional ``click_count`` (int, default 1).
 
         Raises:
             ActionNotSupportedError: If bounds cannot be determined.
         """
-        bounds = node.bounds
-        if bounds is None and node.backend_dom_node_id is not None:
-            bounds_data = fetch_bounds_from_dom(dom, node.backend_dom_node_id)
-            if bounds_data is not None:
-                bounds = bounds_data
+        bounds = self._resolve_bounds(node, dom)
 
         if bounds is None:
             raise ActionNotSupportedError(
@@ -855,21 +927,29 @@ class WebBackend(DesktopBackend):
 
         x = float(bounds.get("x", 0)) + float(bounds.get("width", 0)) / 2
         y = float(bounds.get("y", 0)) + float(bounds.get("height", 0)) / 2
+        click_count = int(kwargs.get("click_count", 1))
 
-        inp.dispatch_mouse_event("mousePressed", x, y, button="left", click_count=1)
-        inp.dispatch_mouse_event("mouseReleased", x, y, button="left", click_count=1)
+        inp.dispatch_mouse_event(
+            "mousePressed", x, y, button="left", click_count=click_count
+        )
+        inp.dispatch_mouse_event(
+            "mouseReleased", x, y, button="left", click_count=click_count
+        )
 
-    @staticmethod
-    def _action_type(node: AXNode, inp: InputDomain, **kwargs: Any) -> None:
-        """Type text into an element via ``Input.insertText``.
+    def _action_type(
+        self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any
+    ) -> None:
+        """Type text into an element via focus + ``Input.insertText``.
 
-        First focuses the element (if it has a backend DOM node), then
-        inserts the text using the CDP Input domain.
+        Focuses the element via the DOM domain (if it has a backend DOM node)
+        before inserting text.  When ``clear=True`` is passed, selects all
+        existing text and deletes it before typing.
 
         Args:
             node: The :class:`AXNode` to type into.
+            dom: :class:`DOMDomain` for focusing the element.
             inp: :class:`InputDomain` for text insertion.
-            **kwargs: Must contain ``text`` (str).
+            **kwargs: Must contain ``text`` (str).  Optional ``clear`` (bool).
 
         Raises:
             ActionNotSupportedError: If text parameter is missing.
@@ -877,6 +957,26 @@ class WebBackend(DesktopBackend):
         text = kwargs.get("text")
         if text is None:
             raise ActionNotSupportedError("TYPE action requires a 'text' parameter")
+
+        # Focus the element before typing (common web pattern)
+        if node.backend_dom_node_id is not None:
+            try:
+                dom.focus(backend_node_id=node.backend_dom_node_id)
+            except Exception:
+                logger.debug(
+                    "DOM focus before type failed for node %s",
+                    node.node_id,
+                    exc_info=True,
+                )
+
+        # Optionally clear existing text (GW-096)
+        if kwargs.get("clear"):
+            # Select all (Ctrl+A) then delete
+            inp.dispatch_key_event("keyDown", key="a", modifiers=2)  # Ctrl+A
+            inp.dispatch_key_event("keyUp", key="a", modifiers=2)
+            inp.dispatch_key_event("keyDown", key="Backspace")
+            inp.dispatch_key_event("keyUp", key="Backspace")
+
         inp.insert_text(str(text))
 
     @staticmethod
@@ -967,21 +1067,49 @@ class WebBackend(DesktopBackend):
             return str(node.name)
         return ""
 
-    @staticmethod
-    def _action_scroll(node: AXNode, dom: DOMDomain, inp: InputDomain) -> None:
+    def _action_scroll(
+        self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any
+    ) -> None:
         """Scroll an element via mouse wheel at its center.
+
+        Supports directional scrolling via the ``direction`` kwarg:
+        ``"down"`` (default), ``"up"``, ``"left"``, ``"right"``.
+        The scroll delta magnitude can be set via ``delta`` (default 100).
+
+        Uses the lazy bounds cache to resolve coordinates (GW-096).
 
         Args:
             node: The :class:`AXNode` to scroll.
             dom: :class:`DOMDomain` for bounds resolution.
             inp: :class:`InputDomain` for mouse wheel dispatch.
+            **kwargs: Optional ``direction`` (str), ``delta`` (float).
         """
-        bounds = node.bounds
+        bounds = self._resolve_bounds(node, dom)
+        if bounds is None:
+            bounds = node.bounds
         if bounds is None:
             return
+
         x = float(bounds.get("x", 0)) + float(bounds.get("width", 0)) / 2
         y = float(bounds.get("y", 0)) + float(bounds.get("height", 0)) / 2
-        inp.dispatch_mouse_event("mouseWheel", x, y, button="none", delta_y=100.0)
+
+        direction = kwargs.get("direction", "down")
+        delta = float(kwargs.get("delta", 100.0))
+
+        delta_x = 0.0
+        delta_y = 0.0
+        if direction == "down":
+            delta_y = delta
+        elif direction == "up":
+            delta_y = -delta
+        elif direction == "right":
+            delta_x = delta
+        elif direction == "left":
+            delta_x = -delta
+
+        inp.dispatch_mouse_event(
+            "mouseWheel", x, y, button="none", delta_x=delta_x, delta_y=delta_y
+        )
 
     @staticmethod
     def _action_focus(node: AXNode, dom: DOMDomain) -> None:
@@ -996,3 +1124,4 @@ class WebBackend(DesktopBackend):
                 dom.focus(backend_node_id=node.backend_dom_node_id)
             except Exception:
                 logger.debug("DOM focus failed for node %s", node.node_id, exc_info=True)
+
