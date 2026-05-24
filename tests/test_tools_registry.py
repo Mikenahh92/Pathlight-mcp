@@ -31,6 +31,8 @@ EXPECTED_TOOL_NAMES = [
     "desktop.scroll_to_item",
     "desktop.multi_action",
     "desktop.wait_for",
+    "desktop.web_connect",
+    "desktop.web_navigate",
 ]
 
 

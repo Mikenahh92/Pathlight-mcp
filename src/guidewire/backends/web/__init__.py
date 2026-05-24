@@ -49,6 +49,7 @@ from typing import Any
 
 from guidewire.backends.base import DesktopBackend
 from guidewire.backends.types import DesktopAction, NativeHandle
+from guidewire.backends.web.web_session import WebSessionRegistry
 from guidewire.backends.web_normalize import (
     build_normalized_tree,
     fetch_bounds_from_dom,
@@ -76,6 +77,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "WebBackend",
+    "WebSessionRegistry",
 ]
 
 
@@ -124,14 +126,24 @@ class WebBackend(DesktopBackend):
         # Populated lazily on first bounds access, invalidated with _ax_cache.
         self._bounds_cache: dict[str, dict[str, float]] = {}
 
-        # Session cache: target_id → CDPSession
-        self._sessions: dict[str, CDPSession] = {}
+        # Session registry: manages CDP sessions and domain wrappers (GW-098 §2.1)
+        # Uses a lambda so the registry always resolves the current _browser,
+        # even when tests swap it after construction.
+        self._session_registry: WebSessionRegistry = WebSessionRegistry(
+            lambda: self.__dict__.get("_browser", self._browser)
+        )
 
-        # Domain cache: target_id → domain tuple
-        self._domains: dict[
-            str,
-            tuple[AccessibilityDomain, DOMDomain, InputDomain, PageDomain, TargetDomain],
-        ] = {}
+    @property
+    def _sessions(self) -> dict[str, CDPSession]:
+        """Backward-compatible access to the session cache via the registry."""
+        return self._session_registry._sessions
+
+    @property
+    def _domains(
+        self,
+    ) -> dict[str, tuple[AccessibilityDomain, DOMDomain, InputDomain, PageDomain, TargetDomain]]:
+        """Backward-compatible access to the domain cache via the registry."""
+        return self._session_registry._domains
 
     # -- Connection management ------------------------------------------------
 
@@ -164,29 +176,23 @@ class WebBackend(DesktopBackend):
     def _get_or_create_session(self, target_id: str) -> CDPSession:
         """Get or create a CDP session for the given target ID.
 
+        Delegates to :class:`~guidewire.backends.web.web_session.WebSessionRegistry`.
+
         Args:
             target_id: The browser target identifier.
 
         Returns:
             An attached :class:`~guidewire.cdp.session.CDPSession`.
         """
-        session = self._sessions.get(target_id)
-        if session is not None and session.is_attached:
-            return session
-
-        target = self._browser.get_target(target_id)
-        if target is None:
-            raise WindowNotFoundError(f"No browser target found with id {target_id!r}")
-
-        session = self._browser.attach(target)
-        self._sessions[target_id] = session
-        return session
+        return self._session_registry.get_or_create(target_id)
 
     def _get_domains(
         self,
         target_id: str,
     ) -> tuple[AccessibilityDomain, DOMDomain, InputDomain, PageDomain, TargetDomain]:
         """Get or create domain wrappers for the given target.
+
+        Delegates to :class:`~guidewire.backends.web.web_session.WebSessionRegistry`.
 
         Args:
             target_id: The browser target identifier.
@@ -195,18 +201,7 @@ class WebBackend(DesktopBackend):
             A tuple of (AccessibilityDomain, DOMDomain, InputDomain,
             PageDomain, TargetDomain).
         """
-        domains = self._domains.get(target_id)
-        if domains is not None:
-            return domains
-
-        session = self._get_or_create_session(target_id)
-        acc = AccessibilityDomain(session)
-        dom = DOMDomain(session)
-        inp = InputDomain(session)
-        page = PageDomain(session)
-        target = TargetDomain(session)
-        self._domains[target_id] = (acc, dom, inp, page, target)
-        return (acc, dom, inp, page, target)
+        return self._session_registry.get_domains(target_id)
 
     # -- DesktopBackend interface ---------------------------------------------
 
@@ -637,20 +632,15 @@ class WebBackend(DesktopBackend):
     def dispose(self) -> None:
         """Release all resources held by this backend.
 
-        Detaches all CDP sessions and closes the browser connection.
+        Detaches all CDP sessions via the session registry and closes the
+        browser connection.
         """
         if self._disposed:
             return
 
-        # Detach all sessions
-        for session in self._sessions.values():
-            try:
-                session.close()
-            except Exception:
-                logger.debug("Error closing session during dispose")
+        # Detach all sessions via the registry
+        self._session_registry.dispose()
 
-        self._sessions.clear()
-        self._domains.clear()
         self._ax_cache.clear()
         self._bounds_cache.clear()
 
@@ -871,7 +861,7 @@ class WebBackend(DesktopBackend):
                     url=frame_info.get("url", ""),
                 )
                 iframe_session = self._browser.attach(iframe_target)
-                self._sessions[f"iframe:{frame_id}"] = iframe_session
+                self._session_registry.put_session(f"iframe:{frame_id}", iframe_session)
 
                 iframe_acc = AccessibilityDomain(iframe_session)
                 iframe_nodes = iframe_acc.get_full_ax_tree()
@@ -939,16 +929,15 @@ class WebBackend(DesktopBackend):
     def _get_active_session(self) -> CDPSession:
         """Get any active CDP session.
 
+        Delegates to :class:`~guidewire.backends.web.web_session.WebSessionRegistry`.
+
         Returns:
             An active :class:`CDPSession`.
 
         Raises:
             BackendUnavailableError: If no session is active.
         """
-        for session in self._sessions.values():
-            if session.is_attached:
-                return session
-        raise BackendUnavailableError("No active CDP session")
+        return self._session_registry.get_active()
 
     def _client_side_find(
         self,

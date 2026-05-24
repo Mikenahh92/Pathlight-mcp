@@ -23,6 +23,8 @@ Tool set (architecture v2 §3.1):
     desktop.scroll_to_item — scroll a virtualized list to bring a target item into view
     desktop.multi_action   — execute a batch of desktop actions in a single call
     desktop.wait_for       — async polling-based condition blocking
+    desktop.web_connect    — connect to a browser's CDP debug port (GW-098)
+    desktop.web_navigate   — navigate a browser page to a URL (GW-098)
 """
 
 import importlib
@@ -56,6 +58,8 @@ _TOOL_MODULES = [
     ".scroll_to_item",
     ".multi_action",
     ".wait_for",
+    ".web_connect",
+    ".web_navigate",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.

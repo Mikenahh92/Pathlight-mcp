@@ -154,6 +154,18 @@ EXPECTED_TOOLS = [
         "required_params": ["condition"],
         "optional_params": ["timeout_ms", "poll_interval_ms"],
     },
+    {
+        "name": "desktop.web_connect",
+        "description_pattern": "CDP debug port",
+        "required_params": [],
+        "optional_params": ["host", "port"],
+    },
+    {
+        "name": "desktop.web_navigate",
+        "description_pattern": "Navigate a connected browser",
+        "required_params": ["window_ref", "url"],
+        "optional_params": ["timeout"],
+    },
 ]
 
 

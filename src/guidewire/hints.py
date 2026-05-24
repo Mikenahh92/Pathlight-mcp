@@ -46,6 +46,17 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Use 'which <app>' on Linux or 'where <app>' on Windows to locate the binary",
         "Verify the application is installed and in your PATH",
     ],
+    "web_connect_error": [
+        "Ensure the browser is running with --remote-debugging-port=<port>",
+        "Verify the host and port are correct and accessible",
+        "Check that no firewall is blocking the debug port",
+        "Try connecting to localhost:9222 if using default Chrome debug settings",
+    ],
+    "web_navigate_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "Check that the URL is valid and properly formatted (include the scheme, e.g. https://)",
+        "The browser page may have been closed — reconnect with web_connect",
+    ],
 }
 
 
