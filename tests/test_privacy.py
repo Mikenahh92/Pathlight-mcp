@@ -20,6 +20,7 @@ from guidewire.privacy import (
     redact_clipboard_text,
     redact_element,
     redact_snapshot,
+    redact_web_content,
 )
 
 # ---------------------------------------------------------------------------
@@ -127,9 +128,9 @@ def sample_snapshot() -> NormalizedElement:
 
 
 class TestExports:
-    """Verify module exports exactly 5 public names (F6)."""
+    """Verify module exports exactly 6 public names (F6)."""
 
-    def test_all_exports_exactly_five(self) -> None:
+    def test_all_exports(self) -> None:
         import guidewire.privacy as mod
 
         assert sorted(mod.__all__) == [
@@ -138,6 +139,7 @@ class TestExports:
             "redact_clipboard_text",
             "redact_element",
             "redact_snapshot",
+            "redact_web_content",
         ]
 
     def test_privacy_config_importable(self) -> None:
@@ -151,12 +153,14 @@ class TestExports:
             redact_clipboard_text,
             redact_element,
             redact_snapshot,
+            redact_web_content,
         )
 
         assert callable(is_password_field)
         assert callable(redact_clipboard_text)
         assert callable(redact_element)
         assert callable(redact_snapshot)
+        assert callable(redact_web_content)
 
 
 # ---------------------------------------------------------------------------
@@ -1065,4 +1069,170 @@ class TestRedactClipboardText:
 
     def test_whitespace_around_colon(self) -> None:
         result = redact_clipboard_text("password : secret123")
+        assert result == "[REDACTED]"
+
+
+# ===========================================================================
+# GW-100: redact_web_content tests
+# ===========================================================================
+
+
+class TestRedactWebContent:
+    """Verify web-specific content redaction (GW-100).
+
+    Line-by-line scanning for:
+    - Cookie headers (Cookie:, Set-Cookie:)
+    - Sensitive web patterns (credit card, API keys, SSN, tokens)
+    - Standard keyword detection (password, passwd, pwd, etc.)
+    """
+
+    # -- Cookie header detection --
+
+    def test_cookie_header_redacted(self) -> None:
+        result = redact_web_content("Cookie: session_id=abc123")
+        assert result == "[REDACTED]"
+        assert "session_id" not in result
+
+    def test_set_cookie_header_redacted(self) -> None:
+        result = redact_web_content("Set-Cookie: auth_token=xyz789; Path=/")
+        assert result == "[REDACTED]"
+        assert "auth_token" not in result
+
+    def test_cookie_with_equals(self) -> None:
+        result = redact_web_content("cookie=session=value")
+        assert result == "[REDACTED]"
+
+    def test_cookie_case_insensitive(self) -> None:
+        assert redact_web_content("COOKIE: abc") == "[REDACTED]"
+        assert redact_web_content("set-cookie: xyz") == "[REDACTED]"
+
+    def test_cookie_in_middle_of_text(self) -> None:
+        """Cookie must be at the start of the line."""
+        result = redact_web_content("some text cookie: value")
+        assert "cookie" in result.lower()
+
+    # -- Credit card patterns --
+
+    def test_credit_card_redacted(self) -> None:
+        result = redact_web_content("credit.card: 4111111111111111")
+        assert result == "[REDACTED]"
+
+    def test_cc_number_redacted(self) -> None:
+        result = redact_web_content("cc.number=4111111111111111")
+        assert result == "[REDACTED]"
+
+    def test_cvv_redacted(self) -> None:
+        result = redact_web_content("cvv=123")
+        assert result == "[REDACTED]"
+
+    def test_csc_redacted(self) -> None:
+        result = redact_web_content("csc=456")
+        assert result == "[REDACTED]"
+
+    # -- API key / token patterns --
+
+    def test_api_key_redacted(self) -> None:
+        result = redact_web_content("api.key=sk-abc123def456")
+        assert result == "[REDACTED]"
+        assert "sk-abc" not in result
+
+    def test_api_secret_redacted(self) -> None:
+        result = redact_web_content("api.secret=supersecret")
+        assert result == "[REDACTED]"
+
+    def test_auth_token_redacted(self) -> None:
+        result = redact_web_content("auth.token=eyJhbGciOiJIUzI1NiJ9")
+        assert result == "[REDACTED]"
+
+    def test_access_token_redacted(self) -> None:
+        result = redact_web_content("access.token=abc123")
+        assert result == "[REDACTED]"
+
+    def test_refresh_token_redacted(self) -> None:
+        result = redact_web_content("refresh.token=xyz789")
+        assert result == "[REDACTED]"
+
+    # -- SSN patterns --
+
+    def test_social_security_redacted(self) -> None:
+        result = redact_web_content("social.security=123-45-6789")
+        assert result == "[REDACTED]"
+
+    def test_ssn_redacted(self) -> None:
+        result = redact_web_content("ssn=123-45-6789")
+        assert result == "[REDACTED]"
+
+    # -- Standard keyword patterns (password, etc.) --
+
+    def test_password_equals_redacted(self) -> None:
+        result = redact_web_content("password=secret123")
+        assert result == "[REDACTED]"
+
+    def test_secret_equals_redacted(self) -> None:
+        result = redact_web_content("secret=mykey")
+        assert result == "[REDACTED]"
+
+    # -- Non-sensitive content preserved --
+
+    def test_non_sensitive_preserved(self) -> None:
+        text = "username=admin\nemail=user@example.com"
+        result = redact_web_content(text)
+        assert result == text
+
+    def test_safe_line_preserved(self) -> None:
+        result = redact_web_content("Hello World")
+        assert result == "Hello World"
+
+    def test_empty_string(self) -> None:
+        assert redact_web_content("") == ""
+
+    # -- Multi-line mixed content --
+
+    def test_multiline_mixed(self) -> None:
+        text = "user=admin\nCookie: session=abc\napi.key=sk-123\nemail=user@test.com"
+        result = redact_web_content(text)
+        lines = result.split("\n")
+        assert lines[0] == "user=admin"
+        assert lines[1] == "[REDACTED]"
+        assert lines[2] == "[REDACTED]"
+        assert lines[3] == "email=user@test.com"
+
+    # -- Config integration --
+
+    def test_custom_placeholder(self) -> None:
+        config = PrivacyConfig(redaction_placeholder="***")
+        result = redact_web_content("Cookie: abc", config=config)
+        assert result == "***"
+
+    def test_silent_config_returns_original(self) -> None:
+        config = PrivacyConfig(redact_passwords=False)
+        text = "Cookie: session=abc\napi.key=sk-123"
+        result = redact_web_content(text, config=config)
+        assert result == text
+
+    def test_none_config_uses_default(self) -> None:
+        result = redact_web_content("Cookie: abc", config=None)
+        assert result == "[REDACTED]"
+
+    # -- Case insensitivity --
+
+    def test_case_insensitive_api_key(self) -> None:
+        assert redact_web_content("API.KEY=sk-123") == "[REDACTED]"
+        assert redact_web_content("Api.Key=sk-123") == "[REDACTED]"
+
+    def test_case_insensitive_credit_card(self) -> None:
+        assert redact_web_content("CREDIT.CARD=4111") == "[REDACTED]"
+
+    # -- Idempotency --
+
+    def test_idempotent(self) -> None:
+        text = "Cookie: abc\napi.key=sk-123"
+        result1 = redact_web_content(text)
+        result2 = redact_web_content(result1)
+        assert result2 == result1
+
+    # -- Whitespace tolerance --
+
+    def test_whitespace_around_separator(self) -> None:
+        result = redact_web_content("api.key = sk-123")
         assert result == "[REDACTED]"

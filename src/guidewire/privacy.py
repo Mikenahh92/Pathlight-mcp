@@ -1,4 +1,4 @@
-"""Privacy controls for Guidewire MCP responses (PRD R13).
+"""Privacy controls for Guidewire MCP responses (PRD R13, GW-100).
 
 Prevents sensitive data from leaking into MCP responses by:
 
@@ -6,6 +6,8 @@ Prevents sensitive data from leaking into MCP responses by:
 - Redacting element values on :class:`~guidewire.models.NormalizedElement` instances
 - Filtering out denylisted applications from snapshot trees
 - Redacting sensitive content in clipboard text via line-by-line keyword scanning
+- Web-specific privacy redactions for cookies, password fields, and sensitive
+  form data (GW-100)
 
 Public API::
 
@@ -15,6 +17,7 @@ Public API::
         redact_clipboard_text,
         redact_element,
         redact_snapshot,
+        redact_web_content,
     )
 """
 
@@ -32,6 +35,7 @@ __all__ = [
     "redact_clipboard_text",
     "redact_element",
     "redact_snapshot",
+    "redact_web_content",
 ]
 
 
@@ -326,3 +330,151 @@ def _redact_tree(
         changes["children"] = new_children
 
     return replace(element, **changes) if changes else element
+
+
+# ---------------------------------------------------------------------------
+# Web-specific privacy redactions (GW-100)
+# ---------------------------------------------------------------------------
+
+# HTML input types that always indicate sensitive data.
+_WEB_SENSITIVE_INPUT_TYPES: frozenset[str] = frozenset(
+    {
+        "password",
+        "hidden",
+    }
+)
+
+# HTML autocomplete attribute values that indicate sensitive form data.
+_WEB_SENSITIVE_AUTOCOMPLETE: frozenset[str] = frozenset(
+    {
+        "current-password",
+        "new-password",
+        "cc-number",
+        "cc-exp",
+        "cc-csc",
+        "cc-type",
+        "cc-name",
+        "cc-given-name",
+        "cc-additional-name",
+        "cc-family-name",
+        "cc-exp-month",
+        "cc-exp-year",
+        "transaction-amount",
+        "transaction-currency",
+    }
+)
+
+# Cookie header name patterns (case-insensitive).
+_WEB_COOKIE_HEADER_PATTERNS: tuple[str, ...] = (
+    "cookie",
+    "set-cookie",
+)
+
+# Pre-compiled regex for cookie header detection.
+_COOKIE_HEADER_RE = re.compile(
+    r"^(cookie|set-cookie)\s*[:=]",
+    re.IGNORECASE,
+)
+
+# Pre-compiled regex for sensitive web form patterns in text content.
+_WEB_SENSITIVE_CONTENT_RE = re.compile(
+    r"(password|passwd|pwd|secret|credential|pin|"
+    r"credit.card|cc.number|cvv|csc|"
+    r"social.security|ssn|"
+    r"api.key|api.secret|auth.token|access.token|refresh.token)"
+    r"\s*[:=]",
+    re.IGNORECASE,
+)
+
+# Web-specific password role names from AX tree (extends the desktop set).
+_WEB_PASSWORD_ROLES: frozenset[str] = frozenset(
+    {
+        "password",
+        "password_field",
+        "password_input",
+        "credential_field",
+    }
+)
+
+
+def _is_web_password_element(element: NormalizedElement) -> bool:
+    """Detect web-specific password/sensitive fields.
+
+    Extends :func:`is_password_field` with web-specific heuristics:
+    - Known web password roles (password, password_field, password_input)
+    - State-based ``is_password`` flag (any role)
+    - Name-based detection for web form field names
+
+    Args:
+        element: A :class:`~guidewire.models.NormalizedElement` instance.
+
+    Returns:
+        ``True`` if the element should be treated as a web sensitive field.
+    """
+    # Role-based check — web-specific password roles
+    if element.role in _WEB_PASSWORD_ROLES:
+        return True
+
+    # State-based check (any role)
+    is_pw = getattr(element.states, "is_password", None)
+    if is_pw is True:
+        return True
+
+    # Name-based check on text_input elements (reuse desktop patterns)
+    if element.role in ("text_input", "textbox", "search_input"):
+        name = element.name
+        if name:
+            lower_name = name.lower()
+            return any(p in lower_name for p in _DEFAULT_PASSWORD_NAME_PATTERNS)
+
+    return False
+
+
+def redact_web_content(
+    text: str,
+    *,
+    config: PrivacyConfig | None = None,
+) -> str:
+    """Redact sensitive web content from text.
+
+    Performs web-specific redactions on top of the base clipboard redaction:
+
+    - Cookie header lines (``Cookie: ...``, ``Set-Cookie: ...``)
+    - Sensitive form data patterns (password, credit card, API key, SSN, tokens)
+    - Falls back to :func:`redact_clipboard_text` for standard keyword matching
+
+    Args:
+        text: Text content potentially containing web-sensitive data.
+        config: Privacy configuration. When ``None``, defaults to a fresh
+            :class:`PrivacyConfig`. When ``config.redact_passwords`` is
+            ``False``, the original text is returned unchanged.
+
+    Returns:
+        The text with sensitive web content replaced by the redaction placeholder.
+    """
+    if config is None:
+        config = PrivacyConfig()
+
+    if not config.redact_passwords:
+        return text
+
+    placeholder = config.redaction_placeholder
+    lines = text.split("\n")
+    result_lines: list[str] = []
+
+    for line in lines:
+        # Cookie header detection
+        if _COOKIE_HEADER_RE.match(line):
+            result_lines.append(placeholder)
+            continue
+        # Sensitive web content pattern detection
+        if _WEB_SENSITIVE_CONTENT_RE.search(line):
+            result_lines.append(placeholder)
+            continue
+        # Standard keyword detection (password, passwd, pwd, etc.)
+        if _CLIPBOARD_KEYWORD_RE.search(line):
+            result_lines.append(placeholder)
+            continue
+        result_lines.append(line)
+
+    return "\n".join(result_lines)

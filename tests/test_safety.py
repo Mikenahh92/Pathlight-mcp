@@ -9,7 +9,9 @@ import pytest
 
 from guidewire.models import DesktopAction, ElementStates, NormalizedElement
 from guidewire.safety import (
+    CDP_METHOD_ALLOWLIST,
     DESTRUCTIVE_NAME_PATTERNS,
+    EvaluateRateLimiter,
     ROLE_RISK_MAP,
     SENSITIVE_ROLES,
     SYSTEM_ACTION_RISK_MAP,
@@ -18,6 +20,7 @@ from guidewire.safety import (
     SystemAction,
     classify,
     classify_system_action,
+    is_cdp_method_allowed,
 )
 
 # ---------------------------------------------------------------------------
@@ -833,12 +836,15 @@ class TestExports:
             "SystemAction",
             "classify",
             "classify_system_action",
+            "CDP_METHOD_ALLOWLIST",
+            "EvaluateRateLimiter",
+            "is_cdp_method_allowed",
         }
 
     def test_all_count(self) -> None:
         from guidewire import safety
 
-        assert len(safety.__all__) == 9
+        assert len(safety.__all__) == 12
 
     def test_import_risk_assessment(self) -> None:
         from guidewire.safety import RiskAssessment  # noqa: F401
@@ -1112,6 +1118,10 @@ class TestSystemActionType:
             "window_close",
             "window_manage",
             "system_info",
+            "web_connect",
+            "web_navigate",
+            "web_evaluate",
+            "web_inspect",
         }
         assert args == expected
 
@@ -1119,7 +1129,7 @@ class TestSystemActionType:
         import typing
 
         args = typing.get_args(SystemAction)
-        assert len(args) == 10
+        assert len(args) == 14
 
 
 # ---------------------------------------------------------------------------
@@ -1146,6 +1156,10 @@ class TestClassifySystemActionSignature:
             "window_focus",
             "window_close",
             "system_info",
+            "web_connect",
+            "web_navigate",
+            "web_evaluate",
+            "web_inspect",
         ],
     )
     def test_all_actions_return_risk_assessment(self, action: SystemAction) -> None:
@@ -1166,6 +1180,10 @@ class TestSensitiveSystemActions:
         "app_close",
         "clipboard_write",
         "window_close",
+        "web_connect",
+        "web_navigate",
+        "web_evaluate",
+        "web_inspect",
     ]
 
     @pytest.mark.parametrize("action", SENSITIVE_ACTIONS)
@@ -1335,7 +1353,7 @@ class TestSystemActionRiskMapCompleteness:
             assert action in SYSTEM_ACTION_RISK_MAP, f"{action} missing from SYSTEM_ACTION_RISK_MAP"
 
     def test_entry_count(self) -> None:
-        assert len(SYSTEM_ACTION_RISK_MAP) == 10
+        assert len(SYSTEM_ACTION_RISK_MAP) == 14
 
     def test_values_are_valid_risk_levels(self) -> None:
         for value in SYSTEM_ACTION_RISK_MAP.values():
@@ -1343,7 +1361,7 @@ class TestSystemActionRiskMapCompleteness:
 
     def test_sensitive_count(self) -> None:
         sensitive = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "SENSITIVE"]
-        assert len(sensitive) == 4
+        assert len(sensitive) == 8
 
     def test_interaction_count(self) -> None:
         interaction = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "INTERACTION"]
@@ -1374,6 +1392,10 @@ class TestSystemActionConfidence:
             "window_focus",
             "window_close",
             "system_info",
+            "web_connect",
+            "web_navigate",
+            "web_evaluate",
+            "web_inspect",
         ],
     )
     def test_confidence_is_1(self, action: SystemAction) -> None:
@@ -1419,8 +1441,222 @@ class TestSpecificSystemActionRiskLevels:
             ("window_focus", "INTERACTION"),
             ("window_close", "SENSITIVE"),
             ("system_info", "READ_ONLY"),
+            ("web_connect", "SENSITIVE"),
+            ("web_navigate", "SENSITIVE"),
+            ("web_evaluate", "SENSITIVE"),
+            ("web_inspect", "SENSITIVE"),
         ],
     )
     def test_risk_level(self, action: SystemAction, expected_level: RiskLevel) -> None:
         result = classify_system_action(action)
         assert result.risk_level == expected_level
+
+
+# ===========================================================================
+# GW-100: CDP Method Allowlist tests
+# ===========================================================================
+
+
+class TestCDPMethodAllowlist:
+    """CDP_METHOD_ALLOWLIST restricts allowed CDP methods."""
+
+    def test_allowlist_is_frozenset(self) -> None:
+        assert isinstance(CDP_METHOD_ALLOWLIST, frozenset)
+
+    def test_allowed_accessibility_methods(self) -> None:
+        assert "Accessibility.getFullAXTree" in CDP_METHOD_ALLOWLIST
+        assert "Accessibility.queryAXTree" in CDP_METHOD_ALLOWLIST
+
+    def test_allowed_dom_methods(self) -> None:
+        assert "DOM.getDocument" in CDP_METHOD_ALLOWLIST
+        assert "DOM.getBoxModel" in CDP_METHOD_ALLOWLIST
+        assert "DOM.querySelector" in CDP_METHOD_ALLOWLIST
+
+    def test_allowed_input_methods(self) -> None:
+        assert "Input.dispatchMouseEvent" in CDP_METHOD_ALLOWLIST
+        assert "Input.dispatchKeyEvent" in CDP_METHOD_ALLOWLIST
+
+    def test_allowed_page_methods(self) -> None:
+        assert "Page.getFrameTree" in CDP_METHOD_ALLOWLIST
+        assert "Page.captureScreenshot" in CDP_METHOD_ALLOWLIST
+
+    def test_allowed_runtime_methods(self) -> None:
+        assert "Runtime.evaluate" in CDP_METHOD_ALLOWLIST
+        assert "Runtime.getProperties" in CDP_METHOD_ALLOWLIST
+
+    def test_allowed_target_methods(self) -> None:
+        assert "Target.getTargets" in CDP_METHOD_ALLOWLIST
+        assert "Target.attachToTarget" in CDP_METHOD_ALLOWLIST
+
+    def test_dangerous_methods_blocked(self) -> None:
+        """Methods not in allowlist are blocked."""
+        assert "Network.enable" not in CDP_METHOD_ALLOWLIST
+        assert "Browser.close" not in CDP_METHOD_ALLOWLIST
+        assert "Fetch.enable" not in CDP_METHOD_ALLOWLIST
+        assert "Storage.clearDataForOrigin" not in CDP_METHOD_ALLOWLIST
+        assert "Emulation.setDeviceMetricsOverride" not in CDP_METHOD_ALLOWLIST
+
+    def test_minimum_entry_count(self) -> None:
+        """Allowlist has at least 20 entries covering core domains."""
+        assert len(CDP_METHOD_ALLOWLIST) >= 20
+
+
+class TestIsCDPMethodAllowed:
+    """is_cdp_method_allowed checks membership."""
+
+    def test_allowed_method(self) -> None:
+        assert is_cdp_method_allowed("Runtime.evaluate") is True
+
+    def test_blocked_method(self) -> None:
+        assert is_cdp_method_allowed("Network.enable") is False
+
+    def test_empty_string(self) -> None:
+        assert is_cdp_method_allowed("") is False
+
+    def test_case_sensitive(self) -> None:
+        """CDP method names are case-sensitive."""
+        assert is_cdp_method_allowed("runtime.evaluate") is False
+        assert is_cdp_method_allowed("RUNTIME.EVALUATE") is False
+
+    @pytest.mark.parametrize("method", list(CDP_METHOD_ALLOWLIST))
+    def test_all_allowed_methods_pass(self, method: str) -> None:
+        assert is_cdp_method_allowed(method) is True
+
+
+# ===========================================================================
+# GW-100: EvaluateRateLimiter tests
+# ===========================================================================
+
+
+class TestEvaluateRateLimiter:
+    """EvaluateRateLimiter enforces sliding-window rate limiting."""
+
+    def test_default_max_calls(self) -> None:
+        limiter = EvaluateRateLimiter()
+        assert limiter.max_calls == 10
+
+    def test_default_window_seconds(self) -> None:
+        limiter = EvaluateRateLimiter()
+        assert limiter.window_seconds == 60.0
+
+    def test_allows_up_to_max_calls(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=3, window_seconds=60.0)
+        assert limiter.is_allowed() is True
+        assert limiter.is_allowed() is True
+        assert limiter.is_allowed() is True
+
+    def test_blocks_after_max_calls(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=2, window_seconds=60.0)
+        limiter.is_allowed()
+        limiter.is_allowed()
+        assert limiter.is_allowed() is False
+
+    def test_remaining_decrements(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=5, window_seconds=60.0)
+        assert limiter.remaining == 5
+        limiter.is_allowed()
+        assert limiter.remaining == 4
+        limiter.is_allowed()
+        assert limiter.remaining == 3
+
+    def test_remaining_cannot_go_negative(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=1, window_seconds=60.0)
+        limiter.is_allowed()
+        assert limiter.is_allowed() is False
+        assert limiter.remaining == 0
+
+    def test_reset_clears_state(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=1, window_seconds=60.0)
+        limiter.is_allowed()
+        assert limiter.is_allowed() is False
+        limiter.reset()
+        assert limiter.is_allowed() is True
+
+    def test_remaining_after_reset(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=5, window_seconds=60.0)
+        limiter.is_allowed()
+        limiter.is_allowed()
+        limiter.reset()
+        assert limiter.remaining == 5
+
+    def test_custom_max_calls(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=100, window_seconds=60.0)
+        assert limiter.max_calls == 100
+
+    def test_custom_window_seconds(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=10, window_seconds=30.0)
+        assert limiter.window_seconds == 30.0
+
+    def test_sliding_window_expiry(self) -> None:
+        """Timestamps outside the window are pruned, allowing new calls."""
+        limiter = EvaluateRateLimiter(max_calls=1, window_seconds=0.01)
+        assert limiter.is_allowed() is True
+        assert limiter.is_allowed() is False
+        # Wait for the window to expire
+        import time
+
+        time.sleep(0.02)
+        assert limiter.is_allowed() is True
+
+    def test_zero_max_calls_blocks_everything(self) -> None:
+        limiter = EvaluateRateLimiter(max_calls=0, window_seconds=60.0)
+        assert limiter.is_allowed() is False
+        assert limiter.remaining == 0
+
+
+# ===========================================================================
+# GW-100: Web SystemAction classification tests
+# ===========================================================================
+
+
+class TestWebSystemActions:
+    """Web system actions (web_connect, web_navigate, web_evaluate, web_inspect)
+    are all SENSITIVE."""
+
+    @pytest.mark.parametrize(
+        "action",
+        ["web_connect", "web_navigate", "web_evaluate", "web_inspect"],
+    )
+    def test_web_action_is_sensitive(self, action: SystemAction) -> None:
+        result = classify_system_action(action)
+        assert result.risk_level == "SENSITIVE"
+
+    @pytest.mark.parametrize(
+        "action",
+        ["web_connect", "web_navigate", "web_evaluate", "web_inspect"],
+    )
+    def test_web_action_requires_confirmation(self, action: SystemAction) -> None:
+        result = classify_system_action(action)
+        assert result.confirmation_required is True
+
+    @pytest.mark.parametrize(
+        "action",
+        ["web_connect", "web_navigate", "web_evaluate", "web_inspect"],
+    )
+    def test_web_action_confidence(self, action: SystemAction) -> None:
+        result = classify_system_action(action)
+        assert result.confidence == pytest.approx(1.0)
+
+    def test_web_connect_in_risk_map(self) -> None:
+        assert SYSTEM_ACTION_RISK_MAP["web_connect"] == "SENSITIVE"
+
+    def test_web_navigate_in_risk_map(self) -> None:
+        assert SYSTEM_ACTION_RISK_MAP["web_navigate"] == "SENSITIVE"
+
+    def test_web_evaluate_in_risk_map(self) -> None:
+        assert SYSTEM_ACTION_RISK_MAP["web_evaluate"] == "SENSITIVE"
+
+    def test_web_inspect_in_risk_map(self) -> None:
+        assert SYSTEM_ACTION_RISK_MAP["web_inspect"] == "SENSITIVE"
+
+    def test_web_connect_target_in_reason(self) -> None:
+        result = classify_system_action("web_connect", target="https://example.com")
+        assert "example.com" in result.reason
+
+    def test_web_navigate_target_in_reason(self) -> None:
+        result = classify_system_action("web_navigate", target="https://bank.com")
+        assert "bank.com" in result.reason
+
+    def test_web_evaluate_target_in_reason(self) -> None:
+        result = classify_system_action("web_evaluate", target="document.cookie")
+        assert "document.cookie" in result.reason

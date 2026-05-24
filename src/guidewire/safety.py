@@ -29,7 +29,9 @@ classified with the same three-tier model via
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import threading
+import time
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
@@ -249,6 +251,10 @@ SystemAction = Literal[
     "window_close",
     "window_manage",
     "system_info",
+    "web_connect",
+    "web_navigate",
+    "web_evaluate",
+    "web_inspect",
 ]
 
 # ---------------------------------------------------------------------------
@@ -266,6 +272,10 @@ SYSTEM_ACTION_RISK_MAP: dict[SystemAction, RiskLevel] = {
     "window_close": "SENSITIVE",
     "window_manage": "INTERACTION",
     "system_info": "READ_ONLY",
+    "web_connect": "SENSITIVE",
+    "web_navigate": "SENSITIVE",
+    "web_evaluate": "SENSITIVE",
+    "web_inspect": "SENSITIVE",
 }
 
 
@@ -332,14 +342,130 @@ def _system_action_reason(
     return f"System action '{action}'{target_clause} is an interaction"
 
 
+# ---------------------------------------------------------------------------
+# CDP method allowlist — only these CDP methods may be invoked (GW-100)
+# ---------------------------------------------------------------------------
+
+CDP_METHOD_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        # Accessibility domain
+        "Accessibility.getFullAXTree",
+        "Accessibility.queryAXTree",
+        # DOM domain
+        "DOM.getDocument",
+        "DOM.describeNode",
+        "DOM.getBoxModel",
+        "DOM.querySelector",
+        "DOM.querySelectorAll",
+        "DOM.resolveNode",
+        # Input domain
+        "Input.dispatchMouseEvent",
+        "Input.dispatchKeyEvent",
+        "Input.insertText",
+        "Input.setIgnoreInputEvents",
+        # Page domain
+        "Page.getFrameTree",
+        "Page.getNavigationHistory",
+        "Page.captureScreenshot",
+        "Page.reload",
+        # Runtime domain (limited)
+        "Runtime.evaluate",
+        "Runtime.callFunctionOn",
+        "Runtime.getProperties",
+        # Target domain
+        "Target.getTargets",
+        "Target.attachToTarget",
+        "Target.detachFromTarget",
+        "Target.setAutoAttach",
+    }
+)
+
+
+def is_cdp_method_allowed(method: str) -> bool:
+    """Check whether a CDP method is on the allowlist.
+
+    The allowlist restricts which CDP methods the server may invoke, preventing
+    access to powerful browser control surfaces that are not needed for
+    accessibility automation.
+
+    Args:
+        method: The CDP method name (e.g. ``"Runtime.evaluate"``).
+
+    Returns:
+        ``True`` if the method is on the allowlist.
+    """
+    return method in CDP_METHOD_ALLOWLIST
+
+
+# ---------------------------------------------------------------------------
+# EvaluateRateLimiter — sliding-window rate limiter for web_evaluate (GW-100)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_EVALUATE_MAX_CALLS: int = 10
+_DEFAULT_EVALUATE_WINDOW_SECONDS: float = 60.0
+
+
+@dataclass
+class EvaluateRateLimiter:
+    """Sliding-window rate limiter for ``web_evaluate`` actions.
+
+    Prevents runaway JavaScript evaluation by enforcing a maximum number of
+    calls within a rolling time window. Thread-safe via an internal lock.
+
+    Attributes:
+        max_calls: Maximum allowed calls within the window.
+        window_seconds: Width of the sliding window in seconds.
+    """
+
+    max_calls: int = _DEFAULT_EVALUATE_MAX_CALLS
+    window_seconds: float = _DEFAULT_EVALUATE_WINDOW_SECONDS
+    _timestamps: list[float] = field(default_factory=list, repr=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def is_allowed(self) -> bool:
+        """Check whether a new ``web_evaluate`` call is permitted.
+
+        Prunes expired timestamps from the sliding window, then checks
+        whether adding a new call would exceed ``max_calls``.
+
+        Returns:
+            ``True`` if the call is allowed, ``False`` if rate-limited.
+        """
+        now = time.monotonic()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            self._timestamps = [t for t in self._timestamps if t > cutoff]
+            if len(self._timestamps) >= self.max_calls:
+                return False
+            self._timestamps.append(now)
+            return True
+
+    @property
+    def remaining(self) -> int:
+        """Number of calls remaining in the current window."""
+        now = time.monotonic()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            active = sum(1 for t in self._timestamps if t > cutoff)
+            return max(0, self.max_calls - active)
+
+    def reset(self) -> None:
+        """Clear all recorded timestamps, resetting the rate limiter."""
+        with self._lock:
+            self._timestamps.clear()
+
+
 __all__ = [
+    "CDP_METHOD_ALLOWLIST",
     "DESTRUCTIVE_NAME_PATTERNS",
     "ROLE_RISK_MAP",
     "SENSITIVE_ROLES",
     "SYSTEM_ACTION_RISK_MAP",
+    "EvaluateRateLimiter",
     "RiskAssessment",
     "RiskLevel",
     "SystemAction",
     "classify",
     "classify_system_action",
+    "is_cdp_method_allowed",
 ]
