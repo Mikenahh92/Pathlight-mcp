@@ -72,6 +72,15 @@ def main(argv: list[str] | None = None) -> None:
     """
     args = _parse_args(argv)
     backend = _create_backend(args.backend)
+
+    # Wrap the platform backend in a BackendRouter so that web tools
+    # (web_connect, web_navigate, web_evaluate) pass their isinstance guard.
+    # When no backend is available (stub mode), pass None through unchanged.
+    if backend is not None:
+        from guidewire.backends import BackendRouter
+
+        backend = BackendRouter(native=backend)
+
     server = GuidewireServer(backend=backend)
     server.register_tools()
     server.run()
