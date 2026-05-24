@@ -33,6 +33,7 @@ EXPECTED_TOOL_NAMES = [
     "desktop.wait_for",
     "desktop.web_connect",
     "desktop.web_navigate",
+    "desktop.web_evaluate",
 ]
 
 

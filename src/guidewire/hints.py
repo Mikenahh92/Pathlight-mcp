@@ -57,6 +57,13 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Check that the URL is valid and properly formatted (include the scheme, e.g. https://)",
         "The browser page may have been closed — reconnect with web_connect",
     ],
+    "web_evaluate_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "Check the JavaScript expression for syntax errors",
+        "The evaluation may have timed out — try a shorter expression or increase the timeout",
+        "Avoid expressions that access or modify sensitive data (cookies, tokens, passwords)",
+        "The browser page may have navigated away — reconnect with web_connect",
+    ],
 }
 
 

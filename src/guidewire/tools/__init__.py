@@ -25,6 +25,7 @@ Tool set (architecture v2 §3.1):
     desktop.wait_for       — async polling-based condition blocking
     desktop.web_connect    — connect to a browser's CDP debug port (GW-098)
     desktop.web_navigate   — navigate a browser page to a URL (GW-098)
+    desktop.web_evaluate   — execute JavaScript in a browser page context (GW-099)
 """
 
 import importlib
@@ -60,6 +61,7 @@ _TOOL_MODULES = [
     ".wait_for",
     ".web_connect",
     ".web_navigate",
+    ".web_evaluate",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.

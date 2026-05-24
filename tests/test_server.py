@@ -166,6 +166,12 @@ EXPECTED_TOOLS = [
         "required_params": ["window_ref", "url"],
         "optional_params": ["timeout"],
     },
+    {
+        "name": "desktop.web_evaluate",
+        "description_pattern": "Execute JavaScript in a connected browser",
+        "required_params": ["window_ref", "expression"],
+        "optional_params": ["timeout", "await_promise"],
+    },
 ]
 
 
