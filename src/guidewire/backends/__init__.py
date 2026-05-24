@@ -24,6 +24,7 @@ from guidewire.backends.types import (
     ElementState,
     NativeHandle,
 )
+from guidewire.backends.web import WebBackend
 
 if sys.platform == "win32":
     from guidewire.backends.windows import WindowsBackend
@@ -38,5 +39,6 @@ __all__ = [
     "LinuxBackend",
     "MockBackend",
     "NativeHandle",
+    "WebBackend",
     "WindowsBackend",
 ]
