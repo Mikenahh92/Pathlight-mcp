@@ -2,9 +2,11 @@
 
 **The zero-code desktop + web MCP server.** Connect any AI agent to native desktop applications and web browsers in 30 seconds — no configuration, no API keys required.
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Development Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://pypi.org/project/guidewire/)
+[![PyPI Version](https://img.shields.io/pypi/v/guidewire.svg?label=pypi)](https://pypi.org/project/guidewire/)
+[![CI](https://github.com/Mikenahh92/Guidewire/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Mikenahh92/Guidewire/actions/workflows/ci.yml)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/guidewire.svg?label=downloads)](https://pypi.org/project/guidewire/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/guidewire.svg)](https://pypi.org/project/guidewire/)
+[![License: MIT](https://img.shields.io/pypi/l/guidewire.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-stdio-purple.svg)](https://modelcontextprotocol.io/)
 [![Platform: Windows / Linux / Web](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Web-lightgrey.svg)](#supported-platforms)
 [![Tests](https://img.shields.io/badge/tests-65%2B%20files-brightgreen.svg)](#testing)
