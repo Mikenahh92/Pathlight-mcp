@@ -1,4 +1,5 @@
-"""Tests for web_connect auto-launch and browser parameter integration (GW-114).
+"""Tests for web_connect auto-launch, browser parameter integration (GW-114),
+and internal page filtering (GW-115).
 
 Covers:
 - browser parameter validation (valid names accepted, invalid rejected)
@@ -7,6 +8,7 @@ Covers:
 - Desktop automation fallback hint in error messages
 - Auto-launched browser process tracking
 - Browser override parameter passed through to BrowserResolver
+- Internal browser pages filtered from target discovery (GW-115)
 - Existing tests still pass (no regression)
 """
 
@@ -339,3 +341,114 @@ class TestExistingBehaviorPreserved:
         result = json.loads(tool.fn(host="localhost", port=9222))
         assert result["error"] == "web_connect_error"
         assert "BackendRouter" in result["message"]
+
+
+# -- Internal page filtering tests (GW-115) --
+
+
+class TestInternalPageFiltering:
+    """Internal browser pages are filtered from target discovery."""
+
+    def test_chrome_newtab_filtered(self) -> None:
+        """chrome://newtab pages are filtered out."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("chrome://newtab") is True
+
+    def test_edge_newtab_filtered(self) -> None:
+        """edge://newtab pages are filtered out."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("edge://newtab") is True
+
+    def test_about_blank_filtered(self) -> None:
+        """about:blank pages are filtered out."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("about:blank") is True
+
+    def test_about_newtab_filtered(self) -> None:
+        """about:newtab pages are filtered out."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("about:newtab") is True
+
+    def test_chrome_extension_filtered(self) -> None:
+        """chrome-extension:// pages are filtered out."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("chrome-extension://abc123/popup.html") is True
+
+    def test_https_pages_not_filtered(self) -> None:
+        """https:// pages are NOT filtered."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("https://example.com") is False
+
+    def test_http_pages_not_filtered(self) -> None:
+        """http:// pages are NOT filtered."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("http://localhost:3000") is False
+
+    def test_empty_url_not_filtered(self) -> None:
+        """Empty URLs are NOT filtered."""
+        from guidewire.tools.web_connect import _is_internal_page
+
+        assert _is_internal_page("") is False
+
+    def test_internal_pages_excluded_from_discovery(self, mcp_router: FastMCP) -> None:
+        """Internal browser pages are excluded from web_connect page discovery."""
+        tool = _get_web_connect_tool(mcp_router)
+
+        pages = [
+            CDPTarget(id="int-1", type="page", title="New Tab", url="chrome://newtab"),
+            CDPTarget(id="int-2", type="page", title="", url="about:blank"),
+            CDPTarget(id="real-1", type="page", title="Example", url="https://example.com"),
+        ]
+        mock_web = _make_mock_web_backend(pages=pages)
+
+        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+            result = json.loads(tool.fn(host="localhost", port=9222))
+
+        assert result["success"] is True
+        assert len(result["pages"]) == 1
+        assert result["pages"][0]["title"] == "Example"
+        assert result["pages"][0]["url"] == "https://example.com"
+
+    def test_all_internal_pages_results_in_empty_list(self, mcp_router: FastMCP) -> None:
+        """When all pages are internal, the pages list is empty."""
+        tool = _get_web_connect_tool(mcp_router)
+
+        pages = [
+            CDPTarget(id="int-1", type="page", title="New Tab", url="chrome://newtab"),
+            CDPTarget(id="int-2", type="page", title="", url="about:blank"),
+        ]
+        mock_web = _make_mock_web_backend(pages=pages)
+
+        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+            result = json.loads(tool.fn(host="localhost", port=9222))
+
+        assert result["success"] is True
+        assert result["pages"] == []
+
+    def test_mixed_pages_only_real_returned(self, mcp_router: FastMCP) -> None:
+        """Only non-internal pages are returned from mixed target lists."""
+        tool = _get_web_connect_tool(mcp_router)
+
+        pages = [
+            CDPTarget(id="int-1", type="page", title="New Tab", url="edge://newtab"),
+            CDPTarget(id="real-1", type="page", title="Google", url="https://google.com"),
+            CDPTarget(id="int-2", type="page", title="", url="about:blank"),
+            CDPTarget(id="real-2", type="page", title="GitHub", url="https://github.com"),
+        ]
+        mock_web = _make_mock_web_backend(pages=pages)
+
+        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+            result = json.loads(tool.fn(host="localhost", port=9222))
+
+        assert result["success"] is True
+        assert len(result["pages"]) == 2
+        urls = [p["url"] for p in result["pages"]]
+        assert "https://google.com" in urls
+        assert "https://github.com" in urls

@@ -360,6 +360,10 @@ def _discover_pages(
 ) -> list[dict[str, Any]]:
     """Discover browser page targets and return window refs.
 
+    Filters out internal browser pages (e.g. ``chrome://newtab``,
+    ``edge://newtab``, ``about:blank``) that are created by
+    auto-launched browsers but are not useful for web automation.
+
     Args:
         web_backend: Connected :class:`WebBackend` instance.
         ref_store: Reference store for assigning window refs.
@@ -382,6 +386,10 @@ def _discover_pages(
             title = target.title or ""
             url = target.url or ""
 
+        # Filter internal browser pages (GW-115)
+        if _is_internal_page(url):
+            continue
+
         # Tag the handle for the router so downstream tools route correctly
         tagged = _tag(handle, "web")
         window_ref = ref_store.store(tagged, prefix="w")
@@ -395,3 +403,28 @@ def _discover_pages(
         )
 
     return pages
+
+
+def _is_internal_page(url: str) -> bool:
+    """Check if a URL is an internal browser page that should be filtered.
+
+    Internal pages like ``chrome://newtab``, ``edge://newtab``,
+    ``about:blank``, and ``about:newtab`` are created by auto-launched
+    browsers but cannot be meaningfully interacted with via CDP
+    ``Runtime.evaluate`` and should be excluded from target discovery.
+
+    Args:
+        url: The page URL to check.
+
+    Returns:
+        ``True`` if the URL is an internal browser page.
+    """
+    if not url:
+        return False
+    internal_prefixes = (
+        "chrome://",
+        "chrome-extension://",
+        "edge://",
+        "about:",
+    )
+    return any(url.startswith(prefix) for prefix in internal_prefixes)

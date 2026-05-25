@@ -39,6 +39,7 @@ class RuntimeDomain(CDPDomain):
 
     def __init__(self, session: CDPSession) -> None:
         super().__init__(session)
+        self._enabled: bool = False
 
     def evaluate(
         self,
@@ -66,6 +67,12 @@ class RuntimeDomain(CDPDomain):
         Raises:
             GuidewireError: If the expression throws an exception.
         """
+        # Ensure Runtime.enable has been called before evaluating (GW-115).
+        # Without this, auto-launched browsers may hang on Runtime.evaluate
+        # because the browser hasn't started the execution context listener.
+        if not self._enabled:
+            self.enable()
+
         params: dict[str, Any] = {
             "expression": expression,
             "returnByValue": return_by_value,
@@ -178,6 +185,7 @@ class RuntimeDomain(CDPDomain):
         and console API events.
         """
         self._send(self._method("enable"))
+        self._enabled = True
 
     def disable(self) -> None:
         """Disable the Runtime domain.
@@ -185,3 +193,4 @@ class RuntimeDomain(CDPDomain):
         Sends ``Runtime.disable``.
         """
         self._send(self._method("disable"))
+        self._enabled = False
