@@ -21,6 +21,15 @@ def server():
     return srv
 
 
+@pytest.fixture()
+def server_with_resources():
+    """Return a Guidewire MCP server instance with tools and resources registered."""
+    srv = GuidewireServer()
+    srv.register_tools()
+    srv.register_resources()
+    return srv
+
+
 # -- Server creation ---------------------------------------------------------
 
 
@@ -299,3 +308,21 @@ class TestToolStubBehaviour:
             "desktop.get_text", arguments={"element_ref": "e1"}
         )
         assert "e1" in result[0].text
+
+
+# -- Resource registration (GW-113) ------------------------------------------
+
+
+class TestResourceRegistration:
+    """Tests for resource registration via GuidewireServer (Story Task 5)."""
+
+    async def test_resources_registered(self, server_with_resources):
+        """list_resources should return all expected URIs after registration."""
+        expected_uris = {
+            "guidewire://browser-limitations",
+            "guidewire://tool-usage",
+            "guidewire://error-recovery",
+        }
+        resources = await server_with_resources.mcp.list_resources()
+        uris = {str(r.uri) for r in resources}
+        assert uris == expected_uris

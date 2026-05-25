@@ -83,6 +83,7 @@ def main(argv: list[str] | None = None) -> None:
 
     server = GuidewireServer(backend=backend)
     server.register_tools()
+    server.register_resources()
     server.run()
 
 
