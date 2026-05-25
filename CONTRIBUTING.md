@@ -14,6 +14,7 @@ guidelines and instructions for contributing.
 - [Code Style](#code-style)
 - [Testing](#testing)
 - [Submitting Changes](#submitting-changes)
+- [Changelog](#changelog)
 - [Reporting Issues](#reporting-issues)
 - [License](#license)
 
@@ -296,6 +297,35 @@ convention `test_*.py`.
 - Include tests for new functionality.
 - Update documentation if your change affects public APIs or user-facing behavior.
 - Follow the existing code style.
+
+## Changelog
+
+This project uses [git-cliff](https://git-cliff.org/) to auto-generate `CHANGELOG.md`
+from git history on every GitHub release. You do **not** need to edit the changelog
+manually.
+
+### Commit message conventions
+
+Squash-merged PR titles are parsed by git-cliff. For best results, use one of these
+prefixes in your PR title:
+
+| Prefix | Changelog section | Example |
+|--------|-------------------|---------|
+| `Add`, `Create`, `Implement`, `Introduce` | **Added** | `Add desktop.scroll_to_item tool` |
+| `Fix`, `Resolve` | **Fixed** | `Fix clipboard_write on Windows` |
+| `Refactor`, `Update`, `Improve`, `Rename` | **Changed** | `Refactor backend router` |
+| `Document`, `Docs` | **Added** | `Document tool registration flow` |
+| `Test` | **Added** | `Test web_connect error handling` |
+| `Hotfix` | **Fixed** | `Hotfix Linux AT-SPI2 crash` |
+
+Conventional commit prefixes (`feat:`, `fix:`, `refactor:`, etc.) are also supported
+and take precedence if present.
+
+### Releasing
+
+1. Create a GitHub Release with a `vX.Y.Z` tag.
+2. The [publish workflow](.github/workflows/publish.yml) runs `git-cliff` to
+   regenerate `CHANGELOG.md`, commits it to `main`, and updates the release body.
 
 ## Reporting Issues
 

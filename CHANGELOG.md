@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+<!-- git-cliff:START -->
 ## [Unreleased]
+
+## [0.1.0] — 2025-05-21
 
 ### Added
 
@@ -16,8 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `launch_app` now propagates DISPLAY on Linux, resolves snap binary paths, and validates post-launch liveness ([#GW-068](https://github.com/Mikenahh92/Guidewire/issues/GW-068))
-
-## [0.1.0] — 2025-05-21
 
 ### Added — Phase 3: Agent Workflow Quality
 
@@ -78,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Safety module — three-tier risk classification model ([#GW-006](https://github.com/Mikenahh92/Guidewire/issues/GW-006), [#GW-008](https://github.com/Mikenahh92/Guidewire/issues/GW-008))
 - Privacy controls — password field detection, value redaction, app denylisting ([#GW-007](https://github.com/Mikenahh92/Guidewire/issues/GW-007))
 - Unit tests for shared core modules ([#GW-009](https://github.com/Mikenahh92/Guidewire/issues/GW-009))
+
+<!-- git-cliff:END -->
 
 [Unreleased]: https://github.com/Mikenahh92/Guidewire/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/Mikenahh92/Guidewire/releases/tag/v0.1.0
