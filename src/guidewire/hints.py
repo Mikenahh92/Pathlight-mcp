@@ -51,6 +51,9 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Verify the host and port are correct and accessible",
         "Check that no firewall is blocking the debug port",
         "Try connecting to localhost:9222 if using default Chrome debug settings",
+        "If auto_launch is disabled, set auto_launch=True or launch a browser manually",
+        "Use web_connect(browser='chrome') to override the default browser discovery order",
+        "If CDP is unavailable, use desktop automation fallback: launch_app + snapshot + find",
     ],
     "web_navigate_error": [
         "Ensure web_connect was called first to establish a browser connection",
