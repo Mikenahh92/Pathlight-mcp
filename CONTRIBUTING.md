@@ -328,6 +328,8 @@ and take precedence if present.
    the distribution, generates SLSA provenance, publishes to PyPI via OIDC, verifies
    the install, and updates `CHANGELOG.md` and the GitHub Release.
 
+For the full release, yank, and rollback procedures, see [RELEASING.md](RELEASING.md).
+
 ## Reporting Issues
 
 - **Bug reports**: Use the [Bug Report](https://github.com/HarmenBakhuis/Guidewire/issues/new?template=bug_report.yml)

@@ -327,6 +327,8 @@ pytest -k "not integration"
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture details, and the tool authoring guide.
 
+For release and rollback procedures, see [RELEASING.md](RELEASING.md).
+
 ---
 
 ## License
