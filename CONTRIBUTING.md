@@ -16,6 +16,7 @@ guidelines and instructions for contributing.
 - [Submitting Changes](#submitting-changes)
 - [Changelog](#changelog)
 - [Reporting Issues](#reporting-issues)
+- [Pre-release Verification](#pre-release-verification)
 - [License](#license)
 
 ## Code of Conduct
@@ -342,6 +343,40 @@ For the full release, yank, and rollback procedures, see [RELEASING.md](RELEASIN
   [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
 - **General questions and discussions**: Visit the
   [GitHub Discussions](https://github.com/HarmenBakhuis/Guidewire/discussions) page.
+
+## Pre-release Verification
+
+Before publishing a release, run the pre-release verification script to validate
+all pre-conditions:
+
+```bash
+# Run all checks
+python scripts/verify_release.py
+
+# Verify a specific version
+python scripts/verify_release.py --version 1.0.0
+
+# Skip CI and build checks (for local testing)
+python scripts/verify_release.py --skip ci,build
+
+# Strict mode — fail on missing CI status
+python scripts/verify_release.py --strict
+```
+
+### Checks performed
+
+| Check | What it validates |
+|-------|-------------------|
+| **Version Derivation** | setuptools-scm can derive a clean version (no `.dev`/`.dirty`/`+` suffixes) |
+| **Clean Tree** | No uncommitted or unpushed changes |
+| **CI Green** | Latest CI run on the target branch passed |
+| **CHANGELOG Entries** | `CHANGELOG.md` has entries for the target version |
+| **Metadata Completeness** | `pyproject.toml` has all required fields including classifiers |
+| **Required Files** | `LICENSE`, `README.md`, `CHANGELOG.md`, `SECURITY.md`, `pyproject.toml` exist |
+| **Wheel Build** | Package builds as a pure-python (`py3-none-any`) wheel and passes twine check |
+
+Each failed check includes a remediation hint. Fix all issues before proceeding
+with the release.
 
 ## License
 
