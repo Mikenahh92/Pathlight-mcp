@@ -695,7 +695,7 @@ class TestGetElementInfo:
 
 
 class TestIsValid:
-    """TC-10: is_valid should check the AX cache."""
+    """TC-10: is_valid should distinguish window handles from element handles (GW-118)."""
 
     def test_valid_element(self, connected_backend) -> None:
         connected_backend._ax_cache = {"node1": _make_ax_node(node_id="node1")}
@@ -711,6 +711,40 @@ class TestIsValid:
 
     def test_returns_false_for_none(self, connected_backend) -> None:
         assert connected_backend.is_valid(None) is False
+
+    def test_valid_cdp_target_window(self, connected_backend) -> None:
+        """CDPTarget window handle is valid when the target still exists (GW-118)."""
+        target = _make_target(target_id="ABCDEF")
+        connected_backend._browser.get_target.return_value = target
+        assert connected_backend.is_valid(NativeHandle(target)) is True
+
+    def test_invalid_cdp_target_window(self, connected_backend) -> None:
+        """CDPTarget window handle is invalid when the target no longer exists (GW-118)."""
+        target = _make_target(target_id="GONE")
+        connected_backend._browser.get_target.return_value = None
+        assert connected_backend.is_valid(NativeHandle(target)) is False
+
+    def test_cdp_target_window_disposed(self, connected_backend) -> None:
+        """CDPTarget window handle returns False when backend is disposed (GW-118)."""
+        target = _make_target()
+        connected_backend._disposed = True
+        assert connected_backend.is_valid(NativeHandle(target)) is False
+
+    def test_cdp_target_not_stored_in_ax_cache(self, connected_backend) -> None:
+        """CDPTarget is validated via browser, not AX cache — even with empty cache (GW-118)."""
+        target = _make_target(target_id="PAGE1")
+        connected_backend._ax_cache = {}  # Empty cache — would have failed before fix
+        connected_backend._browser.get_target.return_value = target
+        assert connected_backend.is_valid(NativeHandle(target)) is True
+
+    def test_element_string_still_uses_ax_cache(self, connected_backend) -> None:
+        """Plain string element handles still use AX cache lookup (GW-118)."""
+        connected_backend._ax_cache = {"n1": _make_ax_node(node_id="n1")}
+        # String handles should NOT trigger browser.get_target
+        connected_backend._browser.get_target = MagicMock(
+            side_effect=AssertionError("should not call get_target for element handles")
+        )
+        assert connected_backend.is_valid(NativeHandle("n1")) is True
 
 
 # -- TC-11: Window state management -------------------------------------------

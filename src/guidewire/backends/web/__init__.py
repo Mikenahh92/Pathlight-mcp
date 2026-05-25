@@ -559,20 +559,35 @@ class WebBackend(DesktopBackend):
         }
 
     def is_valid(self, element: NativeHandle) -> bool:
-        """Check whether an AX node reference is still valid.
+        """Check whether a native handle reference is still valid.
 
-        Checks the local cache. Returns ``False`` if the element is
-        not in the cache (e.g. from a previous snapshot generation).
+        Distinguishes between two handle types:
+
+        - **Window handles** (:class:`CDPTarget`): validates that the
+          target still exists in the browser's target list.
+        - **Element handles** (AX node ID strings): checks the local
+          ``_ax_cache`` for membership.
+
+        Returns ``False`` if the handle is invalid, the backend is
+        disposed, or any unexpected error occurs.
 
         Args:
-            element: Opaque native element handle (AX node ID string).
+            element: Opaque native handle — either a :class:`CDPTarget`
+                (window reference) or an AX node ID string (element).
 
         Returns:
-            ``True`` if the element exists in the current AX cache.
+            ``True`` if the handle is still valid.
         """
         if self._disposed:
             return False
         try:
+            # Window handles are CDPTarget instances — validate against
+            # the browser's live target list (GW-118).
+            if isinstance(element, CDPTarget):
+                target = self._browser.get_target(element.id)
+                return target is not None
+
+            # Element handles are AX node ID strings — check the cache.
             node_id = self._resolve_element_id(element)
             return node_id in self._ax_cache
         except Exception:
