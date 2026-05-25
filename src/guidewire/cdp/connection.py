@@ -202,6 +202,7 @@ class CDPConnection:
         method: str,
         params: dict[str, Any] | None = None,
         *,
+        session_id: str | None = None,
         timeout: float | None = None,
     ) -> dict[str, Any]:
         """Send a CDP command and wait for the response.
@@ -209,6 +210,9 @@ class CDPConnection:
         Args:
             method: CDP domain method (e.g. ``"Page.navigate"``).
             params: Method parameters (optional).
+            session_id: Optional CDP session identifier.  When set,
+                included as a top-level ``sessionId`` field in the
+                JSON-RPC message for session-scoped routing.
             timeout: Per-command timeout in seconds.  Defaults to the
                 connection's ``ws_timeout``.
 
@@ -226,7 +230,9 @@ class CDPConnection:
         from guidewire.cdp.protocol import CDPError
 
         try:
-            return self._protocol.send_command(method, params, timeout=timeout)
+            return self._protocol.send_command(
+                method, params, session_id=session_id, timeout=timeout,
+            )
         except CDPError as exc:
             # Map CDP errors to Guidewire errors
             raise self._map_cdp_error(exc) from exc

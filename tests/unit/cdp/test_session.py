@@ -340,7 +340,7 @@ class TestCDPSessionSendCommand:
         sent = fake_ws.sent_messages
         scoped_cmd = sent[-1]
         assert scoped_cmd["method"] == "Page.navigate"
-        assert scoped_cmd["params"]["sessionId"] == "sess-send"
+        assert scoped_cmd["sessionId"] == "sess-send"
         assert scoped_cmd["params"]["url"] == "https://example.com"
 
     def test_send_command_no_params(self) -> None:
@@ -360,7 +360,8 @@ class TestCDPSessionSendCommand:
 
         sent = fake_ws.sent_messages
         scoped_cmd = sent[-1]
-        assert scoped_cmd["params"]["sessionId"] == "sess-send"
+        assert scoped_cmd["sessionId"] == "sess-send"
+        assert "params" not in scoped_cmd or scoped_cmd.get("params") == {}
 
     def test_send_command_not_attached_raises(self) -> None:
         conn, _ = _create_connected_connection()

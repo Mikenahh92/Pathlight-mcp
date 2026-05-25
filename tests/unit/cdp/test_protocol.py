@@ -46,6 +46,31 @@ class TestCDPMessage:
         msg = CDPMessage(id=1, method="test")
         assert msg.params == {}
 
+    def test_to_dict_with_session_id(self) -> None:
+        msg = CDPMessage(
+            id=4, method="Page.navigate",
+            params={"url": "https://example.com"},
+            session_id="sess-abc",
+        )
+        d = msg.to_dict()
+        assert d == {
+            "id": 4,
+            "method": "Page.navigate",
+            "sessionId": "sess-abc",
+            "params": {"url": "https://example.com"},
+        }
+
+    def test_to_dict_with_session_id_no_params(self) -> None:
+        msg = CDPMessage(id=5, method="Page.enable", session_id="sess-xyz")
+        d = msg.to_dict()
+        assert d == {"id": 5, "method": "Page.enable", "sessionId": "sess-xyz"}
+        assert "params" not in d
+
+    def test_to_dict_without_session_id(self) -> None:
+        msg = CDPMessage(id=6, method="Page.enable")
+        d = msg.to_dict()
+        assert "sessionId" not in d
+
 
 # ---------------------------------------------------------------------------
 # CDPResponse

@@ -37,15 +37,22 @@ class CDPMessage:
         id: Unique command identifier for correlating responses.
         method: CDP domain method (e.g. ``"Page.navigate"``).
         params: Method parameters (may be empty dict).
+        session_id: Optional CDP session identifier for session-scoped
+            commands.  When set, serialized as a top-level ``sessionId``
+            field in the JSON-RPC message (sibling to ``id``, ``method``,
+            ``params``), not inside ``params``.
     """
 
     id: int
     method: str
     params: dict[str, Any] = field(default_factory=dict)
+    session_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to a JSON-compatible dictionary for sending over WebSocket."""
         msg: dict[str, Any] = {"id": self.id, "method": self.method}
+        if self.session_id is not None:
+            msg["sessionId"] = self.session_id
         if self.params:
             msg["params"] = self.params
         return msg

@@ -82,6 +82,7 @@ class CDPProtocol:
         method: str,
         params: dict[str, Any] | None = None,
         *,
+        session_id: str | None = None,
         timeout: float | None = None,
     ) -> dict[str, Any]:
         """Send a CDP command and wait for the response.
@@ -89,6 +90,9 @@ class CDPProtocol:
         Args:
             method: CDP domain method (e.g. ``"Page.navigate"``).
             params: Method parameters (optional).
+            session_id: Optional CDP session identifier.  When set,
+                included as a top-level ``sessionId`` field in the
+                JSON-RPC message for session-scoped routing.
             timeout: Per-command timeout in seconds.  Defaults to
                 ``default_timeout``.
 
@@ -99,7 +103,10 @@ class CDPProtocol:
             TimeoutError: If the response is not received within *timeout*.
         """
         cmd_id = self._next_command_id()
-        message = CDPMessage(id=cmd_id, method=method, params=params or {})
+        message = CDPMessage(
+            id=cmd_id, method=method, params=params or {},
+            session_id=session_id,
+        )
         future: Future[dict[str, Any]] = Future()
 
         with self._pending_lock:

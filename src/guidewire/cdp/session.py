@@ -167,8 +167,8 @@ class CDPSession:
     ) -> dict[str, Any]:
         """Send a CDP command scoped to this session's target.
 
-        Injects the ``sessionId`` into the command so it is routed to
-        the correct target by the browser.
+        Passes the ``sessionId`` as a top-level JSON-RPC field so it is
+        routed to the correct target by the browser.
 
         Args:
             method: CDP domain method (e.g. ``"Page.navigate"``).
@@ -187,12 +187,9 @@ class CDPSession:
                 raise GuidewireError("Session is not attached")
             sid = self._session_id
 
-        # Merge sessionId into params for session-scoped routing
-        effective_params: dict[str, Any] = {"sessionId": sid}
-        if params:
-            effective_params.update(params)
-
-        return self._connection.send_command(method, effective_params, timeout=timeout)
+        return self._connection.send_command(
+            method, params, session_id=sid, timeout=timeout,
+        )
 
     def close(self) -> None:
         """Detach from the target if currently attached (safe to call anytime)."""
