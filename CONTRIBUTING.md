@@ -324,8 +324,9 @@ and take precedence if present.
 ### Releasing
 
 1. Create a GitHub Release with a `vX.Y.Z` tag.
-2. The [publish workflow](.github/workflows/publish.yml) runs `git-cliff` to
-   regenerate `CHANGELOG.md`, commits it to `main`, and updates the release body.
+2. The [release workflow](.github/workflows/release.yml) runs `pip-audit`, builds
+   the distribution, generates SLSA provenance, publishes to PyPI via OIDC, verifies
+   the install, and updates `CHANGELOG.md` and the GitHub Release.
 
 ## Reporting Issues
 
