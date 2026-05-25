@@ -363,12 +363,24 @@ class TestCDPSessionSendCommand:
         assert scoped_cmd["sessionId"] == "sess-send"
         assert "params" not in scoped_cmd or scoped_cmd.get("params") == {}
 
-    def test_send_command_not_attached_raises(self) -> None:
-        conn, _ = _create_connected_connection()
+    def test_send_command_not_attached_reattempts_and_fails(self) -> None:
+        conn, fake_ws = _create_connected_connection()
         target = _create_target()
         session = CDPSession(connection=conn, target=target)
 
-        with pytest.raises(GuidewireError, match="not attached"):
+        # Session was never attached — send_command will try to re-attach
+        # but the attach itself will fail (no valid response queued)
+        threading.Timer(
+            0.05,
+            lambda: fake_ws.enqueue(
+                {
+                    "id": 1,
+                    "error": {"code": -32000, "message": "Target not found"},
+                }
+            ),
+        ).start()
+
+        with pytest.raises(GuidewireError):
             session.send_command("Page.enable")
 
     def test_send_command_with_custom_timeout(self) -> None:
@@ -454,3 +466,218 @@ class TestCDPSessionContextManager:
             ).start()
 
         assert session.state == SessionState.DETACHED
+
+
+# ---------------------------------------------------------------------------
+# Stale session handling (GW-117)
+# ---------------------------------------------------------------------------
+
+
+class TestMarkDetached:
+    """Tests for mark_detached (proactive invalidation via Target.detachedFromTarget)."""
+
+    def test_mark_detached_transitions_state(self) -> None:
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-mark")
+        assert session.is_attached
+        assert session.session_id == "sess-mark"
+
+        session.mark_detached()
+        assert session.state == SessionState.DETACHED
+        assert session.session_id is None
+        assert not session.is_attached
+
+    def test_mark_detached_idempotent(self) -> None:
+        conn, _fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        # Mark detached on a never-attached session — should not raise
+        session.mark_detached()
+        assert session.state == SessionState.DETACHED
+
+    def test_mark_detached_from_any_thread(self) -> None:
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-thread")
+
+        # Mark detached from a different thread
+        t = threading.Thread(target=session.mark_detached)
+        t.start()
+        t.join(timeout=2)
+
+        assert session.state == SessionState.DETACHED
+        assert session.session_id is None
+
+
+class TestAutoReattach:
+    """Tests for automatic re-attach on stale session (GW-117)."""
+
+    def test_send_command_reattaches_after_mark_detached(self) -> None:
+        """After mark_detached, send_command should re-attach and succeed."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-old")
+        session.mark_detached()
+
+        # Queue re-attach response (new session ID)
+        threading.Timer(
+            0.05,
+            lambda: fake_ws.enqueue(
+                {"id": 2, "result": {"sessionId": "sess-new"}},
+            ),
+        ).start()
+
+        # Queue response for the actual command
+        threading.Timer(
+            0.1,
+            lambda: fake_ws.enqueue(
+                {"id": 3, "result": {"data": "ok"}},
+            ),
+        ).start()
+
+        result = session.send_command("Test.method")
+        assert result == {"data": "ok"}
+        assert session.is_attached
+        assert session.session_id == "sess-new"
+
+    def test_send_command_reattaches_on_stale_error(self) -> None:
+        """When the browser returns a stale session error, send_command should re-attach."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-stale")
+
+        # First command returns a stale session error
+        threading.Timer(
+            0.05,
+            lambda: fake_ws.enqueue(
+                {
+                    "id": 2,
+                    "error": {"code": -32000, "message": "Not attached to target"},
+                }
+            ),
+        ).start()
+
+        # Re-attach response
+        threading.Timer(
+            0.1,
+            lambda: fake_ws.enqueue(
+                {"id": 3, "result": {"sessionId": "sess-fresh"}},
+            ),
+        ).start()
+
+        # Retry command response
+        threading.Timer(
+            0.15,
+            lambda: fake_ws.enqueue(
+                {"id": 4, "result": {"retried": True}},
+            ),
+        ).start()
+
+        result = session.send_command("Test.method")
+        assert result == {"retried": True}
+        assert session.session_id == "sess-fresh"
+
+    def test_send_command_does_not_reattach_on_non_stale_error(self) -> None:
+        """Non-stale errors should not trigger re-attach."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-ok")
+
+        # Non-stale error
+        threading.Timer(
+            0.05,
+            lambda: fake_ws.enqueue(
+                {
+                    "id": 2,
+                    "error": {"code": -32601, "message": "Method not found"},
+                }
+            ),
+        ).start()
+
+        with pytest.raises(GuidewireError, match="Method not found"):
+            session.send_command("Nonexistent.method")
+
+    def test_send_command_reattach_exhausted_raises(self) -> None:
+        """If re-attach fails, the error should propagate."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-exhaust")
+        session.mark_detached()
+
+        # Re-attach fails
+        threading.Timer(
+            0.05,
+            lambda: fake_ws.enqueue(
+                {
+                    "id": 2,
+                    "error": {"code": -32000, "message": "Target not found"},
+                }
+            ),
+        ).start()
+
+        with pytest.raises(GuidewireError):
+            session.send_command("Test.method")
+
+
+class TestIsStaleSessionError:
+    """Tests for _is_stale_session_error heuristic."""
+
+    def test_not_attached_message(self) -> None:
+        from guidewire.cdp.protocol import CDPError
+        assert CDPSession._is_stale_session_error(
+            CDPError(-32000, "Not attached to target")
+        )
+
+    def test_session_not_found_message(self) -> None:
+        from guidewire.cdp.protocol import CDPError
+        assert CDPSession._is_stale_session_error(
+            CDPError(-32000, "Session not found")
+        )
+
+    def test_session_is_closing_message(self) -> None:
+        from guidewire.cdp.protocol import CDPError
+        assert CDPSession._is_stale_session_error(
+            CDPError(-32000, "Session is closing")
+        )
+
+    def test_target_closed_message(self) -> None:
+        from guidewire.cdp.protocol import CDPError
+        assert CDPSession._is_stale_session_error(
+            CDPError(-32000, "Target closed")
+        )
+
+    def test_cdp_error_code_32000(self) -> None:
+        from guidewire.cdp.protocol import CDPError
+        assert CDPSession._is_stale_session_error(
+            CDPError(-32000, "Something went wrong")
+        )
+
+    def test_guidewire_error_not_attached(self) -> None:
+        assert CDPSession._is_stale_session_error(
+            GuidewireError("Session not attached to target")
+        )
+
+    def test_non_stale_error_returns_false(self) -> None:
+        from guidewire.cdp.protocol import CDPError
+        assert not CDPSession._is_stale_session_error(
+            CDPError(-32601, "Method not found")
+        )
+
+    def test_generic_exception_not_stale(self) -> None:
+        assert not CDPSession._is_stale_session_error(
+            ValueError("some random error")
+        )

@@ -72,8 +72,9 @@ class WebSessionRegistry:
         """Get an existing session or attach a new one for *target_id*.
 
         If a cached session exists and is still attached, it is returned
-        immediately.  Otherwise, the target is looked up via the browser
-        and a new session is attached.
+        immediately.  If the session was proactively marked detached via
+        ``Target.detachedFromTarget`` (GW-117), a new session is created
+        automatically.
 
         Args:
             target_id: The CDP target identifier.
@@ -87,6 +88,12 @@ class WebSessionRegistry:
         session = self._sessions.get(target_id)
         if session is not None and session.is_attached:
             return session
+
+        if session is not None and not session.is_attached:
+            logger.info(
+                "Stale session detected for target_id=%s, creating new session",
+                target_id,
+            )
 
         target = self._browser.get_target(target_id)
         if target is None:

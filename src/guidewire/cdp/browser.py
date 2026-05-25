@@ -80,7 +80,10 @@ class CDPBrowser:
         self._state: ConnectionState = ConnectionState.DISCONNECTED
         self._connection: CDPConnection | None = None
         self._sessions: dict[str, CDPSession] = {}  # keyed by target.id
+        self._session_by_id: dict[str, CDPSession] = {}  # keyed by session_id
         self._lock = threading.Lock()
+        self._event_thread: threading.Thread | None = None
+        self._closed = False
 
     # -- Public API -----------------------------------------------------------
 
@@ -139,6 +142,8 @@ class CDPBrowser:
                 ws_timeout=self._ws_timeout,
             )
             self._connection.connect()
+            self._closed = False
+            self._start_event_listener()
             self._state = ConnectionState.CONNECTED
             logger.info("CDP browser connected to %s:%s", self._host, self._port)
         except Exception:
@@ -179,11 +184,21 @@ class CDPBrowser:
         Safe to call multiple times.
         """
         self._state = ConnectionState.CLOSING
+        self._closed = True
+
+        # Stop the event listener thread
+        if (
+            self._event_thread is not None
+            and self._event_thread.is_alive()
+        ):
+            self._event_thread.join(timeout=5)
+            self._event_thread = None
 
         # Detach all active sessions
         with self._lock:
             sessions = list(self._sessions.values())
             self._sessions.clear()
+            self._session_by_id.clear()
 
         for session in sessions:
             try:
@@ -262,6 +277,8 @@ class CDPBrowser:
 
         with self._lock:
             self._sessions[target.id] = session
+            if session.session_id is not None:
+                self._session_by_id[session.session_id] = session
 
         return session
 
@@ -276,6 +293,8 @@ class CDPBrowser:
         """
         with self._lock:
             session = self._sessions.pop(target_id, None)
+            if session is not None and session.session_id is not None:
+                self._session_by_id.pop(session.session_id, None)
 
         if session is None:
             raise GuidewireError(f"No active session for target {target_id}")
@@ -334,6 +353,7 @@ class CDPBrowser:
 
         self._state = ConnectionState.DISCONNECTED
         self._sessions.clear()
+        self._session_by_id.clear()
 
         # Reconnect with optional retry / backoff
         last_exc: Exception | None = None
@@ -399,3 +419,68 @@ class CDPBrowser:
 
     def __exit__(self, *exc: Any) -> None:
         self.close()
+
+    # -- Internal -------------------------------------------------------------
+
+    def _start_event_listener(self) -> None:
+        """Start a background thread that monitors for session-detach events.
+
+        Watches the connection's :class:`~guidewire.cdp.events.EventBuffer`
+        for ``Target.detachedFromTarget`` events and calls
+        :meth:`CDPSession.mark_detached` on the affected session so that
+        subsequent commands trigger a transparent re-attach (GW-117).
+        """
+        if self._connection is None:
+            return
+
+        # Clear any stale events from a previous connection
+        self._connection.events.clear()
+
+        self._event_thread = threading.Thread(
+            target=self._event_loop,
+            name="cdp-session-events",
+            daemon=True,
+        )
+        self._event_thread.start()
+
+    def _event_loop(self) -> None:
+        """Background loop that drains session-detach events from the buffer."""
+        import time as _time
+
+        while not self._closed:
+            try:
+                self._drain_detach_events()
+            except Exception:
+                logger.debug(
+                    "Error in session event listener",
+                    exc_info=True,
+                )
+            _time.sleep(0.1)
+
+    def _drain_detach_events(self) -> None:
+        """Process all pending ``Target.detachedFromTarget`` events."""
+        if self._connection is None:
+            return
+
+        events = self._connection.events.get_by_method("Target.detachedFromTarget")
+        for event in events:
+            session_id = event.params.get("sessionId", "")
+            if not session_id:
+                continue
+
+            with self._lock:
+                session = self._session_by_id.pop(session_id, None)
+
+            if session is not None:
+                session.mark_detached()
+                logger.info(
+                    "Target.detachedFromTarget received: session_id=%s, "
+                    "session marked detached for target_id=%s",
+                    session_id,
+                    session.target.id,
+                )
+            else:
+                logger.debug(
+                    "Target.detachedFromTarget for unknown session_id=%s",
+                    session_id,
+                )
