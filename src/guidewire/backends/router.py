@@ -331,28 +331,22 @@ class BackendRouter(DesktopBackend):
 def _tag_tree_refs(node: dict[str, Any], backend_id: str) -> None:
     """Walk a snapshot tree dict and tag all element refs.
 
-    Mutates the tree in-place.  The ``ref`` field is replaced with a
-    :class:`TaggedHandle` wrapping the original value, and the original
-    value is preserved as ``backend_id`` for display purposes.
+    Mutates the tree in-place.  Adds a ``_routing_handle`` key to each node
+    containing a :class:`TaggedHandle` wrapping the original ``backend_id``
+    value.  The original ``backend_id`` string is preserved unchanged so
+    that downstream serialization (``to_dict()`` / ``json.dumps()``) is not
+    broken by a non-string ``TaggedHandle`` object.
+
+    The snapshot tool's ``_dict_to_element`` reads ``_routing_handle`` when
+    present and uses it as the value stored in :class:`ElementRefStore`,
+    enabling downstream tools (click, type_text, etc.) to route the handle
+    back to the correct backend.
     """
-    # The "ref" field in a snapshot tree is the raw handle/identifier
-    # from the backend. We need to preserve it for display but tag it
-    # for routing.  Tools like snapshot.py set ref to the window_ref string
-    # at the root and assign backend_id from the element. The actual native
-    # handles are stored via ElementRefStore, not directly in the tree dict.
-    #
-    # The key insight: the tree dict "ref" values are used as keys when
-    # _assign_refs() stores them in ElementRefStore.  The NativeHandle
-    # stored is whatever the tree's "backend_id" or "ref" field contains.
-    # We need the _tag to happen when the ref_store stores these values.
-    #
-    # Since snapshot.py's _assign_refs_recursive stores element.backend_id
-    # as the NativeHandle, we need to tag those. But that happens inside
-    # snapshot.py, not here. The solution: tag the "backend_id" field
-    # in the tree dict so when snapshot.py stores it, it stores a TaggedHandle.
     backend_id_val = node.get("backend_id")
     if backend_id_val is not None:
-        node["backend_id"] = _tag(backend_id_val, backend_id)
+        # Preserve the original backend_id string for display/serialization.
+        # Store the TaggedHandle in a separate key for routing.
+        node["_routing_handle"] = _tag(backend_id_val, backend_id)
 
     children = node.get("children")
     if children:

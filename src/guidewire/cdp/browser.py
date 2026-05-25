@@ -116,6 +116,14 @@ class CDPBrowser:
         the browser's debug port.  This connection is used for session
         management commands (``Target.attachToTarget``, etc.).
 
+        The WebSocket URL is resolved dynamically by querying the browser's
+        ``/json/version`` endpoint.  This avoids hardcoding the WS URL path
+        which changed in newer Chromium versions (the browser target ID is
+        now required, e.g. ``/devtools/browser/{id}``).
+
+        Falls back to the legacy ``/devtools/browser`` path if ``/json/version``
+        is unavailable.
+
         Raises:
             BackendUnavailableError: If the connection cannot be established.
         """
@@ -125,7 +133,7 @@ class CDPBrowser:
         self._state = ConnectionState.CONNECTING
 
         try:
-            ws_url = f"ws://{self._host}:{self._port}/devtools/browser"
+            ws_url = self._resolve_browser_ws_url()
             self._connection = CDPConnection(
                 url=ws_url,
                 ws_timeout=self._ws_timeout,
@@ -136,6 +144,34 @@ class CDPBrowser:
         except Exception:
             self._state = ConnectionState.DISCONNECTED
             raise
+
+    def _resolve_browser_ws_url(self) -> str:
+        """Resolve the browser-level WebSocket URL from ``/json/version``.
+
+        Queries the browser's HTTP ``/json/version`` endpoint which returns
+        a JSON dict containing ``webSocketDebuggerUrl`` — the canonical WS
+        URL for the browser-level CDP connection.
+
+        Falls back to the legacy path ``ws://{host}:{port}/devtools/browser``
+        when the endpoint is unavailable (e.g. older Chromium or restricted
+        environments).
+
+        Returns:
+            A WebSocket URL string.
+        """
+        url = f"http://{self._host}:{self._port}/json/version"
+        try:
+            response = urlopen(url, timeout=self._http_timeout)
+            data = json.loads(response.read())
+            ws_url = data.get("webSocketDebuggerUrl", "")
+            if ws_url:
+                return ws_url
+        except Exception:
+            logger.debug(
+                "Failed to query /json/version, falling back to legacy WS URL",
+                exc_info=True,
+            )
+        return f"ws://{self._host}:{self._port}/devtools/browser"
 
     def close(self) -> None:
         """Close the browser connection and detach all sessions.

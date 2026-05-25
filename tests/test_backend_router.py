@@ -195,22 +195,46 @@ class TestSnapshot:
         assert tree["role"] == "window"
 
     def test_element_refs_tagged(self, router: BackendRouter):
-        """Element handles in snapshot tree should be tagged."""
+        """Element handles in snapshot tree should have routing handles."""
         handles = router.list_windows()
         native_handle = next(h for h in handles if h.backend_id == "native")
         tree = router.snapshot(native_handle)
-        # Check that children have tagged backend_id values
+        # Check that children have _routing_handle values that are TaggedHandles
         _check_tree_tagged(tree, "native")
+
+    def test_backend_id_remains_string(self, router: BackendRouter):
+        """backend_id should remain a plain string for JSON serialization."""
+        handles = router.list_windows()
+        native_handle = next(h for h in handles if h.backend_id == "native")
+        tree = router.snapshot(native_handle)
+        # backend_id must always be a string, never a TaggedHandle
+        _check_backend_id_is_string(tree)
 
 
 def _check_tree_tagged(node: dict, expected_id: str) -> None:
-    """Recursively check that backend_id fields in tree are tagged."""
+    """Recursively check that _routing_handle fields in tree are tagged."""
+    routing = node.get("_routing_handle")
+    if routing is not None and isinstance(routing, TaggedHandle):
+        assert routing.backend_id == expected_id
+    # Also verify backend_id is still a string (not replaced)
     bid = node.get("backend_id")
-    if bid is not None and isinstance(bid, TaggedHandle):
-        assert bid.backend_id == expected_id
+    if bid is not None:
+        assert isinstance(bid, str), f"backend_id should be str, got {type(bid)}"
     children = node.get("children", [])
     for child in children:
         _check_tree_tagged(child, expected_id)
+
+
+def _check_backend_id_is_string(node: dict) -> None:
+    """Recursively verify all backend_id values are plain strings."""
+    bid = node.get("backend_id")
+    if bid is not None:
+        assert isinstance(bid, str), (
+            f"backend_id must be str for JSON serialization, got {type(bid).__name__}: {bid!r}"
+        )
+    children = node.get("children", [])
+    for child in children:
+        _check_backend_id_is_string(child)
 
 
 class TestFindElements:
@@ -504,3 +528,96 @@ class TestServerIntegration:
         snap = json.loads(snap_result[0].text)
         assert "tree" in snap
         assert snap["tree"]["role"] == "window"
+
+    async def test_snapshot_json_serializable(self):
+        """Snapshot tree should be fully JSON-serializable through router (GW-112 regression).
+
+        The backend_id field must remain a plain string so that json.dumps()
+        on the tree dict succeeds.  TaggedHandle objects should be stored in
+        _routing_handle, not in backend_id.
+        """
+        import json
+
+        from guidewire.server import GuidewireServer
+
+        native = MockBackend().add_window(title="Native", app="native.exe")
+        web = MockBackend().add_window(title="Web", app="browser")
+        router = BackendRouter(native=native, web=web)
+
+        srv = GuidewireServer(backend=router)
+        srv.register_tools()
+
+        # List windows
+        result, _ = await srv.mcp.call_tool("desktop.list_windows", arguments={})
+        data = json.loads(result[0].text)
+
+        # Snapshot the native window
+        w1_ref = data["windows"][0]["ref"]
+        snap_result, _ = await srv.mcp.call_tool(
+            "desktop.snapshot", arguments={"window_ref": w1_ref}
+        )
+        snap = json.loads(snap_result[0].text)
+
+        # The tree must be fully JSON-serializable
+        tree_json = json.dumps(snap["tree"])
+        assert isinstance(tree_json, str)
+
+        # Verify backend_id values are strings, not TaggedHandle objects
+        re_parsed = json.loads(tree_json)
+        _assert_all_backend_ids_are_strings(re_parsed)
+
+    async def test_snapshot_element_refs_route_correctly(self):
+        """Elements from snapshot through router should route to correct backend.
+
+        After taking a snapshot through the router, clicking an element
+        should delegate to the correct backend (native in this case).
+        """
+        import json
+
+        from guidewire.server import GuidewireServer
+
+        native = MockBackend().add_window(title="Native", app="native.exe")
+        win_handle = native.last_window_handle
+        native.add_element(role="button", name="Click Me", parent=win_handle)
+        web = MockBackend().add_window(title="Web", app="browser")
+        router = BackendRouter(native=native, web=web)
+
+        srv = GuidewireServer(backend=router)
+        srv.register_tools()
+
+        # List windows
+        result, _ = await srv.mcp.call_tool("desktop.list_windows", arguments={})
+        data = json.loads(result[0].text)
+        w1_ref = data["windows"][0]["ref"]
+
+        # Snapshot
+        snap_result, _ = await srv.mcp.call_tool(
+            "desktop.snapshot", arguments={"window_ref": w1_ref}
+        )
+        snap = json.loads(snap_result[0].text)
+
+        # Find the button element
+        button = None
+        for child in snap["tree"].get("children", []):
+            if child.get("role") == "button" and "Click Me" in (child.get("name") or ""):
+                button = child
+                break
+        assert button is not None, f"Button not found in tree: {snap['tree']}"
+
+        # Click the button — should route to native backend
+        click_result, _ = await srv.mcp.call_tool(
+            "desktop.click", arguments={"element_ref": button["ref"]}
+        )
+        assert len(native.action_log) > 0
+        assert native.action_log[-1]["action"] == DesktopAction.CLICK
+
+
+def _assert_all_backend_ids_are_strings(node: dict) -> None:
+    """Recursively verify all backend_id values are JSON-serializable strings."""
+    bid = node.get("backend_id")
+    if bid is not None:
+        assert isinstance(bid, str), (
+            f"backend_id must be str for JSON serialization, got {type(bid).__name__}"
+        )
+    for child in node.get("children", []):
+        _assert_all_backend_ids_are_strings(child)

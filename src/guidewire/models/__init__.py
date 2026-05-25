@@ -197,6 +197,7 @@ class NormalizedElement:
     tree_level: int | None = None
     selection_state: str | None = None
     is_virtualized: bool | None = None
+    _routing_handle: Any = field(default=None, init=False, repr=False)
 
     # --- Convenience helpers ------------------------------------------------
 

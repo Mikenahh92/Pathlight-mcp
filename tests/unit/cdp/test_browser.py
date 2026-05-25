@@ -562,3 +562,105 @@ class TestCDPBrowserReconnect:
             browser.reconnect(max_retries=3, backoff_delay=0.01)
 
         assert browser.is_connected
+
+
+# ---------------------------------------------------------------------------
+# WebSocket URL resolution (GW-112 regression fix)
+# ---------------------------------------------------------------------------
+
+
+class TestWSUrlResolution:
+    """Tests for dynamic WebSocket URL resolution from /json/version.
+
+    Validates the fix for the CDP WebSocket handshake 404 regression on
+    newer Chromium versions that require a browser target ID in the WS URL.
+    """
+
+    def test_connect_uses_version_endpoint_ws_url(self) -> None:
+        """connect() should use webSocketDebuggerUrl from /json/version."""
+        version_data = json.dumps(
+            {"webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/abc-123"}
+        ).encode()
+
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+
+        with (
+            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
+            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+        ):
+            mock_response = MagicMock()
+            mock_response.read.return_value = version_data
+            mock_urlopen.return_value = mock_response
+
+            browser = CDPBrowser(host="localhost", port=9222)
+            browser.connect()
+
+        # Verify the connection URL came from /json/version
+        assert browser.connection is not None
+        assert browser.connection.url == "ws://localhost:9222/devtools/browser/abc-123"
+
+    def test_connect_fallback_on_version_endpoint_failure(self) -> None:
+        """connect() should fall back to legacy URL when /json/version fails."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+
+        with (
+            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
+            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+        ):
+            # /json/version returns an error
+            mock_urlopen.side_effect = URLError("not found")
+
+            browser = CDPBrowser(host="localhost", port=9222)
+            browser.connect()
+
+        # Verify fallback to legacy URL
+        assert browser.connection is not None
+        assert browser.connection.url == "ws://localhost:9222/devtools/browser"
+
+    def test_connect_fallback_on_empty_ws_url(self) -> None:
+        """connect() should fall back when /json/version returns empty WS URL."""
+        version_data = json.dumps({"webSocketDebuggerUrl": ""}).encode()
+
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+
+        with (
+            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
+            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+        ):
+            mock_response = MagicMock()
+            mock_response.read.return_value = version_data
+            mock_urlopen.return_value = mock_response
+
+            browser = CDPBrowser(host="localhost", port=9222)
+            browser.connect()
+
+        assert browser.connection is not None
+        assert browser.connection.url == "ws://localhost:9222/devtools/browser"
+
+    def test_connect_uses_custom_host_and_port(self) -> None:
+        """connect() should respect custom host/port in /json/version request."""
+        version_data = json.dumps(
+            {"webSocketDebuggerUrl": "ws://192.168.1.50:9333/devtools/browser/xyz"}
+        ).encode()
+
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+
+        with (
+            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
+            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+        ):
+            mock_response = MagicMock()
+            mock_response.read.return_value = version_data
+            mock_urlopen.return_value = mock_response
+
+            browser = CDPBrowser(host="192.168.1.50", port=9333)
+            browser.connect()
+
+        # Verify the URL requested was for the correct host:port
+        call_args = mock_urlopen.call_args[0][0]
+        assert "192.168.1.50:9333" in call_args
+        assert browser.connection.url == "ws://192.168.1.50:9333/devtools/browser/xyz"

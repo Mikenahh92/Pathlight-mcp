@@ -37,6 +37,12 @@ def _dict_to_element(data: dict[str, Any]) -> NormalizedElement:
     Handles the schema mismatch between backend types (int bounds) and
     NormalizedElement (float bounds), and maps raw state dicts to
     ElementStates.
+
+    When a ``_routing_handle`` key is present (set by
+    :func:`~guidewire.backends.router._tag_tree_refs`), it is stored in
+    the element's ``_routing_handle`` attribute for later use by
+    :func:`_assign_refs_recursive`.  The ``backend_id`` field is always
+    kept as a string for JSON serialization.
     """
     states_data = data.get("states", {})
     if isinstance(states_data, list):
@@ -79,7 +85,7 @@ def _dict_to_element(data: dict[str, Any]) -> NormalizedElement:
     if children_raw:
         children = [_dict_to_element(c) for c in children_raw]
 
-    return NormalizedElement(
+    elem = NormalizedElement(
         ref=data.get("ref", ""),
         backend_id=data.get("backend_id", data.get("ref", "")),
         role=data.get("role", "unknown"),
@@ -92,6 +98,14 @@ def _dict_to_element(data: dict[str, Any]) -> NormalizedElement:
         actions=actions,
         children=children,
     )
+
+    # Preserve the routing handle from BackendRouter._tag_tree_refs
+    # for ref_store storage without mutating backend_id (GW-112).
+    routing_handle = data.get("_routing_handle")
+    if routing_handle is not None:
+        elem._routing_handle = routing_handle
+
+    return elem
 
 
 def _assign_refs(element: NormalizedElement, ref_store: "ElementRefStore") -> None:
@@ -106,8 +120,19 @@ def _assign_refs(element: NormalizedElement, ref_store: "ElementRefStore") -> No
 
 
 def _assign_refs_recursive(element: NormalizedElement, ref_store: "ElementRefStore") -> None:
-    """Recursively assign refs to an element and its children."""
-    ref = ref_store.store(element.backend_id, prefix="e")
+    """Recursively assign refs to an element and its children.
+
+    When ``element._routing_handle`` is set (by :func:`_dict_to_element`
+    reading ``_routing_handle`` from a tree tagged by
+    :func:`~guidewire.backends.router._tag_tree_refs`), that tagged handle
+    is stored in the ref store instead of the plain ``backend_id`` string.
+    This ensures downstream tool calls route correctly through the
+    :class:`~guidewire.backends.router.BackendRouter`.
+    """
+    # Use _routing_handle (TaggedHandle) when available for correct routing;
+    # fall back to the plain backend_id string for non-routed backends.
+    handle = element._routing_handle if element._routing_handle is not None else element.backend_id
+    ref = ref_store.store(handle, prefix="e")
     element.ref = ref
     for child in element.children or []:
         _assign_refs_recursive(child, ref_store)
