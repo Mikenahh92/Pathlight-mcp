@@ -26,6 +26,7 @@ from guidewire.models import NormalizedElement
 
 __all__ = [
     "build_normalized_tree",
+    "build_normalized_tree_from_dom",
     "fetch_bounds_from_dom",
     "find_root_ax_node",
     "infer_ax_actions",
@@ -290,3 +291,129 @@ def build_normalized_tree(
         normalized.children = children
 
     return normalized
+
+
+# -- DOM fallback helpers (GW-120) -----------------------------------------
+
+# Minimal mapping from DOM node names to normalized roles for DOM fallback.
+# Only covers the most common structural elements; everything else maps to "generic".
+_DOM_ROLE_MAP: dict[str, str] = {
+    "#document": "window",
+    "html": "window",
+    "body": "generic",
+    "div": "generic",
+    "span": "text",
+    "p": "text",
+    "h1": "heading",
+    "h2": "heading",
+    "h3": "heading",
+    "h4": "heading",
+    "h5": "heading",
+    "h6": "heading",
+    "a": "link",
+    "button": "button",
+    "input": "text_input",
+    "textarea": "text_input",
+    "select": "combobox",
+    "option": "option",
+    "ul": "list",
+    "ol": "list",
+    "li": "listitem",
+    "table": "table",
+    "tr": "row",
+    "td": "cell",
+    "th": "columnheader",
+    "thead": "generic",
+    "tbody": "generic",
+    "img": "image",
+    "form": "form",
+    "label": "text",
+    "nav": "navigation",
+    "main": "generic",
+    "header": "generic",
+    "footer": "generic",
+    "section": "generic",
+    "article": "generic",
+    "aside": "generic",
+    "iframe": "iframe",
+}
+
+
+def build_normalized_tree_from_dom(
+    node: Any,
+    depth: int,
+    max_depth: int,
+    counter: list[int],
+    max_nodes: int,
+) -> NormalizedElement | None:
+    """Recursively convert a DOM node to a minimal NormalizedElement (GW-120).
+
+    Used as a lightweight fallback when the CDP Accessibility domain times
+    out or fails on heavy pages.  The resulting tree contains basic structural
+    information (tag name → role, text content → name) but lacks ARIA semantics.
+
+    Args:
+        node: A :class:`~guidewire.cdp._types.DOMNode`.
+        depth: Current depth.
+        max_depth: Maximum depth.
+        counter: Mutable [count] for node tracking.
+        max_nodes: Maximum nodes.
+
+    Returns:
+        A :class:`NormalizedElement`, or ``None`` if limit exceeded.
+    """
+    if counter[0] >= max_nodes:
+        return None
+    counter[0] += 1
+
+    # Map node name to a normalized role — guard against non-string values
+    raw_node_name = getattr(node, "node_name", "") or ""
+    if not isinstance(raw_node_name, str):
+        raw_node_name = str(raw_node_name)
+    node_name = raw_node_name.lower()
+    role = _DOM_ROLE_MAP.get(node_name, node_name or "generic")
+
+    raw_value = getattr(node, "node_value", None)
+    name = raw_value if isinstance(raw_value, str) else ""
+    if not name and hasattr(node, "children") and node.children:
+        # Use first text child's value as name
+        for child in node.children:
+            child_value = getattr(child, "node_value", None)
+            child_name = getattr(child, "node_name", "")
+            if (
+                isinstance(child_value, str)
+                and child_value
+                and isinstance(child_name, str)
+                and child_name.lower() == "#text"
+            ):
+                name = child_value
+                break
+
+    raw_id = getattr(node, "node_id", "")
+    node_id_str = str(raw_id) if raw_id is not None else ""
+
+    elem = NormalizedElement(
+        ref=node_id_str,
+        backend_id=node_id_str,
+        role=role,
+        name=name[:200] if name else None,
+    )
+
+    # Recurse into children
+    if depth < max_depth and hasattr(node, "children") and node.children:
+        children: list[NormalizedElement] = []
+        for child in node.children:
+            if counter[0] >= max_nodes:
+                break
+            child_elem = build_normalized_tree_from_dom(
+                child,
+                depth + 1,
+                max_depth,
+                counter,
+                max_nodes,
+            )
+            if child_elem is not None:
+                children.append(child_elem)
+        elem.children = children if children else None
+
+    return elem

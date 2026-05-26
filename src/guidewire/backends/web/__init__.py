@@ -52,6 +52,7 @@ from guidewire.backends.types import DesktopAction, NativeHandle
 from guidewire.backends.web.web_session import WebSessionRegistry
 from guidewire.backends.web_normalize import (
     build_normalized_tree,
+    build_normalized_tree_from_dom,
     fetch_bounds_from_dom,
     find_root_ax_node,
     is_virtualized_container,
@@ -111,6 +112,7 @@ class WebBackend(DesktopBackend):
         port: int = 9222,
         *,
         browser: CDPBrowser | None = None,
+        snapshot_timeout: float = 10.0,
     ) -> None:
         if browser is not None:
             self._browser = browser
@@ -118,6 +120,7 @@ class WebBackend(DesktopBackend):
             self._browser = CDPBrowser(host=host, port=port)
         self._disposed: bool = False
         self._connected: bool = False
+        self._snapshot_timeout: float = snapshot_timeout
 
         # AX node cache: node_id → AXNode (populated per snapshot)
         self._ax_cache: dict[str, AXNode] = {}
@@ -278,6 +281,11 @@ class WebBackend(DesktopBackend):
         to :class:`~guidewire.models.NormalizedElement` via the ``"web"``
         platform mapping tables, and applies depth/node limits.
 
+        On heavy pages where the CDP AX tree fetch times out or fails,
+        falls back to a lightweight DOM-based snapshot via
+        ``DOM.getDocument`` with depth pruning, producing a simplified
+        element tree (GW-120).
+
         Multi-frame support (GW-101): discovers child frames (iframes) via
         ``Page.getFrameTree``, attaches CDP sessions to each iframe target,
         and merges their AX trees into the main snapshot.  Iframe content
@@ -304,8 +312,22 @@ class WebBackend(DesktopBackend):
         target = self._resolve_target(window)
         acc, dom, _, page, _ = self._get_domains(target.id)
 
-        # Fetch the full AX tree and rebuild the cache
-        ax_nodes = acc.get_full_ax_tree()
+        # Fetch the full AX tree with timeout and rebuild the cache
+        try:
+            ax_nodes = acc.get_full_ax_tree(timeout=self._snapshot_timeout)
+        except Exception as exc:
+            logger.warning(
+                "AX tree fetch failed/timed out for target %s (%s: %s), "
+                "falling back to DOM snapshot",
+                target.id,
+                type(exc).__name__,
+                exc,
+            )
+            # Mark session as detached so registry creates a fresh one on
+            # next access (Architecture Decision 4).
+            self._mark_session_detached(target.id)
+            return self._dom_fallback_snapshot(dom, max_depth, max_nodes)
+
         self._ax_cache = {n.node_id: n for n in ax_nodes}
         self._bounds_cache = {}  # Invalidate bounds cache on new snapshot (GW-096)
 
@@ -318,12 +340,12 @@ class WebBackend(DesktopBackend):
         # Find the root node (webArea or the first node with no parent reference)
         root_node = find_root_ax_node(ax_nodes)
         if root_node is None:
-            fallback = NormalizedElement(
-                ref="",
-                backend_id="",
-                role="unknown",
+            # Empty tree — fall back to DOM
+            logger.warning(
+                "AX tree returned no root node for target %s, falling back to DOM snapshot",
+                target.id,
             )
-            return fallback.to_dict()
+            return self._dom_fallback_snapshot(dom, max_depth, max_nodes)
 
         # Build the NormalizedElement tree with depth/node limits
         counter = [0]
@@ -339,6 +361,49 @@ class WebBackend(DesktopBackend):
             return fallback.to_dict()
 
         return result.to_dict()
+
+    def _dom_fallback_snapshot(
+        self,
+        dom: DOMDomain,
+        max_depth: int,
+        max_nodes: int,
+    ) -> dict[str, Any]:
+        """Build a lightweight snapshot from the DOM tree when AX tree fails.
+
+        Falls back to ``DOM.getDocument`` with depth limiting when the CDP
+        Accessibility domain times out or returns an empty tree on heavy
+        pages (GW-120).  The resulting tree contains basic structural
+        information (tag name → role, text content → name) but lacks
+        ARIA semantics.
+
+        Args:
+            dom: The :class:`DOMDomain` for DOM queries.
+            max_depth: Maximum tree depth to traverse.
+            max_nodes: Maximum number of nodes to include.
+
+        Returns:
+            Dict matching the NormalizedElement schema.
+        """
+        try:
+            doc = dom.get_document(depth=min(max_depth, 2))
+        except Exception as exc:
+            logger.warning(
+                "DOM fallback snapshot also failed: %s",
+                exc,
+                exc_info=True,
+            )
+            return NormalizedElement(
+                ref="",
+                backend_id="",
+                role="unknown",
+            ).to_dict()
+
+        # Convert DOM node to a minimal NormalizedElement tree
+        counter = [0]
+        root = build_normalized_tree_from_dom(doc, 0, max_depth, counter, max_nodes)
+        if root is None:
+            root = NormalizedElement(ref="", backend_id="", role="unknown")
+        return root.to_dict()
 
     def find_elements(
         self,
@@ -375,10 +440,20 @@ class WebBackend(DesktopBackend):
 
         results: list[NativeHandle] = []
 
-        # Build AX cache if empty
+        # Build AX cache if empty — with timeout handling (GW-120 B2)
         if not self._ax_cache:
-            ax_nodes = acc.get_full_ax_tree()
-            self._ax_cache = {n.node_id: n for n in ax_nodes}
+            try:
+                ax_nodes = acc.get_full_ax_tree(timeout=self._snapshot_timeout)
+                self._ax_cache = {n.node_id: n for n in ax_nodes}
+            except Exception:
+                logger.warning(
+                    "find_elements: AX tree fetch failed for target %s, "
+                    "returning empty results",
+                    target.id,
+                    exc_info=True,
+                )
+                self._mark_session_detached(target.id)
+                return []
 
         from guidewire.models.mappings import ROLE_MAP
 
@@ -879,7 +954,7 @@ class WebBackend(DesktopBackend):
                 self._session_registry.put_session(f"iframe:{frame_id}", iframe_session)
 
                 iframe_acc = AccessibilityDomain(iframe_session)
-                iframe_nodes = iframe_acc.get_full_ax_tree()
+                iframe_nodes = iframe_acc.get_full_ax_tree(timeout=self._snapshot_timeout)
 
                 # Prefix node IDs with frame ID to avoid collisions
                 prefixed_nodes: list[AXNode] = []
@@ -940,6 +1015,27 @@ class WebBackend(DesktopBackend):
             raise ElementNotFoundError("Element handle is None")
         # Element handles are stored as node ID strings
         return str(handle)
+
+    def _mark_session_detached(self, target_id: str) -> None:
+        """Mark the CDP session for *target_id* as detached.
+
+        Called after a timeout or failure so that the session registry
+        creates a fresh session on the next access instead of reusing a
+        potentially stale one (Architecture Decision 4, GW-120).
+
+        Args:
+            target_id: The CDP target identifier whose session to invalidate.
+        """
+        session = self._sessions.get(target_id)
+        if session is not None:
+            try:
+                session.mark_detached()
+            except Exception:
+                logger.debug(
+                    "Failed to mark session detached for target %s",
+                    target_id,
+                    exc_info=True,
+                )
 
     def _get_active_session(self) -> CDPSession:
         """Get any active CDP session.

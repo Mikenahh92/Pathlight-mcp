@@ -42,16 +42,20 @@ class AccessibilityDomain(CDPDomain):
     def __init__(self, session: CDPSession) -> None:
         super().__init__(session)
 
-    def get_full_ax_tree(self) -> list[AXNode]:
+    def get_full_ax_tree(self, *, timeout: float | None = None) -> list[AXNode]:
         """Fetch the full accessibility tree from the browser.
 
         Sends ``Accessibility.getFullAXTree`` and converts each CDP AX
         node to an :class:`~guidewire.cdp._types.AXNode`.
 
+        Args:
+            timeout: Per-command timeout in seconds.  Defaults to the
+                session / connection default.
+
         Returns:
             List of all AX nodes in the tree.
         """
-        result = self._send(self._method("getFullAXTree"))
+        result = self._send(self._method("getFullAXTree"), timeout=timeout)
         nodes = result.get("nodes", [])
         return [AXNode.from_cdp(n) for n in nodes]
 

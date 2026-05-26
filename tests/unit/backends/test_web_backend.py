@@ -370,8 +370,36 @@ class TestSnapshot:
     def test_snapshot_empty_tree(self, connected_backend, mock_browser) -> None:
         self._setup_snapshot(connected_backend, mock_browser, [])
         target = _make_target()
+        # Empty AX tree triggers DOM fallback; configure DOM mock
+        # to raise so the fallback returns role="unknown"
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.side_effect = RuntimeError("no DOM")
         result = connected_backend.snapshot(NativeHandle(target))
         assert result["role"] == "unknown"
+
+    def test_snapshot_empty_tree_dom_fallback(self, connected_backend, mock_browser) -> None:
+        """Empty AX tree falls back to DOM snapshot (GW-120)."""
+        from guidewire.cdp._types import DOMNode
+
+        self._setup_snapshot(connected_backend, mock_browser, [])
+        target = _make_target()
+
+        # Configure DOM mock to return a real DOMNode
+        doc_node = DOMNode(
+            node_id=1,
+            node_name="#document",
+            children=(
+                DOMNode(node_id=2, node_name="HTML", children=(
+                    DOMNode(node_id=3, node_name="BODY", children=()),
+                )),
+            ),
+        )
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = doc_node
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        # DOM fallback should produce a window role from #document
+        assert result["role"] == "window"
 
 
 # -- TC-7: Find elements ------------------------------------------------------
@@ -2128,4 +2156,499 @@ class TestVirtualizedScrollRetry:
         assert result is None
         # Should NOT have scrolled (no retry)
         inp_mock.dispatch_mouse_event.assert_not_called()
+
+
+# -- GW-120: Snapshot timeout and DOM fallback --------------------------------
+
+
+class TestSnapshotTimeout:
+    """GW-120: snapshot passes timeout to AX tree fetch and falls back on failure."""
+
+    def _setup_snapshot(self, connected_backend, mock_browser, ax_nodes):
+        """Configure mocks for snapshot timeout tests."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        session.mark_detached = MagicMock()
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        acc_mock.get_full_ax_tree.return_value = ax_nodes
+        dom_mock = MagicMock()
+        dom_mock.get_box_model.return_value = None
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (
+            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+        )
+        return target
+
+    def test_snapshot_uses_default_timeout(self, connected_backend, mock_browser) -> None:
+        """Snapshot uses _snapshot_timeout (default 10.0s) when no override."""
+        ax_nodes = [
+            _make_ax_node(node_id="root", role="webArea"),
+        ]
+        target = self._setup_snapshot(connected_backend, mock_browser, ax_nodes)
+
+        connected_backend.snapshot(NativeHandle(target))
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.assert_called_once_with(timeout=10.0)
+
+    def test_snapshot_custom_constructor_timeout(self, connected_backend, mock_browser) -> None:
+        """Custom snapshot_timeout from constructor is respected."""
+        backend = WebBackend(host="localhost", port=9222, snapshot_timeout=30.0)
+        backend._connected = True
+        backend._browser = mock_browser
+
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        backend._sessions[target.id] = session
+
+        ax_nodes = [_make_ax_node(node_id="root", role="webArea")]
+        acc_mock = MagicMock()
+        acc_mock.get_full_ax_tree.return_value = ax_nodes
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
+
+        backend.snapshot(NativeHandle(target))
+        acc_mock.get_full_ax_tree.assert_called_once_with(timeout=30.0)
+
+
+class TestDOMFallbackSnapshot:
+    """GW-120: snapshot falls back to DOM when AX tree times out or fails."""
+
+    def _setup_snapshot(self, connected_backend, mock_browser):
+        """Configure mocks for DOM fallback tests."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        session.mark_detached = MagicMock()
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (
+            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+        )
+        return target
+
+    def test_ax_timeout_falls_back_to_dom(self, connected_backend, mock_browser) -> None:
+        """AX tree timeout triggers DOM fallback (GW-120)."""
+        from guidewire.cdp._types import DOMNode
+
+        target = self._setup_snapshot(connected_backend, mock_browser)
+
+        # Make AX tree fetch raise TimeoutError
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX tree fetch timed out")
+
+        # Configure DOM mock to return a real DOMNode tree
+        doc_node = DOMNode(
+            node_id=1,
+            node_name="#document",
+            children=(
+                DOMNode(
+                    node_id=2,
+                    node_name="HTML",
+                    children=(
+                        DOMNode(
+                            node_id=3,
+                            node_name="BODY",
+                            children=(
+                                DOMNode(node_id=4, node_name="BUTTON", node_value="Click"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = doc_node
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        # Should get a DOM-based tree, not an error
+        assert result["role"] == "window"
+        assert len(result["children"]) > 0
+        # DOM.get_document should have been called
+        dom_mock.get_document.assert_called_once()
+
+    def test_ax_error_falls_back_to_dom(self, connected_backend, mock_browser) -> None:
+        """AX tree generic error triggers DOM fallback (GW-120)."""
+        from guidewire.cdp._types import DOMNode
+
+        target = self._setup_snapshot(connected_backend, mock_browser)
+
+        # Make AX tree fetch raise a generic exception
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = RuntimeError("CDP disconnected")
+
+        # Configure DOM mock
+        doc_node = DOMNode(node_id=1, node_name="#document", children=())
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = doc_node
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        assert result["role"] == "window"
+
+    def test_dom_fallback_also_fails(self, connected_backend, mock_browser) -> None:
+        """Both AX and DOM fail → returns role='unknown'."""
+        target = self._setup_snapshot(connected_backend, mock_browser)
+
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX timed out")
+
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.side_effect = RuntimeError("DOM also failed")
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        assert result["role"] == "unknown"
+
+    def test_dom_fallback_respects_max_nodes(self, connected_backend, mock_browser) -> None:
+        """DOM fallback tree respects max_nodes limit (GW-120)."""
+        from guidewire.cdp._types import DOMNode
+
+        target = self._setup_snapshot(connected_backend, mock_browser)
+
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX timed out")
+
+        # Build a DOM tree with many children
+        children = tuple(
+            DOMNode(node_id=i, node_name="DIV", node_value=f"Item {i}")
+            for i in range(10, 20)
+        )
+        doc_node = DOMNode(
+            node_id=1,
+            node_name="#document",
+            children=(
+                DOMNode(
+                    node_id=2,
+                    node_name="BODY",
+                    children=children,
+                ),
+            ),
+        )
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = doc_node
+
+        result = connected_backend.snapshot(NativeHandle(target), max_nodes=3)
+        # Should have at most 3 elements (root + body + 1 child)
+        total = _count_elements(result)
+        assert total <= 3
+
+    def test_dom_fallback_respects_max_depth(self, connected_backend, mock_browser) -> None:
+        """DOM fallback tree respects max_depth limit (GW-120)."""
+        from guidewire.cdp._types import DOMNode
+
+        target = self._setup_snapshot(connected_backend, mock_browser)
+
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX timed out")
+
+        # Deeply nested DOM
+        doc_node = DOMNode(
+            node_id=1,
+            node_name="#document",
+            children=(
+                DOMNode(node_id=2, node_name="DIV", children=(
+                    DOMNode(node_id=3, node_name="DIV", children=(
+                        DOMNode(node_id=4, node_name="DIV", children=(
+                            DOMNode(node_id=5, node_name="SPAN", node_value="Deep"),
+                        )),
+                    )),
+                )),
+            ),
+        )
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = doc_node
+
+        result = connected_backend.snapshot(NativeHandle(target), max_depth=2)
+        # Depth 2: root(0) → DIV(1) → DIV(2), no deeper children
+        assert result["role"] == "window"
+        body = result["children"][0]
+        assert body["role"] == "generic"  # DIV
+        assert body["children"] is not None
+        assert len(body["children"]) > 0
+
+    def test_dom_role_mapping(self, connected_backend, mock_browser) -> None:
+        """DOM fallback maps common HTML tags to normalized roles (GW-120)."""
+        from guidewire.cdp._types import DOMNode
+
+        target = self._setup_snapshot(connected_backend, mock_browser)
+
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX timed out")
+
+        doc_node = DOMNode(
+            node_id=1,
+            node_name="#document",
+            children=(
+                DOMNode(node_id=2, node_name="BODY", children=(
+                    DOMNode(node_id=10, node_name="A"),
+                    DOMNode(node_id=11, node_name="BUTTON"),
+                    DOMNode(node_id=12, node_name="INPUT"),
+                    DOMNode(node_id=13, node_name="UL", children=(
+                        DOMNode(node_id=14, node_name="LI"),
+                    )),
+                    DOMNode(node_id=15, node_name="IMG"),
+                    DOMNode(node_id=16, node_name="UNKNOWN_TAG"),
+                )),
+            ),
+        )
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = doc_node
+
+        result = connected_backend.snapshot(NativeHandle(target))
+        body = result["children"][0]
+        children = body["children"]
+        assert children[0]["role"] == "link"       # A → link
+        assert children[1]["role"] == "button"     # BUTTON → button
+        assert children[2]["role"] == "text_input"  # INPUT → text_input
+        ul = children[3]
+        assert ul["role"] == "list"                # UL → list
+        assert ul["children"][0]["role"] == "listitem"  # LI → listitem
+        assert children[4]["role"] == "image"      # IMG → image
+        assert children[5]["role"] == "unknown_tag"  # Unknown → tag name (generic fallback)
+
+
+def _count_elements(tree_dict: dict) -> int:
+    """Count total elements in a tree dict."""
+    count = 1
+    for child in tree_dict.get("children", []) or []:
+        count += _count_elements(child)
+    return count
+
+
+# -- TC-GW120-17: session detachment after timeout (P0) ----------------------
+
+
+class TestSessionDetachmentAfterTimeout:
+    """TC-GW120-17: session.mark_detached() is called after AX tree timeout."""
+
+    def _setup(self, connected_backend, mock_browser):
+        """Configure mocks for detachment tests."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        session.mark_detached = MagicMock()
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (
+            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+        )
+        return target
+
+    def test_snapshot_marks_session_detached_on_timeout(
+        self, connected_backend, mock_browser,
+    ) -> None:
+        """snapshot() calls session.mark_detached() when AX tree times out."""
+        from guidewire.cdp._types import DOMNode
+
+        target = self._setup(connected_backend, mock_browser)
+
+        # Make AX tree fetch raise TimeoutError
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX tree timed out")
+
+        # Configure DOM fallback
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = DOMNode(
+            node_id=1, node_name="#document", children=(),
+        )
+
+        connected_backend.snapshot(NativeHandle(target))
+
+        # Session must be marked detached
+        session = connected_backend._sessions[target.id]
+        session.mark_detached.assert_called_once()
+
+    def test_snapshot_marks_session_detached_on_error(
+        self, connected_backend, mock_browser,
+    ) -> None:
+        """snapshot() calls session.mark_detached() when AX tree raises generic error."""
+        from guidewire.cdp._types import DOMNode
+
+        target = self._setup(connected_backend, mock_browser)
+
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = RuntimeError("CDP disconnected")
+
+        dom_mock = connected_backend._domains[target.id][1]
+        dom_mock.get_document.return_value = DOMNode(
+            node_id=1, node_name="#document", children=(),
+        )
+
+        connected_backend.snapshot(NativeHandle(target))
+        session = connected_backend._sessions[target.id]
+        session.mark_detached.assert_called_once()
+
+
+# -- TC-GW120-18: find_elements() timeout returns empty (P0) -----------------
+
+
+class TestFindElementsTimeout:
+    """TC-GW120-18: find_elements() returns [] on AX tree timeout."""
+
+    def _setup(self, connected_backend, mock_browser):
+        """Configure mocks for find_elements timeout tests."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        session.mark_detached = MagicMock()
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (
+            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+        )
+        return target
+
+    def test_find_elements_returns_empty_on_timeout(
+        self, connected_backend, mock_browser,
+    ) -> None:
+        """find_elements() returns [] and marks session detached on timeout."""
+        target = self._setup(connected_backend, mock_browser)
+
+        # Make AX tree fetch timeout
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX tree timed out")
+
+        result = connected_backend.find_elements(
+            NativeHandle(target), role="button",
+        )
+        assert result == []
+
+        # Session should be marked detached
+        session = connected_backend._sessions[target.id]
+        session.mark_detached.assert_called_once()
+
+    def test_find_elements_returns_empty_on_error(
+        self, connected_backend, mock_browser,
+    ) -> None:
+        """find_elements() returns [] on generic AX tree error."""
+        target = self._setup(connected_backend, mock_browser)
+
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.side_effect = RuntimeError("CDP error")
+
+        result = connected_backend.find_elements(
+            NativeHandle(target), role="button",
+        )
+        assert result == []
+
+
+# -- TC-GW120-19: iframe AX timeout skips frame (P0) -------------------------
+
+
+class TestIframeAxTimeout:
+    """TC-GW120-19: _collect_iframe_ax_trees() skips iframe on AX timeout."""
+
+    def _setup(self, connected_backend, mock_browser):
+        """Configure mocks for iframe timeout tests."""
+        target = _make_target()
+        session = MagicMock()
+        session.is_attached = True
+        session.target = target
+        session.send_command.return_value = {}
+        session.mark_detached = MagicMock()
+        mock_browser.attach.return_value = session
+        mock_browser.get_target.return_value = target
+        connected_backend._sessions[target.id] = session
+
+        acc_mock = MagicMock()
+        dom_mock = MagicMock()
+        inp_mock = MagicMock()
+        page_mock = MagicMock()
+        tgt_mock = MagicMock()
+        connected_backend._domains[target.id] = (
+            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+        )
+        return target
+
+    def test_iframe_ax_timeout_skips_frame(
+        self, connected_backend, mock_browser,
+    ) -> None:
+        """Iframe AX tree timeout is caught and the frame is skipped."""
+        target = self._setup(connected_backend, mock_browser)
+
+        # Main frame AX tree succeeds
+        acc_mock = connected_backend._domains[target.id][0]
+        acc_mock.get_full_ax_tree.return_value = [
+            _make_ax_node(node_id="root", role="webArea"),
+        ]
+
+        # Page.getFrameTree returns a child iframe
+        page_mock = connected_backend._domains[target.id][3]
+        page_mock.get_frame_tree.return_value = [
+            {"id": "main", "parentId": None},
+            {
+                "id": "iframe-1",
+                "parentId": "main",
+                "url": "https://example.com/iframe",
+            },
+        ]
+
+        # The iframe attach succeeds but its AX tree times out
+        iframe_session = MagicMock()
+        iframe_session.is_attached = True
+        iframe_session.target = MagicMock()
+        iframe_session.send_command.return_value = {}
+        mock_browser.attach.side_effect = [
+            connected_backend._sessions[target.id], iframe_session,
+        ]
+
+        # Patch AccessibilityDomain to control the iframe instance
+        with patch(
+            "guidewire.backends.web.AccessibilityDomain",
+        ) as mock_acc_domain:
+            main_acc = acc_mock
+            iframe_acc = MagicMock()
+            iframe_acc.get_full_ax_tree.side_effect = TimeoutError(
+                "iframe AX timed out",
+            )
+
+            mock_acc_domain.side_effect = [main_acc, iframe_acc]
+
+            result = connected_backend.snapshot(NativeHandle(target))
+
+        # Should still succeed (main frame only, iframe skipped)
+        assert result["role"] == "unknown" or result.get("children") is not None
+
 

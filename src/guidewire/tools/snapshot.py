@@ -231,7 +231,11 @@ def register(
         # --- Call backend snapshot with structured error handling ---
         raw_tree: dict[str, Any]
         try:
-            raw_tree = backend.snapshot(handle, max_depth=max_depth, max_nodes=max_nodes)
+            raw_tree = backend.snapshot(
+                handle,
+                max_depth=max_depth,
+                max_nodes=max_nodes,
+            )
         except WindowNotFoundError as exc:
             return json.dumps(
                 {
