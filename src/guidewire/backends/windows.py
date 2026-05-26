@@ -1062,31 +1062,144 @@ class WindowsBackend(DesktopBackend):
                 raise self._translate_com_error(exc) from exc
             raise ActionNotSupportedError(f"Failed to get pattern {pattern_id}: {exc}") from exc
 
+    def _get_element_center(self, element: Any) -> tuple[int, int] | None:
+        """Return the screen-space center coordinates of an element.
+
+        Reads ``CurrentBoundingRectangle`` from the COM element and computes
+        the center point.  Returns ``None`` if the bounds cannot be read or
+        are zero-sized.
+
+        Args:
+            element: COM ``IUIAutomationElement``.
+
+        Returns:
+            ``(x, y)`` tuple in screen pixels, or ``None``.
+        """
+        try:
+            rect = element.CurrentBoundingRectangle
+            if not rect:
+                return None
+            left = int(rect.left)
+            top = int(rect.top)
+            width = int(rect.width)
+            height = int(rect.height)
+            if width <= 0 or height <= 0:
+                return None
+            return (left + width // 2, top + height // 2)
+        except Exception:
+            logger.debug("Failed to read element bounding rectangle for coordinate fallback")
+            return None
+
+    @staticmethod
+    def _click_at_coordinates(x: int, y: int) -> None:
+        """Simulate a left mouse click at the given screen coordinates.
+
+        Uses the Win32 ``SendInput`` API with ``MOUSEINPUT`` to move the
+        cursor, then send left-button down and up events.  Coordinates are
+        in absolute screen pixels converted to the normalized range
+        ``[0, 65535]`` required by ``MOUSEEVENTF_ABSOLUTE``.
+
+        Args:
+            x: Screen-space X coordinate in pixels.
+            y: Screen-space Y coordinate in pixels.
+        """
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        structs = _get_sendinput_structs()
+        input_cls = structs["INPUT"]
+
+        # Convert pixel coordinates to normalized absolute coordinates (0-65535)
+        screen_w = user32.GetSystemMetrics(0)  # SM_CXSCREEN
+        screen_h = user32.GetSystemMetrics(1)  # SM_CYSCREEN
+        norm_x = int(x * 65535 / screen_w) if screen_w else 0
+        norm_y = int(y * 65535 / screen_h) if screen_h else 0
+
+        _mouseeventf_absolute = 0x8000
+        _mouseeventf_move = 0x0001
+        _mouseeventf_leftdown = 0x0002
+        _mouseeventf_leftup = 0x0004
+
+        # Move cursor to target position
+        move_inp = input_cls(type=0)  # INPUT_MOUSE
+        move_inp.union.mi.dx = norm_x
+        move_inp.union.mi.dy = norm_y
+        move_inp.union.mi.dwFlags = _mouseeventf_absolute | _mouseeventf_move
+        user32.SendInput(1, ctypes.byref(move_inp), ctypes.sizeof(input_cls))
+
+        # Left button down
+        down_inp = input_cls(type=0)
+        down_inp.union.mi.dx = norm_x
+        down_inp.union.mi.dy = norm_y
+        down_inp.union.mi.dwFlags = _mouseeventf_absolute | _mouseeventf_leftdown
+        user32.SendInput(1, ctypes.byref(down_inp), ctypes.sizeof(input_cls))
+
+        # Left button up
+        up_inp = input_cls(type=0)
+        up_inp.union.mi.dx = norm_x
+        up_inp.union.mi.dy = norm_y
+        up_inp.union.mi.dwFlags = _mouseeventf_absolute | _mouseeventf_leftup
+        user32.SendInput(1, ctypes.byref(up_inp), ctypes.sizeof(input_cls))
+
     def _action_click(self, element: Any) -> None:
-        """Click an element via InvokePattern.
+        """Click an element via InvokePattern, with coordinate-based fallback.
+
+        Attempts ``InvokePattern.Invoke()`` first.  If the element does not
+        support ``InvokePattern`` (pattern is ``None``), reads the element's
+        bounding rectangle and simulates a left mouse click at its center
+        using ``SendInput``.  Errors from ``_get_pattern`` (COM failures) or
+        from ``Invoke()`` are propagated without trying the fallback.
 
         Args:
             element: COM ``IUIAutomationElement``.
 
         Raises:
-            ActionNotSupportedError: If InvokePattern is not available.
+            ActionNotSupportedError: If neither InvokePattern nor coordinate
+                fallback succeeds, or if InvokePattern/Invoke fails with an
+                error.
         """
-        pattern = self._get_pattern(element, _UIA_INVOKE_PATTERN_ID)
+        # Primary: try InvokePattern
         try:
-            pattern.Invoke()
-        except ActionNotSupportedError:
-            raise
+            pattern = element.GetCurrentPattern(_UIA_INVOKE_PATTERN_ID)
         except Exception as exc:
-            raise ActionNotSupportedError(f"Invoke failed: {exc}") from exc
+            if hasattr(exc, "hresult"):
+                raise self._translate_com_error(exc) from exc
+            raise ActionNotSupportedError(
+                f"Failed to get pattern {_UIA_INVOKE_PATTERN_ID}: {exc}"
+            ) from exc
+
+        if pattern is not None:
+            try:
+                pattern.Invoke()
+                return
+            except ActionNotSupportedError:
+                raise
+            except Exception as exc:
+                raise ActionNotSupportedError(f"Invoke failed: {exc}") from exc
+
+        # Fallback: coordinate-based click (only when pattern is None)
+        center = self._get_element_center(element)
+        if center is None:
+            raise ActionNotSupportedError(
+                "Click not supported: element has no InvokePattern and "
+                "bounding rectangle is unavailable"
+            )
+        logger.debug("Falling back to coordinate-based click at (%d, %d)", *center)
+        try:
+            self._click_at_coordinates(*center)
+        except Exception as exc:
+            raise ActionNotSupportedError(
+                f"Coordinate-based click failed: {exc}"
+            ) from exc
 
     def _action_type(self, element: Any, **kwargs: Any) -> None:
-        """Type text into an element.
+        """Type text into an element with progressive fallback.
 
         Uses ``IUIAutomationValuePattern`` if the element supports it.
         Per architecture §2.1 and test-design TC-PA-002, reads the current
         value, concatenates the new text, then calls ``SetValue`` with the
         result (append semantics).  Falls back to setting focus and sending
-        keystrokes via ``SendInput`` when ValuePattern is unavailable.
+        keystrokes via ``SendInput`` when ValuePattern is unavailable.  If
+        ``SetFocus`` also fails, uses a coordinate-based click to focus the
+        element before typing.
 
         Args:
             element: COM ``IUIAutomationElement``.
@@ -1108,12 +1221,32 @@ class WindowsBackend(DesktopBackend):
         except ActionNotSupportedError:
             pass
 
-        # Fallback: set focus and simulate keyboard input
+        # Fallback 1: set focus via SetFocus() and simulate keyboard input
         try:
             element.SetFocus()
             self._send_text(str(text))
+            return
+        except Exception:
+            pass  # SetFocus may fail on web elements, fall through
+
+        # Fallback 2: coordinate-based click to focus, then simulate keyboard input
+        center = self._get_element_center(element)
+        if center is None:
+            raise ActionNotSupportedError(
+                "Type not supported: element has no ValuePattern, SetFocus failed, "
+                "and bounding rectangle is unavailable"
+            )
+        logger.debug("Falling back to coordinate-based type at (%d, %d)", *center)
+        try:
+            self._click_at_coordinates(*center)
+            # Small delay to let the focus settle after the click
+            import time
+            time.sleep(0.05)
+            self._send_text(str(text))
         except Exception as exc:
-            raise ActionNotSupportedError(f"Failed to type text: {exc}") from exc
+            raise ActionNotSupportedError(
+                f"Coordinate-based type failed: {exc}"
+            ) from exc
 
     def _action_press_key(self, element: Any, **kwargs: Any) -> None:
         """Press a key or key combo while an element has focus.

@@ -273,11 +273,13 @@ class TestPerformActionClick:
         mock_pattern.Invoke.assert_called_once()
 
     def test_click_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
-        """CLICK must raise ActionNotSupportedError when InvokePattern absent."""
+        """CLICK must raise ActionNotSupportedError when InvokePattern absent and no bounds."""
         mock_element = MagicMock()
         mock_element.GetCurrentPattern.return_value = None
+        # No bounding rectangle → coordinate fallback also fails
+        mock_element.CurrentBoundingRectangle = None
 
-        with pytest.raises(ActionNotSupportedError, match="Invoke"):
+        with pytest.raises(ActionNotSupportedError, match="no InvokePattern"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
 
     def test_click_invoke_exception_raises(self, backend: WindowsBackend) -> None:
@@ -289,6 +291,116 @@ class TestPerformActionClick:
 
         with pytest.raises(ActionNotSupportedError, match="Invoke failed"):
             backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
+
+
+# ---------------------------------------------------------------------------
+# perform_action: CLICK coordinate-based fallback (GW-119)
+# ---------------------------------------------------------------------------
+
+
+class TestPerformActionClickFallback:
+    """Verify CLICK falls back to coordinate-based click when InvokePattern absent."""
+
+    def test_click_fallback_uses_coordinates(self, backend: WindowsBackend) -> None:
+        """CLICK must fall back to coordinate click when InvokePattern is None."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+        # Set up bounding rectangle
+        mock_rect = MagicMock()
+        mock_rect.left = 100
+        mock_rect.top = 200
+        mock_rect.width = 80
+        mock_rect.height = 40
+        mock_element.CurrentBoundingRectangle = mock_rect
+
+        with patch.object(WindowsBackend, "_click_at_coordinates") as mock_click:
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
+            mock_click.assert_called_once_with(140, 220)  # center of 100,200,80,40
+
+    def test_click_fallback_no_bounds_raises(self, backend: WindowsBackend) -> None:
+        """CLICK must raise when InvokePattern absent and bounds are None."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+        mock_element.CurrentBoundingRectangle = None
+
+        with pytest.raises(ActionNotSupportedError, match="no InvokePattern"):
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
+
+    def test_click_fallback_zero_size_bounds_raises(self, backend: WindowsBackend) -> None:
+        """CLICK must raise when InvokePattern absent and bounds have zero size."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+        mock_rect = MagicMock()
+        mock_rect.left = 100
+        mock_rect.top = 200
+        mock_rect.width = 0
+        mock_rect.height = 0
+        mock_element.CurrentBoundingRectangle = mock_rect
+
+        with pytest.raises(ActionNotSupportedError, match="no InvokePattern"):
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
+
+    def test_click_invoke_preferred_over_coordinates(self, backend: WindowsBackend) -> None:
+        """CLICK must use InvokePattern when available, not coordinates."""
+        mock_pattern = MagicMock()
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = mock_pattern
+
+        with patch.object(WindowsBackend, "_click_at_coordinates") as mock_click:
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.CLICK)
+            mock_pattern.Invoke.assert_called_once()
+            mock_click.assert_not_called()
+
+    def test_click_at_coordinates_sends_mouse_events(self) -> None:
+        """_click_at_coordinates must send move, down, and up mouse events."""
+        mock_user32 = MagicMock()
+        mock_user32.GetSystemMetrics.side_effect = [1920, 1080]
+        mock_input = MagicMock()
+
+        with (
+            patch("ctypes.windll.user32", mock_user32),
+            patch("ctypes.sizeof", return_value=40),
+            patch("ctypes.byref", side_effect=lambda x: x),
+            patch(
+                "guidewire.backends.windows._get_sendinput_structs",
+                return_value={"INPUT": mock_input},
+            ),
+        ):
+            WindowsBackend._click_at_coordinates(960, 540)
+
+        # 3 SendInput calls: move, down, up
+        assert mock_user32.SendInput.call_count == 3
+
+    def test_get_element_center_computes_center(self, backend: WindowsBackend) -> None:
+        """_get_element_center must return the center of the bounding rectangle."""
+        mock_element = MagicMock()
+        mock_rect = MagicMock()
+        mock_rect.left = 100
+        mock_rect.top = 200
+        mock_rect.width = 80
+        mock_rect.height = 40
+        mock_element.CurrentBoundingRectangle = mock_rect
+
+        result = backend._get_element_center(mock_element)
+        assert result == (140, 220)
+
+    def test_get_element_center_no_bounds_returns_none(self, backend: WindowsBackend) -> None:
+        """_get_element_center must return None when bounds are unavailable."""
+        mock_element = MagicMock()
+        mock_element.CurrentBoundingRectangle = None
+
+        result = backend._get_element_center(mock_element)
+        assert result is None
+
+    def test_get_element_center_exception_returns_none(self, backend: WindowsBackend) -> None:
+        """_get_element_center must return None on exception."""
+        mock_element = MagicMock()
+        type(mock_element).CurrentBoundingRectangle = property(
+            lambda self: (_ for _ in ()).throw(RuntimeError("COM error"))
+        )
+
+        result = backend._get_element_center(mock_element)
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +507,7 @@ class TestPerformActionGetText:
         mock_element = MagicMock()
         mock_element.GetCurrentPattern.return_value = None
         type(mock_element).CurrentName = property(
-            lambda self: (_ for _ in ()).throw(Exception("COM error"))  # noqa: B018
+            lambda self: (_ for _ in ()).throw(Exception("COM error"))
         )
 
         with pytest.raises(ActionNotSupportedError, match="GetText failed"):
@@ -789,6 +901,78 @@ class TestPerformActionType:
 
             mock_element.SetFocus.assert_called_once()
             mock_send.assert_called_once_with("abc")
+
+
+# ---------------------------------------------------------------------------
+# perform_action: TYPE coordinate-based fallback (GW-119)
+# ---------------------------------------------------------------------------
+
+
+class TestPerformActionTypeFallback:
+    """Verify TYPE falls back to coordinate click + SendInput when SetFocus fails."""
+
+    def test_type_coordinate_fallback_when_setfocus_fails(self, backend: WindowsBackend) -> None:
+        """TYPE must click coordinates to focus when ValuePattern and SetFocus both fail."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+        mock_element.SetFocus.side_effect = RuntimeError("SetFocus not supported")
+        # Set up bounding rectangle
+        mock_rect = MagicMock()
+        mock_rect.left = 200
+        mock_rect.top = 300
+        mock_rect.width = 100
+        mock_rect.height = 30
+        mock_element.CurrentBoundingRectangle = mock_rect
+
+        with (
+            patch.object(WindowsBackend, "_click_at_coordinates") as mock_click,
+            patch.object(WindowsBackend, "_send_text", create=True) as mock_send,
+            patch("time.sleep"),
+        ):
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.TYPE, text="hello")
+            mock_click.assert_called_once_with(250, 315)  # center
+            mock_send.assert_called_once_with("hello")
+
+    def test_type_no_fallback_when_setfocus_succeeds(self, backend: WindowsBackend) -> None:
+        """TYPE must use SetFocus path when it works, not coordinate click."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+
+        with (
+            patch.object(WindowsBackend, "_click_at_coordinates") as mock_click,
+            patch.object(WindowsBackend, "_send_text", create=True) as mock_send,
+        ):
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.TYPE, text="abc")
+            mock_element.SetFocus.assert_called_once()
+            mock_send.assert_called_once_with("abc")
+            mock_click.assert_not_called()
+
+    def test_type_all_fallbacks_fail_raises(self, backend: WindowsBackend) -> None:
+        """TYPE must raise when ValuePattern, SetFocus, and bounds all fail."""
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = None
+        mock_element.SetFocus.side_effect = RuntimeError("no focus")
+        mock_element.CurrentBoundingRectangle = None
+
+        with pytest.raises(ActionNotSupportedError, match="no ValuePattern"):
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.TYPE, text="x")
+
+    def test_type_value_pattern_preferred_over_all_fallbacks(self, backend: WindowsBackend) -> None:
+        """TYPE must use ValuePattern when available, not SetFocus or coordinates."""
+        mock_pattern = MagicMock()
+        mock_pattern.CurrentValue = "old"
+        mock_element = MagicMock()
+        mock_element.GetCurrentPattern.return_value = mock_pattern
+
+        with (
+            patch.object(WindowsBackend, "_click_at_coordinates") as mock_click,
+            patch.object(WindowsBackend, "_send_text", create=True) as mock_send,
+        ):
+            backend.perform_action(NativeHandle(mock_element), DesktopAction.TYPE, text="new")
+            mock_pattern.SetValue.assert_called_once_with("oldnew")
+            mock_element.SetFocus.assert_not_called()
+            mock_send.assert_not_called()
+            mock_click.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
