@@ -34,6 +34,8 @@ Tool set (architecture v2 §3.1):
     desktop.web_list_tabs  — list browser tabs via CDP Target domain (GW-124)
     desktop.web_tab_action — perform actions on browser tabs (GW-124)
     desktop.web_frame_tree — inspect iframe hierarchy (GW-124)
+    desktop.web_wait_for   — async auto-wait for web page conditions (GW-125)
+    desktop.web_screenshot — capture web page screenshots (GW-125)
 """
 
 import importlib
@@ -78,6 +80,8 @@ _TOOL_MODULES = [
     ".web_list_tabs",
     ".web_tab_action",
     ".web_frame_tree",
+    ".web_wait_for",
+    ".web_screenshot",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.

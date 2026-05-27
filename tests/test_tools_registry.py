@@ -42,6 +42,8 @@ EXPECTED_TOOL_NAMES = [
     "desktop.web_list_tabs",
     "desktop.web_tab_action",
     "desktop.web_frame_tree",
+    "desktop.web_wait_for",
+    "desktop.web_screenshot",
 ]
 
 

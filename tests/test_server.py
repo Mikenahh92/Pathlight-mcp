@@ -231,6 +231,21 @@ EXPECTED_TOOLS = [
         "required_params": [],
         "optional_params": ["window_ref", "target_id"],
     },
+    {
+        "name": "desktop.web_wait_for",
+        "description_pattern": "wait until a web page condition",
+        "required_params": ["window_ref", "condition"],
+        "optional_params": ["timeout_ms", "poll_interval_ms"],
+    },
+    {
+        "name": "desktop.web_screenshot",
+        "description_pattern": "screenshot",
+        "required_params": ["window_ref"],
+        "optional_params": [
+            "mode", "format", "quality", "selector", "element_ref",
+            "timeout_ms", "max_size_kb",
+        ],
+    },
 ]
 
 

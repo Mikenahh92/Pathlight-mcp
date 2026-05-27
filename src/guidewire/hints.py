@@ -95,6 +95,26 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "For multiple file uploads, ensure the input element has the 'multiple' attribute",
         "The browser page may have navigated away — reconnect with web_connect",
     ],
+    "web_wait_for_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "Check that the condition type and parameters are valid",
+        "The page may be loading slowly — try increasing the timeout_ms",
+        "For selector-based conditions, verify the CSS selector is correct",
+        "The browser page may have navigated away — reconnect with web_connect",
+    ],
+    "web_screenshot_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "The page may still be loading — try web_wait_for first",
+        "For element mode, verify the CSS selector matches a visible element",
+        "If the screenshot is too large, try jpeg format with lower quality",
+        "The browser page may have navigated away — reconnect with web_connect",
+    ],
+    "screenshot_too_large": [
+        "Use jpeg format with lower quality to reduce file size",
+        "Use viewport mode instead of fullpage",
+        "Capture a specific element instead of the full page",
+        "Increase max_size_kb to allow larger screenshots",
+    ],
 }
 
 

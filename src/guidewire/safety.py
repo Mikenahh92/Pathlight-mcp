@@ -263,6 +263,8 @@ SystemAction = Literal[
     "web_list_tabs",
     "web_tab_action",
     "web_frame_tree",
+    "web_wait_for",
+    "web_screenshot",
 ]
 
 # ---------------------------------------------------------------------------
@@ -292,6 +294,8 @@ SYSTEM_ACTION_RISK_MAP: dict[SystemAction, RiskLevel] = {
     "web_list_tabs": "READ_ONLY",
     "web_tab_action": "SENSITIVE",
     "web_frame_tree": "READ_ONLY",
+    "web_wait_for": "READ_ONLY",
+    "web_screenshot": "READ_ONLY",
 }
 
 
@@ -386,6 +390,7 @@ CDP_METHOD_ALLOWLIST: frozenset[str] = frozenset(
         "Page.getFrameTree",
         "Page.getNavigationHistory",
         "Page.captureScreenshot",
+        "Page.getLayoutMetrics",
         "Page.reload",
         # Runtime domain (limited)
         "Runtime.evaluate",

@@ -1130,6 +1130,8 @@ class TestSystemActionType:
             "web_list_tabs",
             "web_tab_action",
             "web_frame_tree",
+            "web_wait_for",
+            "web_screenshot",
         }
         assert args == expected
 
@@ -1137,7 +1139,7 @@ class TestSystemActionType:
         import typing
 
         args = typing.get_args(SystemAction)
-        assert len(args) == 22
+        assert len(args) == 24
 
 
 # ---------------------------------------------------------------------------
@@ -1361,7 +1363,7 @@ class TestSystemActionRiskMapCompleteness:
             assert action in SYSTEM_ACTION_RISK_MAP, f"{action} missing from SYSTEM_ACTION_RISK_MAP"
 
     def test_entry_count(self) -> None:
-        assert len(SYSTEM_ACTION_RISK_MAP) == 22
+        assert len(SYSTEM_ACTION_RISK_MAP) == 24
 
     def test_values_are_valid_risk_levels(self) -> None:
         for value in SYSTEM_ACTION_RISK_MAP.values():
@@ -1377,7 +1379,7 @@ class TestSystemActionRiskMapCompleteness:
 
     def test_read_only_count(self) -> None:
         read_only = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "READ_ONLY"]
-        assert len(read_only) == 4
+        assert len(read_only) == 6
 
 
 # ---------------------------------------------------------------------------
