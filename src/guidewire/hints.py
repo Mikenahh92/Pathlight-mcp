@@ -67,6 +67,20 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Avoid expressions that access or modify sensitive data (cookies, tokens, passwords)",
         "The browser page may have navigated away — reconnect with web_connect",
     ],
+    "web_element_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "Check that the CSS selector is valid and matches an element on the page",
+        "The element may not be visible or interactable — try snapshot to inspect the page",
+        "The page may have changed since the last snapshot — take a new snapshot",
+        "Use a more specific selector if multiple elements match",
+    ],
+    "selector_timeout": [
+        "The element was not found within the timeout — the page may still be loading",
+        "Check the CSS selector for typos or incorrect specificity",
+        "Try increasing the timeout_ms parameter",
+        "The element may be inside an iframe — selectors only match in the main frame",
+        "Use snapshot to inspect the current page structure and available elements",
+    ],
     "web_select_option_error": [
         "Ensure web_connect was called first to establish a browser connection",
         "Verify the target element is a <select> dropdown",
@@ -79,12 +93,6 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Verify the target element is an <input type='file'> element",
         "Check that the file paths are absolute and the files exist on disk",
         "For multiple file uploads, ensure the input element has the 'multiple' attribute",
-        "The browser page may have navigated away — reconnect with web_connect",
-    ],
-    "web_type_slowly_error": [
-        "Ensure web_connect was called first to establish a browser connection",
-        "The slowly parameter only works with web elements — use snapshot to verify",
-        "The element may not be focusable — try clicking it first",
         "The browser page may have navigated away — reconnect with web_connect",
     ],
 }

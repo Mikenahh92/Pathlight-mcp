@@ -1167,8 +1167,9 @@ class WebBackend(DesktopBackend):
     def _action_click(self, node: AXNode, dom: DOMDomain, inp: InputDomain, **kwargs: Any) -> None:
         """Click an element at its center coordinates.
 
-        Resolves the element bounds (from AX node, cache, or DOM box model)
-        and dispatches a mouse press/release at the center point.
+        Resolves the element bounds (from AX node, cache, or DOM box model),
+        scrolls the element into view if it has a backend DOM node, and
+        dispatches a mouse press/release at the center point.
 
         Supports double-click via ``click_count=2`` kwarg.
 
@@ -1181,6 +1182,17 @@ class WebBackend(DesktopBackend):
         Raises:
             ActionNotSupportedError: If bounds cannot be determined.
         """
+        # Scroll into view before resolving bounds (T5 fix)
+        if node.backend_dom_node_id is not None:
+            try:
+                dom.scroll_into_view_if_needed(backend_node_id=node.backend_dom_node_id)
+            except Exception:
+                logger.debug(
+                    "scrollIntoViewIfNeeded failed before click on node %s",
+                    node.node_id,
+                    exc_info=True,
+                )
+
         bounds = self._resolve_bounds(node, dom)
 
         if bounds is None:

@@ -1122,6 +1122,9 @@ class TestSystemActionType:
             "web_navigate",
             "web_evaluate",
             "web_inspect",
+            "web_click",
+            "web_type",
+            "web_hover",
             "web_select_option",
             "web_upload_files",
         }
@@ -1131,7 +1134,7 @@ class TestSystemActionType:
         import typing
 
         args = typing.get_args(SystemAction)
-        assert len(args) == 16
+        assert len(args) == 19
 
 
 # ---------------------------------------------------------------------------
@@ -1355,7 +1358,7 @@ class TestSystemActionRiskMapCompleteness:
             assert action in SYSTEM_ACTION_RISK_MAP, f"{action} missing from SYSTEM_ACTION_RISK_MAP"
 
     def test_entry_count(self) -> None:
-        assert len(SYSTEM_ACTION_RISK_MAP) == 16
+        assert len(SYSTEM_ACTION_RISK_MAP) == 19
 
     def test_values_are_valid_risk_levels(self) -> None:
         for value in SYSTEM_ACTION_RISK_MAP.values():
@@ -1367,7 +1370,7 @@ class TestSystemActionRiskMapCompleteness:
 
     def test_interaction_count(self) -> None:
         interaction = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "INTERACTION"]
-        assert len(interaction) == 5
+        assert len(interaction) == 8
 
     def test_read_only_count(self) -> None:
         read_only = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "READ_ONLY"]

@@ -26,6 +26,9 @@ Tool set (architecture v2 §3.1):
     desktop.web_connect    — connect to a browser's CDP debug port (GW-098)
     desktop.web_navigate   — navigate a browser page to a URL (GW-098)
     desktop.web_evaluate   — execute JavaScript in a browser page context (GW-099)
+    desktop.web_click      — click a web page element by CSS selector (GW-122)
+    desktop.web_type       — type text into a web page element by CSS selector (GW-122)
+    desktop.web_hover      — hover over a web page element by CSS selector (GW-122)
     desktop.web_select_option — select an option in a web dropdown (GW-123)
     desktop.web_upload_files  — upload files to a web file input element (GW-123)
 """
@@ -64,6 +67,9 @@ _TOOL_MODULES = [
     ".web_connect",
     ".web_navigate",
     ".web_evaluate",
+    ".web_click",
+    ".web_type",
+    ".web_hover",
     ".web_select_option",
     ".web_upload_files",
 ]

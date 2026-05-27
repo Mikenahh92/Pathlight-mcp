@@ -279,11 +279,11 @@ class TestWebConnectWired:
 class TestWebNavigateStub:
     """web_navigate in stub mode (no backend)."""
 
-    def test_stub_returns_navigate_message(self, stub_mcp: FastMCP) -> None:
+    async def test_stub_returns_navigate_message(self, stub_mcp: FastMCP) -> None:
         """In stub mode, web_navigate returns a plain text message."""
         tools = stub_mcp._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
-        result = web_navigate.fn(window_ref="w1", url="https://example.com")
+        result = await web_navigate.fn(window_ref="w1", url="https://example.com")
         assert "Navigated w1 to https://example.com" in result
 
 
@@ -312,7 +312,7 @@ class TestWebNavigateWired:
         assert result["success"] is True
         return mock_web, result["pages"][0]["ref"]
 
-    def test_navigates_to_url(
+    async def test_navigates_to_url(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ) -> None:
         """web_navigate navigates a page to a URL and returns success."""
@@ -340,7 +340,7 @@ class TestWebNavigateWired:
             )
         ]
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref=window_ref, url="https://example.com", timeout=0
         )
         result = json.loads(result_json)
@@ -349,7 +349,7 @@ class TestWebNavigateWired:
         assert result["risk"] == "sensitive"
         assert result["confirmation_required"] is True
 
-    def test_returns_sensitive_risk_metadata(
+    async def test_returns_sensitive_risk_metadata(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ) -> None:
         """web_navigate response includes SENSITIVE-tier risk metadata."""
@@ -369,56 +369,56 @@ class TestWebNavigateWired:
         mock_web._browser = MagicMock()
         mock_web._browser.list_targets.return_value = []
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref=window_ref, url="https://example.com", timeout=0
         )
         result = json.loads(result_json)
         assert result["risk"] == "sensitive"
         assert result["confirmation_required"] is True
 
-    def test_validation_empty_window_ref(self, mcp_router: FastMCP) -> None:
+    async def test_validation_empty_window_ref(self, mcp_router: FastMCP) -> None:
         """web_navigate returns validation error for empty window_ref."""
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = web_navigate.fn(window_ref="", url="https://example.com")
+        result_json = await web_navigate.fn(window_ref="", url="https://example.com")
         result = json.loads(result_json)
         assert result["error"] == "validation_error"
 
-    def test_validation_empty_url(self, mcp_router: FastMCP) -> None:
+    async def test_validation_empty_url(self, mcp_router: FastMCP) -> None:
         """web_navigate returns validation error for empty URL."""
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = web_navigate.fn(window_ref="w1", url="")
+        result_json = await web_navigate.fn(window_ref="w1", url="")
         result = json.loads(result_json)
         assert result["error"] == "validation_error"
 
-    def test_validation_negative_timeout(self, mcp_router: FastMCP) -> None:
+    async def test_validation_negative_timeout(self, mcp_router: FastMCP) -> None:
         """web_navigate returns validation error for negative timeout."""
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref="w1", url="https://example.com", timeout=-1
         )
         result = json.loads(result_json)
         assert result["error"] == "validation_error"
 
-    def test_no_web_connection_error(self, mcp_router: FastMCP) -> None:
+    async def test_no_web_connection_error(self, mcp_router: FastMCP) -> None:
         """web_navigate returns error when no web backend is connected."""
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
         # Router has no web backend
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref="w1", url="https://example.com"
         )
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
         assert "web_connect" in result["message"]
 
-    def test_invalid_window_ref_error(
+    async def test_invalid_window_ref_error(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ) -> None:
         """web_navigate returns error for unknown window reference."""
@@ -428,14 +428,14 @@ class TestWebNavigateWired:
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref="w999", url="https://example.com"
         )
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
         assert "not found" in result["message"].lower()
 
-    def test_non_web_window_ref_error(
+    async def test_non_web_window_ref_error(
         self, mcp_router: FastMCP, ref_store: ElementRefStore,
         native_backend: MockBackend,
     ) -> None:
@@ -452,25 +452,25 @@ class TestWebNavigateWired:
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref=native_ref, url="https://example.com"
         )
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
         assert "not a web window" in result["message"]
 
-    def test_no_router_error(self, mcp_no_router: FastMCP) -> None:
+    async def test_no_router_error(self, mcp_no_router: FastMCP) -> None:
         """web_navigate returns error when backend is not a BackendRouter."""
         tools = mcp_no_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref="w1", url="https://example.com"
         )
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
 
-    def test_navigation_failure(
+    async def test_navigation_failure(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ) -> None:
         """web_navigate returns error when Page.navigate fails."""
@@ -485,14 +485,14 @@ class TestWebNavigateWired:
         mock_session.send_command.side_effect = Exception("Network error")
         mock_web._get_or_create_session.return_value = mock_session
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref=window_ref, url="https://example.com", timeout=0
         )
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
         assert "Network error" in result["message"]
 
-    def test_session_creation_failure(
+    async def test_session_creation_failure(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ) -> None:
         """web_navigate returns error when session creation fails."""
@@ -503,7 +503,7 @@ class TestWebNavigateWired:
 
         mock_web._get_or_create_session.side_effect = Exception("Target not found")
 
-        result_json = web_navigate.fn(
+        result_json = await web_navigate.fn(
             window_ref=window_ref, url="https://example.com", timeout=0
         )
         result = json.loads(result_json)

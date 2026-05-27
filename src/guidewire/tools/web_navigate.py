@@ -18,6 +18,7 @@ Tool-layer only — no ABC changes.  Relies on the existing
 :class:`~guidewire.cdp.domains.page.PageDomain` for navigation.
 """
 
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -59,7 +60,7 @@ def register(
     """
 
     @mcp.tool(name="desktop.web_navigate")
-    def web_navigate(
+    async def web_navigate(
         window_ref: str,
         url: str,
         timeout: float = _DEFAULT_TIMEOUT,
@@ -202,7 +203,7 @@ def register(
         final_url = url
         title = ""
         if timeout > 0:
-            final_url, title = _wait_for_load(web, target.id, timeout, frame_id)
+            final_url, title = await _wait_for_load(web, target.id, timeout, frame_id)
         else:
             # Try to get current title without waiting
             try:
@@ -259,16 +260,19 @@ def _extract_target(handle: object) -> CDPTarget | None:
     return None
 
 
-def _wait_for_load(
+async def _wait_for_load(
     web_backend: WebBackend,
     target_id: str,
     timeout: float,
     expected_frame_id: str,
 ) -> tuple[str, str]:
-    """Poll the browser for page load completion.
+    """Poll the browser for page load completion using async sleep.
 
     Checks the target list for an updated URL and title, polling at a
     short interval until the timeout expires.
+
+    Uses ``asyncio.sleep`` instead of ``time.sleep`` to avoid blocking
+    the MCP event loop (Architecture §3.2).
 
     Args:
         web_backend: Connected :class:`WebBackend`.
@@ -288,7 +292,7 @@ def _wait_for_load(
     title = ""
 
     while time.monotonic() < deadline:
-        time.sleep(poll_interval)
+        await asyncio.sleep(poll_interval)
         try:
             targets = web_backend._browser.list_targets(target_type="page")
             for t in targets:

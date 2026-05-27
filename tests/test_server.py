@@ -182,6 +182,24 @@ EXPECTED_TOOLS = [
         "optional_params": ["timeout", "await_promise"],
     },
     {
+        "name": "desktop.web_click",
+        "description_pattern": "Click a web page element",
+        "required_params": ["window_ref"],
+        "optional_params": ["selector", "element_ref", "timeout_ms", "click_count"],
+    },
+    {
+        "name": "desktop.web_type",
+        "description_pattern": "Type text into a web page element",
+        "required_params": ["window_ref", "text"],
+        "optional_params": ["selector", "element_ref", "timeout_ms", "clear"],
+    },
+    {
+        "name": "desktop.web_hover",
+        "description_pattern": "Hover over a web page element",
+        "required_params": ["window_ref"],
+        "optional_params": ["selector", "element_ref", "timeout_ms"],
+    },
+    {
         "name": "desktop.web_select_option",
         "description_pattern": "Select an option in a web dropdown",
         "required_params": ["window_ref"],
