@@ -34,6 +34,8 @@ EXPECTED_TOOL_NAMES = [
     "desktop.web_connect",
     "desktop.web_navigate",
     "desktop.web_evaluate",
+    "desktop.web_select_option",
+    "desktop.web_upload_files",
 ]
 
 

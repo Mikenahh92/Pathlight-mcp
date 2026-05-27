@@ -101,7 +101,7 @@ EXPECTED_TOOLS = [
         "name": "desktop.type_text",
         "description_pattern": "Type text into a desktop element",
         "required_params": ["element_ref", "text"],
-        "optional_params": [],
+        "optional_params": ["slowly"],
     },
     {
         "name": "desktop.press_key",
@@ -180,6 +180,20 @@ EXPECTED_TOOLS = [
         "description_pattern": "Execute JavaScript in a connected browser",
         "required_params": ["window_ref", "expression"],
         "optional_params": ["timeout", "await_promise"],
+    },
+    {
+        "name": "desktop.web_select_option",
+        "description_pattern": "Select an option in a web dropdown",
+        "required_params": ["window_ref"],
+        "optional_params": [
+            "element_ref", "selector", "value", "label", "index",
+        ],
+    },
+    {
+        "name": "desktop.web_upload_files",
+        "description_pattern": "Upload files to a web file input",
+        "required_params": ["window_ref", "file_paths"],
+        "optional_params": ["element_ref", "selector"],
     },
 ]
 

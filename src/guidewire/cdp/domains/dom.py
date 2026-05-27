@@ -11,6 +11,7 @@ Key methods:
     - :meth:`query_selector` / :meth:`query_selector_all` — CSS selector queries
     - :meth:`get_box_model` — element box model
     - :meth:`focus` / :meth:`scroll_into_view` — interaction helpers
+    - :meth:`set_file_input_files` — set files on an ``<input type="file">``
 """
 
 from __future__ import annotations
@@ -270,3 +271,26 @@ class DOMDomain(CDPDomain):
 
         result = self._send(self._method("resolveNode"), params)
         return result.get("object", {})
+
+    def set_file_input_files(
+        self,
+        *,
+        backend_node_id: int,
+        files: list[str],
+    ) -> None:
+        """Set file paths on a file input element.
+
+        Sends ``DOM.setFileInputFiles`` to assign the given file paths
+        to an ``<input type="file">`` element identified by its backend
+        DOM node ID.  The browser will populate the file input with the
+        specified files.
+
+        Args:
+            backend_node_id: Backend DOM node ID of the file input element.
+            files: List of absolute file paths to set on the input.
+        """
+        params: dict[str, Any] = {
+            "backendNodeId": backend_node_id,
+            "files": files,
+        }
+        self._send(self._method("setFileInputFiles"), params)

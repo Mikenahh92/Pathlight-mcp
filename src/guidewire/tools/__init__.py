@@ -26,6 +26,8 @@ Tool set (architecture v2 §3.1):
     desktop.web_connect    — connect to a browser's CDP debug port (GW-098)
     desktop.web_navigate   — navigate a browser page to a URL (GW-098)
     desktop.web_evaluate   — execute JavaScript in a browser page context (GW-099)
+    desktop.web_select_option — select an option in a web dropdown (GW-123)
+    desktop.web_upload_files  — upload files to a web file input element (GW-123)
 """
 
 import importlib
@@ -62,6 +64,8 @@ _TOOL_MODULES = [
     ".web_connect",
     ".web_navigate",
     ".web_evaluate",
+    ".web_select_option",
+    ".web_upload_files",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.

@@ -67,6 +67,26 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Avoid expressions that access or modify sensitive data (cookies, tokens, passwords)",
         "The browser page may have navigated away — reconnect with web_connect",
     ],
+    "web_select_option_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "Verify the target element is a <select> dropdown",
+        "Check that the value, label, or index matches an available option",
+        "Use snapshot to inspect the page and find the correct select element",
+        "The browser page may have navigated away — reconnect with web_connect",
+    ],
+    "web_upload_files_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "Verify the target element is an <input type='file'> element",
+        "Check that the file paths are absolute and the files exist on disk",
+        "For multiple file uploads, ensure the input element has the 'multiple' attribute",
+        "The browser page may have navigated away — reconnect with web_connect",
+    ],
+    "web_type_slowly_error": [
+        "Ensure web_connect was called first to establish a browser connection",
+        "The slowly parameter only works with web elements — use snapshot to verify",
+        "The element may not be focusable — try clicking it first",
+        "The browser page may have navigated away — reconnect with web_connect",
+    ],
 }
 
 

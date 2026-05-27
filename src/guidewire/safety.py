@@ -255,6 +255,8 @@ SystemAction = Literal[
     "web_navigate",
     "web_evaluate",
     "web_inspect",
+    "web_select_option",
+    "web_upload_files",
 ]
 
 # ---------------------------------------------------------------------------
@@ -276,6 +278,8 @@ SYSTEM_ACTION_RISK_MAP: dict[SystemAction, RiskLevel] = {
     "web_navigate": "SENSITIVE",
     "web_evaluate": "SENSITIVE",
     "web_inspect": "SENSITIVE",
+    "web_select_option": "INTERACTION",
+    "web_upload_files": "SENSITIVE",
 }
 
 
@@ -358,6 +362,7 @@ CDP_METHOD_ALLOWLIST: frozenset[str] = frozenset(
         "DOM.querySelector",
         "DOM.querySelectorAll",
         "DOM.resolveNode",
+        "DOM.setFileInputFiles",
         # Input domain
         "Input.dispatchMouseEvent",
         "Input.dispatchKeyEvent",
