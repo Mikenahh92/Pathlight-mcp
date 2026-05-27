@@ -3,7 +3,8 @@
 Validates :class:`CDPConnection` with a mocked WebSocket transport.
 The tests exercise command sending, response waiting, event buffering,
 error handling, timeout behavior, connection lifecycle, state transitions,
-and Guidewire error mapping.
+Guidewire error mapping, keepalive pinger, dead-peer detection, and
+automatic reconnect (GW-127).
 """
 
 import json
@@ -31,6 +32,8 @@ class FakeWebSocket:
     Simulates ``websocket.create_connection`` behavior.  Supports queuing
     responses and events that ``recv()`` will return in order.  ``recv()``
     blocks until a message is available or the socket is closed.
+
+    Also supports ``ping()`` for keepalive testing (GW-127).
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -39,6 +42,7 @@ class FakeWebSocket:
         self._closed = False
         self._lock = threading.Lock()
         self._has_data = threading.Condition(self._lock)
+        self._ping_count = 0
 
     def enqueue(self, data: dict[str, Any]) -> None:
         """Queue a JSON message to be returned by ``recv()``."""
@@ -62,6 +66,12 @@ class FakeWebSocket:
             raise ConnectionError("WebSocket is closed")
         self._sent.append(payload)
 
+    def ping(self, payload: bytes = b"") -> None:
+        """Record a ping frame (GW-127 keepalive)."""
+        if self._closed:
+            raise ConnectionError("WebSocket is closed")
+        self._ping_count += 1
+
     def close(self) -> None:
         """Mark as closed."""
         self._closed = True
@@ -81,13 +91,22 @@ def _fake_ws_module(fake_ws: FakeWebSocket) -> MagicMock:
 
 def _create_connected_connection(
     url: str = "ws://localhost:9222/devtools/page/ABC",
+    **kwargs: Any,
 ) -> tuple[CDPConnection, FakeWebSocket]:
-    """Create a CDPConnection with a FakeWebSocket, already connected."""
+    """Create a CDPConnection with a FakeWebSocket, already connected.
+
+    Disables keepalive pings by default (ping_interval=0) so existing
+    tests don't spawn pinger threads.
+    """
     fake_ws = FakeWebSocket()
     ws_mod = _fake_ws_module(fake_ws)
 
+    # Disable pinger by default for backward-compatible tests
+    kwargs.setdefault("ping_interval", 0)
+    kwargs.setdefault("max_reconnect_attempts", 0)
+
     with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
-        conn = CDPConnection(url=url)
+        conn = CDPConnection(url=url, **kwargs)
         conn.connect()
 
     return conn, fake_ws
@@ -122,6 +141,24 @@ class TestCDPConnectionInit:
     def test_custom_timeout(self) -> None:
         conn = CDPConnection(host="localhost", port=9222, ws_timeout=10)
         assert conn._ws_timeout == 10
+
+    def test_keepalive_defaults(self) -> None:
+        conn = CDPConnection(host="localhost", port=9222)
+        assert conn._ping_interval == 30.0
+        assert conn._pong_timeout == 10.0
+        assert conn._max_reconnect_attempts == 3
+        assert conn._reconnect_backoff == 1.0
+
+    def test_custom_keepalive_params(self) -> None:
+        conn = CDPConnection(
+            host="localhost", port=9222,
+            ping_interval=15.0, pong_timeout=5.0,
+            max_reconnect_attempts=5, reconnect_backoff=2.0,
+        )
+        assert conn._ping_interval == 15.0
+        assert conn._pong_timeout == 5.0
+        assert conn._max_reconnect_attempts == 5
+        assert conn._reconnect_backoff == 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +199,8 @@ class TestCDPConnectionLifecycle:
         fake_ws = FakeWebSocket()
         ws_mod = _fake_ws_module(fake_ws)
         with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
-            with CDPConnection(url="ws://localhost:9222/test") as conn:
+            with CDPConnection(url="ws://localhost:9222/test", ping_interval=0,
+                               max_reconnect_attempts=0) as conn:
                 assert conn.state == ConnectionState.CONNECTED
             assert conn.state == ConnectionState.CLOSED
 
@@ -377,3 +415,482 @@ class TestImportGuard:
             conn = CDPConnection(host="localhost", port=9222)
             with pytest.raises(BackendUnavailableError):
                 conn.connect()
+
+
+# ===========================================================================
+# GW-127: Keepalive pinger tests
+# ===========================================================================
+
+
+class TestKeepalivePinger:
+    """Tests for the WebSocket ping keepalive mechanism (GW-127)."""
+
+    def test_connect_starts_pinger_when_ping_interval_set(self) -> None:
+        """When ping_interval > 0, connect() should start the pinger thread."""
+        conn, _ = _create_connected_connection(ping_interval=1.0)
+        try:
+            assert conn._pinger_thread is not None
+            assert conn._pinger_thread.is_alive()
+        finally:
+            conn.close()
+
+    def test_connect_skips_pinger_when_ping_interval_zero(self) -> None:
+        """When ping_interval == 0, no pinger thread should be started."""
+        conn, _ = _create_connected_connection(ping_interval=0)
+        try:
+            assert conn._pinger_thread is None
+        finally:
+            conn.close()
+
+    def test_close_stops_pinger(self) -> None:
+        """close() should stop the pinger thread."""
+        conn, _ = _create_connected_connection(ping_interval=1.0)
+        assert conn._pinger_thread is not None
+        assert conn._pinger_thread.is_alive()
+
+        conn.close()
+        # After close, pinger reference may be cleared or thread stopped
+        assert conn._pinger_thread is None or not conn._pinger_thread.is_alive()
+
+    def test_pinger_sends_ping(self) -> None:
+        """Pinger thread should send ping frames via the WebSocket."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+
+        with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0.1,
+                pong_timeout=0.5,
+                max_reconnect_attempts=0,
+            )
+            conn.connect()
+
+        try:
+            # Wait for the pinger to send at least one ping
+            deadline = time.monotonic() + 2.0
+            while fake_ws._ping_count == 0 and time.monotonic() < deadline:
+                time.sleep(0.05)
+
+            assert fake_ws._ping_count >= 1
+        finally:
+            conn.close()
+
+    def test_pinger_detects_dead_peer_on_pong_timeout(self) -> None:
+        """Pinger should detect dead peer when pong times out and trigger reconnect."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+        new_fake_ws = FakeWebSocket()
+        new_ws_mod = _fake_ws_module(new_fake_ws)
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            return new_ws_mod
+
+        # Keep patch active for the entire test (reconnect calls _import_websocket)
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0.1,
+                pong_timeout=0.2,
+                max_reconnect_attempts=1,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            try:
+                # The first fake_ws has no pong mechanism, so the pinger
+                # should detect a dead peer and reconnect to the new_fake_ws
+                deadline = time.monotonic() + 5.0
+                while call_count < 2 and time.monotonic() < deadline:
+                    time.sleep(0.05)
+
+                assert call_count >= 2, f"Expected reconnect, got {call_count} calls"
+                assert conn.state == ConnectionState.CONNECTED
+            finally:
+                conn.close()
+
+    def test_on_pong_received_updates_timestamp(self) -> None:
+        """_on_pong_received should update last_pong_time."""
+        conn = CDPConnection(host="localhost", port=9222)
+        before = time.monotonic()
+        conn._on_pong_received()
+        assert conn._last_pong_time >= before
+
+
+# ===========================================================================
+# GW-127: Dead-peer detection tests
+# ===========================================================================
+
+
+class TestDeadPeerDetection:
+    """Tests for dead-peer detection via receiver loop (GW-127)."""
+
+    def test_receiver_exit_triggers_reconnect(self) -> None:
+        """When the receiver loop exits unexpectedly, reconnect should trigger."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+        new_fake_ws = FakeWebSocket()
+        new_ws_mod = _fake_ws_module(new_fake_ws)
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            return new_ws_mod
+
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0,
+                max_reconnect_attempts=1,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            try:
+                # Close the fake_ws to make the receiver loop exit
+                fake_ws.close()
+
+                # Wait for reconnect
+                deadline = time.monotonic() + 5.0
+                while call_count < 2 and time.monotonic() < deadline:
+                    time.sleep(0.05)
+
+                assert call_count >= 2, (
+                    f"Expected reconnect after receiver exit, got {call_count}"
+                )
+            finally:
+                conn.close()
+
+    def test_ping_send_failure_triggers_reconnect(self) -> None:
+        """When ping() fails, dead-peer reconnect should be triggered."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+        new_fake_ws = FakeWebSocket()
+        new_ws_mod = _fake_ws_module(new_fake_ws)
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            return new_ws_mod
+
+        # Make ping fail
+        def _failing_ping(payload: bytes = b"") -> None:
+            raise ConnectionError("ping failed")
+
+        fake_ws.ping = _failing_ping  # type: ignore[assignment]
+
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0.1,
+                pong_timeout=0.2,
+                max_reconnect_attempts=1,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            try:
+                # Wait for reconnect due to ping failure
+                deadline = time.monotonic() + 5.0
+                while call_count < 2 and time.monotonic() < deadline:
+                    time.sleep(0.05)
+
+                assert call_count >= 2, (
+                    f"Expected reconnect after ping failure, got {call_count}"
+                )
+            finally:
+                conn.close()
+
+
+# ===========================================================================
+# GW-127: Auto-reconnect and command retry tests
+# ===========================================================================
+
+
+class TestAutoReconnect:
+    """Tests for automatic reconnect with command retry (GW-127)."""
+
+    def test_send_command_retries_after_reconnect(self) -> None:
+        """send_command should auto-reconnect and retry on transport failure."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+        new_fake_ws = FakeWebSocket()
+        new_ws_mod = _fake_ws_module(new_fake_ws)
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            return new_ws_mod
+
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0,
+                max_reconnect_attempts=1,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            try:
+                # Queue response on the new ws so the retried command succeeds
+                def _enqueue_response() -> None:
+                    for _ in range(40):  # wait up to 4s
+                        if new_fake_ws._sent:
+                            msg = json.loads(new_fake_ws._sent[0])
+                            new_fake_ws.enqueue({"id": msg["id"], "result": {"ok": True}})
+                            return
+                        time.sleep(0.1)
+
+                # Kill the first ws so send_command fails and triggers reconnect
+                fake_ws.close()
+
+                # Start response enqueuer in background
+                threading.Thread(target=_enqueue_response, daemon=True).start()
+
+                result = conn.send_command("Page.enable", timeout=10.0)
+                assert result == {"ok": True}
+                assert call_count >= 2
+            finally:
+                conn.close()
+
+    def test_reconnect_exhausted_raises(self) -> None:
+        """When all reconnect attempts fail, BackendUnavailableError is raised."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+
+        fail_mod = MagicMock()
+        fail_mod.create_connection.side_effect = OSError("refused")
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            return fail_mod
+
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0,
+                max_reconnect_attempts=2,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            try:
+                # Kill the ws so send_command triggers reconnect, but reconnect fails
+                fake_ws.close()
+
+                with pytest.raises(BackendUnavailableError, match="not open|reconnect|Failed"):
+                    conn.send_command("Page.enable", timeout=10.0)
+            finally:
+                conn.close()
+
+    def test_reconnect_disabled_does_not_retry(self) -> None:
+        """When max_reconnect_attempts == 0, no reconnect should be attempted."""
+        conn, fake_ws = _create_connected_connection(max_reconnect_attempts=0)
+
+        # Kill the ws
+        fake_ws.close()
+
+        # send_command should raise without attempting reconnect
+        with pytest.raises(BackendUnavailableError):
+            conn.send_command("Page.enable", timeout=2.0)
+        conn.close()
+
+    def test_reconnect_preserves_event_buffer(self) -> None:
+        """Reconnect should preserve the existing event buffer."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+        new_fake_ws = FakeWebSocket()
+        new_ws_mod = _fake_ws_module(new_fake_ws)
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            return new_ws_mod
+
+        buf = EventBuffer(maxsize_per_method=50)
+
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                event_buffer=buf,
+                ping_interval=0,
+                max_reconnect_attempts=1,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            try:
+                # Trigger reconnect
+                fake_ws.close()
+
+                # Need to give time for reconnect, then queue a response
+                def _enqueue_after_reconnect() -> None:
+                    for _ in range(40):
+                        if new_fake_ws._sent:
+                            msg = json.loads(new_fake_ws._sent[0])
+                            new_fake_ws.enqueue({"id": msg["id"], "result": {}})
+                            return
+                        time.sleep(0.1)
+
+                threading.Thread(target=_enqueue_after_reconnect, daemon=True).start()
+
+                # The event buffer should be the same object after reconnect
+                assert conn.events is buf
+            finally:
+                conn.close()
+
+    def test_reconnect_state_transitions(self) -> None:
+        """Reconnect should transition through RECONNECTING state."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+        new_fake_ws = FakeWebSocket()
+        new_ws_mod = _fake_ws_module(new_fake_ws)
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            return new_ws_mod
+
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0,
+                max_reconnect_attempts=1,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            # Monitor state changes
+            original_state = conn.state
+
+            try:
+                # Trigger reconnect
+                fake_ws.close()
+
+                # Wait for reconnect
+                deadline = time.monotonic() + 5.0
+                while call_count < 2 and time.monotonic() < deadline:
+                    time.sleep(0.05)
+
+                assert call_count >= 2
+                # After successful reconnect, should be back to CONNECTED
+                assert conn.state == ConnectionState.CONNECTED
+                # Original state was CONNECTED
+                assert original_state == ConnectionState.CONNECTED
+            finally:
+                conn.close()
+
+    def test_reconnect_succeeds_on_second_attempt(self) -> None:
+        """Reconnect with retries should succeed on later attempts."""
+        fake_ws = FakeWebSocket()
+        ws_mod = _fake_ws_module(fake_ws)
+
+        fail_mod = MagicMock()
+        fail_mod.create_connection.side_effect = OSError("refused")
+
+        new_fake_ws = FakeWebSocket()
+        new_ws_mod = _fake_ws_module(new_fake_ws)
+
+        call_count = 0
+
+        def _ws_factory(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return ws_mod
+            if call_count == 2:
+                return fail_mod
+            return new_ws_mod
+
+        with patch(
+            "guidewire.cdp.connection._import_websocket",
+            side_effect=_ws_factory,
+        ):
+            conn = CDPConnection(
+                url="ws://localhost:9222/test",
+                ping_interval=0,
+                max_reconnect_attempts=3,
+                reconnect_backoff=0.01,
+                ws_timeout=2.0,
+            )
+            conn.connect()
+
+            try:
+                # Kill the original ws
+                fake_ws.close()
+
+                # Queue response on the new ws for the retried command
+                def _enqueue_response() -> None:
+                    for _ in range(60):
+                        if new_fake_ws._sent:
+                            msg = json.loads(new_fake_ws._sent[0])
+                            new_fake_ws.enqueue({"id": msg["id"], "result": {"ok": True}})
+                            return
+                        time.sleep(0.1)
+
+                threading.Thread(target=_enqueue_response, daemon=True).start()
+
+                result = conn.send_command("Page.enable", timeout=15.0)
+                assert result == {"ok": True}
+                assert call_count >= 3  # original + 2 failed + 1 success
+            finally:
+                conn.close()

@@ -29,7 +29,7 @@ class TestConnectionState:
             assert isinstance(state, str)
 
     def test_all_states_present(self) -> None:
-        assert len(ConnectionState) == 5
+        assert len(ConnectionState) == 6
 
 
 # ---------------------------------------------------------------------------

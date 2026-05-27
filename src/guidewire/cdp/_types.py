@@ -53,6 +53,8 @@ class ConnectionState(StrEnum):
         DISCONNECTED: Initial state — no WebSocket has been opened.
         CONNECTING: A WebSocket handshake is in progress.
         CONNECTED: The WebSocket is open and the receiver thread is running.
+        RECONNECTING: The connection is being re-established after a dead-peer
+            detection or transport failure.
         CLOSING: The connection is being shut down.
         CLOSED: The connection has been fully closed.
     """
@@ -60,6 +62,7 @@ class ConnectionState(StrEnum):
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
     CONNECTED = "connected"
+    RECONNECTING = "reconnecting"
     CLOSING = "closing"
     CLOSED = "closed"
 
