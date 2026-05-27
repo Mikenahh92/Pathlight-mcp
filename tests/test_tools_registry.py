@@ -39,6 +39,9 @@ EXPECTED_TOOL_NAMES = [
     "desktop.web_hover",
     "desktop.web_select_option",
     "desktop.web_upload_files",
+    "desktop.web_list_tabs",
+    "desktop.web_tab_action",
+    "desktop.web_frame_tree",
 ]
 
 

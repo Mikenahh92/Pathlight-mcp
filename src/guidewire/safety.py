@@ -260,6 +260,9 @@ SystemAction = Literal[
     "web_hover",
     "web_select_option",
     "web_upload_files",
+    "web_list_tabs",
+    "web_tab_action",
+    "web_frame_tree",
 ]
 
 # ---------------------------------------------------------------------------
@@ -286,6 +289,9 @@ SYSTEM_ACTION_RISK_MAP: dict[SystemAction, RiskLevel] = {
     "web_hover": "INTERACTION",
     "web_select_option": "INTERACTION",
     "web_upload_files": "SENSITIVE",
+    "web_list_tabs": "READ_ONLY",
+    "web_tab_action": "SENSITIVE",
+    "web_frame_tree": "READ_ONLY",
 }
 
 
@@ -390,6 +396,10 @@ CDP_METHOD_ALLOWLIST: frozenset[str] = frozenset(
         "Target.attachToTarget",
         "Target.detachFromTarget",
         "Target.setAutoAttach",
+        "Target.activateTarget",
+        "Target.closeTarget",
+        "Target.createTarget",
+        "Target.setDiscoverTargets",
     }
 )
 

@@ -215,6 +215,12 @@ def register(
         router._web = web_backend
         router._backends["web"] = web_backend
 
+        # --- Enable target discovery for popup detection ---
+        try:
+            web_backend.enable_popup_detection()
+        except Exception:
+            logger.debug("Failed to enable popup detection after connect", exc_info=True)
+
         # --- Discover available pages ---
         try:
             pages = _discover_pages(web_backend, ref_store)

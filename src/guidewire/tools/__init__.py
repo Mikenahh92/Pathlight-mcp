@@ -31,6 +31,9 @@ Tool set (architecture v2 §3.1):
     desktop.web_hover      — hover over a web page element by CSS selector (GW-122)
     desktop.web_select_option — select an option in a web dropdown (GW-123)
     desktop.web_upload_files  — upload files to a web file input element (GW-123)
+    desktop.web_list_tabs  — list browser tabs via CDP Target domain (GW-124)
+    desktop.web_tab_action — perform actions on browser tabs (GW-124)
+    desktop.web_frame_tree — inspect iframe hierarchy (GW-124)
 """
 
 import importlib
@@ -72,6 +75,9 @@ _TOOL_MODULES = [
     ".web_hover",
     ".web_select_option",
     ".web_upload_files",
+    ".web_list_tabs",
+    ".web_tab_action",
+    ".web_frame_tree",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.

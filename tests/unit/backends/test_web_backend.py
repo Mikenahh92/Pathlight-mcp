@@ -1881,11 +1881,18 @@ class TestMultiFrameSnapshot:
         dom_mock = MagicMock()
         inp_mock = MagicMock()
         page_mock = MagicMock()
-        # Return frame tree with one child iframe
-        page_mock.get_frame_tree.return_value = [
-            {"id": "main-frame", "url": "https://example.com"},
-            {"id": "iframe-abc", "parentId": "main-frame", "url": "https://other.com/embed"},
-        ]
+        # Return frame tree with one child iframe as FrameTree dataclass
+        from guidewire.cdp._types import FrameTree
+
+        page_mock.get_frame_tree.return_value = FrameTree(
+            frame={"id": "main-frame", "url": "https://example.com"},
+            child_frames=(
+                FrameTree(
+                    frame={"id": "iframe-abc", "url": "https://other.com/embed"},
+                    child_frames=(),
+                ),
+            ),
+        )
         tgt_mock = MagicMock()
         connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 
@@ -1934,9 +1941,12 @@ class TestMultiFrameSnapshot:
         inp_mock = MagicMock()
         page_mock = MagicMock()
         # No child frames
-        page_mock.get_frame_tree.return_value = [
-            {"id": "main-frame", "url": "https://example.com"},
-        ]
+        from guidewire.cdp._types import FrameTree
+
+        page_mock.get_frame_tree.return_value = FrameTree(
+            frame={"id": "main-frame", "url": "https://example.com"},
+            child_frames=(),
+        )
         tgt_mock = MagicMock()
         connected_backend._domains[target.id] = (acc_mock, dom_mock, inp_mock, page_mock, tgt_mock)
 

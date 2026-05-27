@@ -444,12 +444,13 @@ class CDPBrowser:
         self._event_thread.start()
 
     def _event_loop(self) -> None:
-        """Background loop that drains session-detach events from the buffer."""
+        """Background loop that drains events from the buffer."""
         import time as _time
 
         while not self._closed:
             try:
                 self._drain_detach_events()
+                self._drain_popup_events()
             except Exception:
                 logger.debug(
                     "Error in session event listener",
@@ -484,3 +485,34 @@ class CDPBrowser:
                     "Target.detachedFromTarget for unknown session_id=%s",
                     session_id,
                 )
+
+    def _drain_popup_events(self) -> None:
+        """Process ``Target.targetCreated`` events and log popup detection."""
+        if self._connection is None:
+            return
+
+        events = self._connection.events.get_by_method("Target.targetCreated")
+        for event in events:
+            target_info = event.params.get("targetInfo", {})
+            if not target_info:
+                continue
+
+            target_type = target_info.get("type", "")
+            target_id = target_info.get("targetId", "")
+            url = target_info.get("url", "")
+            opener_id = event.params.get("openerId", "") or target_info.get("openerId", "")
+
+            if target_type == "page":
+                if opener_id:
+                    logger.info(
+                        "Popup detected: target_id=%s url=%s opener_id=%s",
+                        target_id,
+                        url,
+                        opener_id,
+                    )
+                else:
+                    logger.info(
+                        "New tab detected: target_id=%s url=%s",
+                        target_id,
+                        url,
+                    )

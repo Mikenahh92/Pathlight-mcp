@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from guidewire.cdp._types import FrameTree
 from guidewire.cdp.domains._base import CDPDomain
 from guidewire.models import Bounds
 
@@ -110,20 +111,32 @@ class PageDomain(CDPDomain):
 
         self._send(self._method("reload"), params)
 
-    def get_frame_tree(self) -> list[dict[str, Any]]:
-        """Get the current frame tree.
+    def get_frame_tree(self) -> FrameTree:
+        """Get the current frame tree as a :class:`FrameTree` dataclass.
 
-        Sends ``Page.getFrameTree``.
+        Sends ``Page.getFrameTree`` and parses the result into a typed
+        :class:`~guidewire.cdp._types.FrameTree` with nested child frames.
 
         Returns:
-            List of frame descriptors from the ``frameTree``.
+            A :class:`FrameTree` containing the main frame and its children.
         """
         result = self._send(self._method("getFrameTree"))
-        tree = result.get("frameTree", {})
-        frames = [tree.get("frame", {})]
-        for child in tree.get("childFrames", []):
-            frames.append(child.get("frame", {}))
-        return frames
+        tree_data = result.get("frameTree", {})
+        return FrameTree.from_cdp(tree_data)
+
+    def get_frame_tree_raw(self) -> dict[str, Any]:
+        """Get the raw nested frame tree structure.
+
+        Sends ``Page.getFrameTree`` and returns the full ``frameTree``
+        dict with nested ``childFrames``, preserving the hierarchical
+        structure needed for iframe inspection tools.
+
+        Returns:
+            The raw ``frameTree`` dict from CDP, containing ``frame``
+            and optionally ``childFrames``.
+        """
+        result = self._send(self._method("getFrameTree"))
+        return result.get("frameTree", {})
 
     def get_layout_metrics(self) -> dict[str, Any]:
         """Get page layout metrics.

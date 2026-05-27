@@ -148,6 +148,66 @@ class WebBackend(DesktopBackend):
         """Backward-compatible access to the domain cache via the registry."""
         return self._session_registry._domains
 
+    # -- Popup detection (GW-124) -----------------------------------------------
+
+    def enable_popup_detection(self) -> None:
+        """Enable popup/tab detection via CDP Target events.
+
+        Enables ``Target.setDiscoverTargets`` so that the browser emits
+        ``Target.targetCreated`` events when new tabs or popups open.
+        Use :meth:`pop_detected_targets` to poll for detected popups.
+        """
+        self._require_connected()
+        try:
+            session = self._get_active_session()
+            target_domain = TargetDomain(session)
+            target_domain.set_discover_targets(True)
+            logger.info("Popup detection enabled")
+        except Exception as exc:
+            logger.warning("Failed to enable popup detection: %s", exc)
+
+    def disable_popup_detection(self) -> None:
+        """Disable popup/tab detection.
+
+        Disables ``Target.setDiscoverTargets``.
+        """
+        try:
+            session = self._get_active_session()
+            target_domain = TargetDomain(session)
+            target_domain.set_discover_targets(False)
+            logger.info("Popup detection disabled")
+        except Exception as exc:
+            logger.debug("Failed to disable popup detection: %s", exc)
+
+    def pop_detected_targets(self) -> list[CDPTarget]:
+        """Return and consume all targets detected since the last call.
+
+        Polls the CDP event buffer for ``Target.targetCreated`` events
+        and returns any new page-type targets as :class:`CDPTarget`
+        instances.
+
+        Returns:
+            List of newly detected :class:`CDPTarget` instances (pages only).
+        """
+        targets: list[CDPTarget] = []
+        try:
+            session = self._get_active_session()
+            events = session._connection.events.get_by_method("Target.targetCreated")
+            for event in events:
+                params = event.params if hasattr(event, "params") else {}
+                target_info = params.get("targetInfo")
+                if not target_info:
+                    continue
+                target = CDPTarget.from_dict(target_info)
+                if target.type == "page":
+                    targets.append(target)
+            # Clear consumed events
+            if events:
+                session._connection.events.clear()
+        except Exception:
+            logger.debug("Failed to poll detected targets", exc_info=True)
+        return targets
+
     # -- Connection management ------------------------------------------------
 
     def connect(self) -> None:
@@ -911,6 +971,36 @@ class WebBackend(DesktopBackend):
 
     # -- Internal helpers -------------------------------------------------------
 
+    @staticmethod
+    def _collect_child_frames(frame_tree: Any) -> list[dict[str, Any]]:
+        """Recursively collect child frame descriptors from a FrameTree.
+
+        Args:
+            frame_tree: A :class:`~guidewire.cdp._types.FrameTree` instance.
+
+        Returns:
+            Flat list of dicts with ``id``, ``url``, ``name`` for each child.
+        """
+        from guidewire.cdp._types import FrameTree as FrameTreeType
+
+        children: list[dict[str, Any]] = []
+        if not isinstance(frame_tree, FrameTreeType):
+            return children
+
+        for child in frame_tree.child_frames:
+            frame = child.frame
+            children.append(
+                {
+                    "id": frame.get("id", ""),
+                    "url": frame.get("url", ""),
+                    "name": frame.get("name", ""),
+                    "parentId": frame.get("parentId", ""),
+                }
+            )
+            children.extend(WebBackend._collect_child_frames(child))
+
+        return children
+
     def _collect_iframe_ax_trees(self, target_id: str, page: PageDomain) -> list[AXNode]:
         """Collect AX trees from child frames (iframes) for multi-frame snapshots.
 
@@ -929,13 +1019,13 @@ class WebBackend(DesktopBackend):
         all_iframe_nodes: list[AXNode] = []
 
         try:
-            frames = page.get_frame_tree()
+            frame_tree = page.get_frame_tree()
         except Exception:
             logger.debug("get_frame_tree failed for target %s", target_id, exc_info=True)
             return all_iframe_nodes
 
-        # Filter to child frames (skip the main frame which is always first)
-        child_frames = [f for f in frames if f.get("parentId")]
+        # Collect child frames recursively (skip the main frame)
+        child_frames = self._collect_child_frames(frame_tree)
 
         for frame_info in child_frames:
             frame_id = frame_info.get("id", "")

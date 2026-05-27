@@ -130,7 +130,7 @@ class TestPageReload:
 class TestPageGetFrameTree:
     """Tests for get_frame_tree."""
 
-    def test_returns_frames(self) -> None:
+    def test_returns_frame_tree_dataclass(self) -> None:
         response = {
             "frameTree": {
                 "frame": {"id": "root", "url": "https://example.com"},
@@ -142,17 +142,21 @@ class TestPageGetFrameTree:
         session = _make_session([response])
         domain = PageDomain(session)
 
-        frames = domain.get_frame_tree()
-        assert len(frames) == 2
-        assert frames[0]["id"] == "root"
-        assert frames[1]["id"] == "child-1"
+        from guidewire.cdp._types import FrameTree
+
+        tree = domain.get_frame_tree()
+        assert isinstance(tree, FrameTree)
+        assert tree.frame["id"] == "root"
+        assert len(tree.child_frames) == 1
+        assert tree.child_frames[0].frame["id"] == "child-1"
 
     def test_empty_tree(self) -> None:
         session = _make_session([{"frameTree": {}}])
         domain = PageDomain(session)
 
-        frames = domain.get_frame_tree()
-        assert len(frames) == 1  # root frame still present
+        tree = domain.get_frame_tree()
+        assert tree.frame == {}
+        assert len(tree.child_frames) == 0
 
 
 # ---------------------------------------------------------------------------

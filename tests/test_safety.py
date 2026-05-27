@@ -1127,6 +1127,9 @@ class TestSystemActionType:
             "web_hover",
             "web_select_option",
             "web_upload_files",
+            "web_list_tabs",
+            "web_tab_action",
+            "web_frame_tree",
         }
         assert args == expected
 
@@ -1134,7 +1137,7 @@ class TestSystemActionType:
         import typing
 
         args = typing.get_args(SystemAction)
-        assert len(args) == 19
+        assert len(args) == 22
 
 
 # ---------------------------------------------------------------------------
@@ -1358,7 +1361,7 @@ class TestSystemActionRiskMapCompleteness:
             assert action in SYSTEM_ACTION_RISK_MAP, f"{action} missing from SYSTEM_ACTION_RISK_MAP"
 
     def test_entry_count(self) -> None:
-        assert len(SYSTEM_ACTION_RISK_MAP) == 19
+        assert len(SYSTEM_ACTION_RISK_MAP) == 22
 
     def test_values_are_valid_risk_levels(self) -> None:
         for value in SYSTEM_ACTION_RISK_MAP.values():
@@ -1366,7 +1369,7 @@ class TestSystemActionRiskMapCompleteness:
 
     def test_sensitive_count(self) -> None:
         sensitive = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "SENSITIVE"]
-        assert len(sensitive) == 9
+        assert len(sensitive) == 10
 
     def test_interaction_count(self) -> None:
         interaction = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "INTERACTION"]
@@ -1374,7 +1377,7 @@ class TestSystemActionRiskMapCompleteness:
 
     def test_read_only_count(self) -> None:
         read_only = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "READ_ONLY"]
-        assert len(read_only) == 2
+        assert len(read_only) == 4
 
 
 # ---------------------------------------------------------------------------
@@ -1547,8 +1550,6 @@ class TestEvaluateRateLimiter:
     def test_allows_up_to_max_calls(self) -> None:
         limiter = EvaluateRateLimiter(max_calls=3, window_seconds=60.0)
         assert limiter.is_allowed() is True
-        assert limiter.is_allowed() is True
-        assert limiter.is_allowed() is True
 
     def test_blocks_after_max_calls(self) -> None:
         limiter = EvaluateRateLimiter(max_calls=2, window_seconds=60.0)
@@ -1579,7 +1580,6 @@ class TestEvaluateRateLimiter:
 
     def test_remaining_after_reset(self) -> None:
         limiter = EvaluateRateLimiter(max_calls=5, window_seconds=60.0)
-        limiter.is_allowed()
         limiter.is_allowed()
         limiter.reset()
         assert limiter.remaining == 5

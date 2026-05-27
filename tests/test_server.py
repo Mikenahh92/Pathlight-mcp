@@ -213,6 +213,24 @@ EXPECTED_TOOLS = [
         "required_params": ["window_ref", "file_paths"],
         "optional_params": ["element_ref", "selector"],
     },
+    {
+        "name": "desktop.web_list_tabs",
+        "description_pattern": "List all browser tabs",
+        "required_params": [],
+        "optional_params": [],
+    },
+    {
+        "name": "desktop.web_tab_action",
+        "description_pattern": "Perform an action on a browser tab",
+        "required_params": ["action"],
+        "optional_params": ["target_id", "url"],
+    },
+    {
+        "name": "desktop.web_frame_tree",
+        "description_pattern": "Inspect the iframe hierarchy",
+        "required_params": [],
+        "optional_params": ["window_ref", "target_id"],
+    },
 ]
 
 
