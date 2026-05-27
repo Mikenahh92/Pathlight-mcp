@@ -681,3 +681,176 @@ class TestIsStaleSessionError:
         assert not CDPSession._is_stale_session_error(
             ValueError("some random error")
         )
+
+
+# ---------------------------------------------------------------------------
+# Exponential backoff re-attach (GW-128)
+# ---------------------------------------------------------------------------
+
+
+class TestExponentialBackoffReattach:
+    """Tests for exponential backoff CDP session re-attach (GW-128)."""
+
+    def test_max_reattach_attempts_is_three(self) -> None:
+        """GW-128: _MAX_REATTACH_ATTEMPTS should be 3 (not 1)."""
+        from guidewire.cdp.session import _MAX_REATTACH_ATTEMPTS
+
+        assert _MAX_REATTACH_ATTEMPTS == 3
+
+    def test_backoff_base_is_positive(self) -> None:
+        """GW-128: _REATTACH_BACKOFF_BASE should be a positive value."""
+        from guidewire.cdp.session import _REATTACH_BACKOFF_BASE
+
+        assert _REATTACH_BACKOFF_BASE > 0
+
+    def test_send_command_retries_up_to_three_times_on_stale(
+        self,
+    ) -> None:
+        """After mark_detached, send_command should retry up to 3 re-attach attempts."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-backoff")
+        session.mark_detached()
+
+        # First re-attach fails (quickly)
+        threading.Timer(
+            0.1,
+            lambda: fake_ws.enqueue(
+                {"id": 2, "error": {"code": -32000, "message": "Target not found"}},
+            ),
+        ).start()
+
+        # Second re-attach succeeds (after backoff delay)
+        threading.Timer(
+            0.8,
+            lambda: fake_ws.enqueue(
+                {"id": 3, "result": {"sessionId": "sess-retry-2"}},
+            ),
+        ).start()
+
+        # Command response on the new session
+        threading.Timer(
+            1.2,
+            lambda: fake_ws.enqueue(
+                {"id": 4, "result": {"data": "recovered"}},
+            ),
+        ).start()
+
+        result = session.send_command("Test.method", timeout=10.0)
+        assert result == {"data": "recovered"}
+        assert session.session_id == "sess-retry-2"
+
+    def test_send_command_exhausts_all_three_retries(self) -> None:
+        """All 3 re-attach attempts can fail before raising."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-exhaust-3")
+        session.mark_detached()
+
+        # Response queueing strategy: enqueue error responses with enough
+        # delay that the command has already been sent (and its future
+        # registered) before the response arrives.  Backoff schedule:
+        #   attempt 0 -> no delay, command ~0s,   response at 0.1s
+        #   attempt 1 -> 0.25s backoff, command ~0.3s, response at 0.5s
+        #   attempt 2 -> 0.5s backoff, command ~0.9s, response at 1.2s
+        delays = [0.1, 0.5, 1.2]
+        for i, delay in enumerate(delays):
+            cid = 2 + i
+            threading.Timer(
+                delay,
+                lambda c=cid: fake_ws.enqueue(
+                    {"id": c, "error": {"code": -32000, "message": "Target not found"}},
+                ),
+            ).start()
+
+        with pytest.raises(GuidewireError):
+            session.send_command("Test.method", timeout=10.0)
+
+    def test_send_command_recovers_on_second_stale_error(self) -> None:
+        """First stale error triggers re-attach, which succeeds, then command succeeds."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        _attach_session(session, fake_ws, session_id="sess-stale-twice")
+
+        # First command: stale session error
+        threading.Timer(
+            0.05,
+            lambda: fake_ws.enqueue(
+                {
+                    "id": 2,
+                    "error": {"code": -32000, "message": "Not attached to target"},
+                }
+            ),
+        ).start()
+
+        # Re-attach response
+        threading.Timer(
+            0.15,
+            lambda: fake_ws.enqueue(
+                {"id": 3, "result": {"sessionId": "sess-fresh-2"}},
+            ),
+        ).start()
+
+        # Retry command response
+        threading.Timer(
+            0.25,
+            lambda: fake_ws.enqueue(
+                {"id": 4, "result": {"recovered": True}},
+            ),
+        ).start()
+
+        result = session.send_command("Test.method")
+        assert result == {"recovered": True}
+        assert session.session_id == "sess-fresh-2"
+
+    def test_backoff_and_reattach_no_delay_on_first_attempt(self) -> None:
+        """_backoff_and_reattach(attempt=0) should have no delay."""
+        import time as _time
+
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        # Enqueue attach response
+        threading.Timer(
+            0.05,
+            lambda: fake_ws.enqueue(
+                {"id": 1, "result": {"sessionId": "sess-fast"}},
+            ),
+        ).start()
+
+        t0 = _time.monotonic()
+        session._backoff_and_reattach(attempt=0)
+        elapsed = _time.monotonic() - t0
+
+        # First attempt should have minimal delay (< 50ms)
+        assert elapsed < 0.1
+        assert session.is_attached
+
+    def test_exhausted_error_propagates(self) -> None:
+        """When retries are exhausted, the last error should propagate."""
+        conn, fake_ws = _create_connected_connection()
+        target = _create_target()
+        session = CDPSession(connection=conn, target=target)
+
+        # Never attached — all retries will fail.
+        # Same strategy as test_send_command_exhausts_all_three_retries but
+        # starting from ID 1 (no prior attach).
+        delays = [0.1, 0.5, 1.2]
+        for i, delay in enumerate(delays):
+            cid = 1 + i
+            threading.Timer(
+                delay,
+                lambda c=cid: fake_ws.enqueue(
+                    {"id": c, "error": {"code": -32000, "message": "Target not found"}},
+                ),
+            ).start()
+
+        with pytest.raises(GuidewireError):
+            session.send_command("Test.method", timeout=10.0)

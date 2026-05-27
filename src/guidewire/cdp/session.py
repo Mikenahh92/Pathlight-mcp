@@ -11,6 +11,7 @@ should not be constructed directly by callers.
 
 import logging
 import threading
+import time
 from typing import Any
 
 from guidewire.cdp._types import CDPTarget, SessionState
@@ -22,8 +23,12 @@ __all__ = ["CDPSession"]
 logger = logging.getLogger(__name__)
 
 # Maximum number of automatic re-attach attempts when a stale session is
-# detected during command sending.
-_MAX_REATTACH_ATTEMPTS = 1
+# detected during command sending (GW-128).
+_MAX_REATTACH_ATTEMPTS = 3
+
+# Base delay in seconds for exponential backoff between re-attach attempts
+# (GW-128).  Actual delay = _REATtach_BACKOFF_BASE * 2^attempt.
+_REATTACH_BACKOFF_BASE = 0.25
 
 
 class CDPSession:
@@ -34,13 +39,15 @@ class CDPSession:
     :class:`~guidewire.cdp.connection.CDPConnection` (the root connection)
     and sends commands through it with the ``sessionId`` parameter.
 
-    Stale session handling (GW-117):
+    Stale session handling (GW-117, GW-128):
         The browser can invalidate a CDP session at any time by sending a
         ``Target.detachedFromTarget`` event.  When this happens the session's
         local state is proactively set to ``DETACHED`` via
         :meth:`mark_detached`.  The next :meth:`send_command` call will
         detect the detached state and attempt to re-attach transparently
-        before retrying the command.
+        before retrying the command.  Up to 3 re-attach attempts are made
+        with exponential backoff (0.25s base) to allow the browser time to
+        stabilize (GW-128).
 
     Usage::
 
@@ -185,7 +192,7 @@ class CDPSession:
         If the command fails because the session has been invalidated by
         the browser (e.g. ``Target.detachedFromTarget`` was received),
         automatically re-attaches to the target and retries the command
-        once (GW-117).
+        with exponential backoff (up to 3 attempts, 0.25s base) (GW-128).
 
         Args:
             method: CDP domain method (e.g. ``"Page.navigate"``).
@@ -200,7 +207,9 @@ class CDPSession:
             BackendUnavailableError: If the root connection is not open.
         """
         return self._send_command_with_reattach(
-            method, params, timeout=timeout,
+            method,
+            params,
+            timeout=timeout,
         )
 
     def mark_detached(self) -> None:
@@ -256,7 +265,11 @@ class CDPSession:
         If the session has been proactively marked detached (via
         :meth:`mark_detached`) or if the browser returns an error indicating
         the session is no longer valid, this method re-attaches to the target
-        and retries the command once.
+        and retries the command with exponential backoff (GW-128).
+
+        Up to ``_MAX_REATTACH_ATTEMPTS`` retries are attempted.  Each retry
+        introduces a delay of ``_REATtach_BACKOFF_BASE * 2^attempt`` seconds
+        before re-attaching, giving the browser time to stabilize.
         """
         with self._lock:
             if self._state != SessionState.ATTACHED or self._session_id is None:
@@ -268,29 +281,69 @@ class CDPSession:
         if sid is None:
             if _attempt >= _MAX_REATTACH_ATTEMPTS:
                 raise GuidewireError(
-                    "Session is not attached and re-attach attempts exhausted"
+                    "Session is not attached and re-attach attempts exhausted "
+                    f"(after {_MAX_REATTACH_ATTEMPTS} retries)"
                 )
-            self._reattach()
+            try:
+                self._backoff_and_reattach(_attempt)
+            except Exception as reattach_exc:
+                if _attempt + 1 < _MAX_REATTACH_ATTEMPTS:
+                    logger.info(
+                        "Re-attach failed (attempt %d/%d), retrying: %s",
+                        _attempt + 1,
+                        _MAX_REATTACH_ATTEMPTS,
+                        reattach_exc,
+                    )
+                    return self._send_command_with_reattach(
+                        method,
+                        params,
+                        timeout=timeout,
+                        _attempt=_attempt + 1,
+                    )
+                raise
             with self._lock:
                 sid = self._session_id
 
         try:
             return self._connection.send_command(
-                method, params, session_id=sid, timeout=timeout,
+                method,
+                params,
+                session_id=sid,
+                timeout=timeout,
             )
         except Exception as exc:
             # Check if the error indicates a stale/invalid session
             if self._is_stale_session_error(exc) and _attempt < _MAX_REATTACH_ATTEMPTS:
                 logger.info(
                     "Stale session detected for method=%s session_id=%s, "
-                    "reattaching (attempt %d)",
+                    "reattaching (attempt %d/%d)",
                     method,
                     sid,
                     _attempt + 1,
+                    _MAX_REATTACH_ATTEMPTS,
                 )
-                self._reattach()
+                try:
+                    self._backoff_and_reattach(_attempt)
+                except Exception as reattach_exc:
+                    if _attempt + 1 < _MAX_REATTACH_ATTEMPTS:
+                        logger.info(
+                            "Re-attach after stale error failed (attempt %d/%d), retrying: %s",
+                            _attempt + 1,
+                            _MAX_REATTACH_ATTEMPTS,
+                            reattach_exc,
+                        )
+                        return self._send_command_with_reattach(
+                            method,
+                            params,
+                            timeout=timeout,
+                            _attempt=_attempt + 1,
+                        )
+                    raise
                 return self._send_command_with_reattach(
-                    method, params, timeout=timeout, _attempt=_attempt + 1,
+                    method,
+                    params,
+                    timeout=timeout,
+                    _attempt=_attempt + 1,
                 )
             raise
 
@@ -305,6 +358,27 @@ class CDPSession:
             self._state = SessionState.DETACHED
 
         self.attach()
+
+    def _backoff_and_reattach(self, attempt: int) -> None:
+        """Sleep with exponential backoff, then re-attach (GW-128).
+
+        Computes a delay of ``_REATtach_BACKOFF_BASE * 2^attempt`` seconds
+        before calling :meth:`_reattach`.  The first attempt (attempt=0) has
+        no delay to keep the fast path fast; subsequent attempts use
+        increasing backoff.
+
+        Args:
+            attempt: Zero-indexed attempt number (0 = first retry).
+        """
+        if attempt > 0:
+            delay = _REATTACH_BACKOFF_BASE * (2 ** (attempt - 1))
+            logger.debug(
+                "Re-attach backoff: sleeping %.3fs before attempt %d",
+                delay,
+                attempt + 1,
+            )
+            time.sleep(delay)
+        self._reattach()
 
     @staticmethod
     def _is_stale_session_error(exc: Exception) -> bool:
@@ -335,6 +409,7 @@ class CDPSession:
             return True
         # Check for wrapped CDPError with code -32000
         from guidewire.cdp.protocol import CDPError
+
         if isinstance(exc, CDPError) and exc.code == -32000:
             return True
         # Check for GuidewireError wrapping a CDP stale session error

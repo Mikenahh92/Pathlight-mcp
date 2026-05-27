@@ -17,6 +17,13 @@ Condition types (all operate at the CDP/session layer — no backend ABC changes
 
 Safety classification: READ_ONLY — passive observation, no page modification.
 
+Session resilience (GW-128):
+    When a CDP session becomes stale mid-poll (browser sends
+    ``Target.detachedFromTarget``), the polling loop detects stale session
+    errors and recreates the session before continuing to poll.  This
+    prevents the timeout-on-timeout pattern where every poll tick fails
+    against a dead session handle.
+
 Tool-layer only — no ABC changes.  Depends on GW-122 selector resolver.
 """
 
@@ -166,9 +173,7 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        f"poll_interval_ms must be at least {_POLL_INTERVAL_MS_MIN}ms"
-                    ),
+                    "message": (f"poll_interval_ms must be at least {_POLL_INTERVAL_MS_MIN}ms"),
                     "hints": [],
                 }
             )
@@ -177,9 +182,7 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        f"poll_interval_ms must not exceed {_POLL_INTERVAL_MS_MAX}ms"
-                    ),
+                    "message": (f"poll_interval_ms must not exceed {_POLL_INTERVAL_MS_MAX}ms"),
                     "hints": [],
                 }
             )
@@ -229,6 +232,8 @@ def register(
         deadline = time.monotonic() + timeout_ms / 1000.0
         poll_interval = poll_interval_ms / 1000.0
         polls = 0
+        stale_retries = 0
+        max_stale_retries = 3  # GW-128
 
         while time.monotonic() < deadline:
             polls += 1
@@ -252,6 +257,47 @@ def register(
                     result[:200],
                 )
                 return result
+            if isinstance(result, _StaleSession):
+                # Session went stale — recreate it and retry (GW-128)
+                stale_retries += 1
+                if stale_retries > max_stale_retries:
+                    logger.warning(
+                        "web_wait_for: stale session retries exhausted (%d attempts) for type=%s",
+                        stale_retries,
+                        ctype,
+                    )
+                    return json.dumps(
+                        {
+                            "error": "web_wait_for_error",
+                            "message": (
+                                f"CDP session repeatedly invalidated after "
+                                f"{stale_retries} re-attach attempts"
+                            ),
+                            "hints": hints_for("web_wait_for_error"),
+                        }
+                    )
+                logger.info(
+                    "web_wait_for: stale session detected (attempt %d/%d), "
+                    "recreating session for type=%s",
+                    stale_retries,
+                    max_stale_retries,
+                    ctype,
+                )
+                try:
+                    session = web._get_or_create_session(target.id)
+                except Exception as exc:
+                    return json.dumps(
+                        {
+                            "error": "web_wait_for_error",
+                            "message": (f"Failed to recreate session after stale detection: {exc}"),
+                            "hints": hints_for("web_wait_for_error"),
+                        }
+                    )
+                # Retry immediately with the new session (don't count as a poll)
+                continue
+            # Reset stale retry counter on successful evaluation (even if
+            # condition not yet met)
+            stale_retries = 0
             await asyncio.sleep(poll_interval)
 
         # Timeout expired
@@ -380,13 +426,24 @@ def _validate_condition(condition: dict) -> str | None:
 # -- Condition evaluation ----------------------------------------------------
 
 
-def _evaluate_condition(condition: dict, session: Any) -> bool | str:
+class _StaleSession:
+    """Sentinel indicating the CDP session became stale during evaluation (GW-128).
+
+    Returned by :func:`_evaluate_condition` when a stale session error is
+    detected.  The polling loop uses this to trigger session recreation
+    instead of silently continuing with a dead session handle.
+    """
+
+
+def _evaluate_condition(condition: dict, session: Any) -> bool | str | _StaleSession:
     """Evaluate a single condition against the web page via CDP.
 
     Returns:
         True if the condition is met.
         False if the condition is not yet met (keep polling).
         A JSON string if a fatal error should stop polling immediately.
+        ``_StaleSession()`` if the session was invalidated and needs
+        recreation (GW-128).
     """
     ctype = condition["type"]
 
@@ -415,6 +472,15 @@ def _evaluate_condition(condition: dict, session: Any) -> bool | str:
             return True
 
     except Exception as exc:
+        # Check if the error indicates a stale session (GW-128)
+        if _is_stale_session_exception(exc):
+            logger.info(
+                "web_wait_for: stale session error during evaluation for type=%s: %s",
+                ctype,
+                exc,
+            )
+            return _StaleSession()
+
         # Transient CDP errors — keep polling
         logger.debug(
             "web_wait_for evaluation error for type=%s: %s",
@@ -423,6 +489,52 @@ def _evaluate_condition(condition: dict, session: Any) -> bool | str:
             exc_info=True,
         )
         return False
+
+    return False
+
+
+def _is_stale_session_exception(exc: Exception) -> bool:
+    """Check if an exception indicates a stale CDP session (GW-128).
+
+    Inspects the exception chain for stale session indicators:
+    - CDPError with code -32000 and stale-related messages
+    - GuidewireError with stale-related messages
+    - ConnectionError indicating transport failure
+    """
+    exc_str = str(exc).lower()
+    stale_indicators = (
+        "not attached",
+        "session not found",
+        "session is closing",
+        "target closed",
+        "session is not attached",
+    )
+    for indicator in stale_indicators:
+        if indicator in exc_str:
+            return True
+
+    # Check the exception chain for CDPError / GuidewireError
+    from guidewire.cdp.protocol import CDPError
+    from guidewire.errors import GuidewireError
+
+    if isinstance(exc, CDPError) and exc.code == -32000:
+        return True
+    if isinstance(exc, GuidewireError):
+        msg = exc.message.lower()
+        for indicator in stale_indicators:
+            if indicator in msg:
+                return True
+
+    # Check __cause__ chain
+    cause = exc.__cause__
+    while cause is not None:
+        if isinstance(cause, CDPError) and cause.code == -32000:
+            return True
+        cause_str = str(cause).lower()
+        for indicator in stale_indicators:
+            if indicator in cause_str:
+                return True
+        cause = cause.__cause__
 
     return False
 
@@ -499,10 +611,7 @@ def _eval_text_present(runtime: Any, condition: dict) -> bool:
     if case_sensitive:
         js = f"document.body.innerText.indexOf('{escaped}') !== -1"
     else:
-        js = (
-            f"document.body.innerText.toLowerCase().indexOf("
-            f"'{escaped.lower()}') !== -1"
-        )
+        js = f"document.body.innerText.toLowerCase().indexOf('{escaped.lower()}') !== -1"
 
     result = runtime.evaluate(js, timeout=2.0)
     return bool(result)

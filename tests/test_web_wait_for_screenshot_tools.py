@@ -1039,6 +1039,199 @@ class TestWebScreenshotWebErrors:
         assert "error" in result
 
 
+# ===========================================================================
+# GW-128: CDP session resilience tests
+# ===========================================================================
+
+
+class TestWebWaitForStaleSessionRecovery:
+    """web_wait_for detects stale sessions and recreates them (GW-128)."""
+
+    def test_stale_session_recreated_and_polling_continues(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
+        """When the session raises a stale error, polling should recreate it and continue."""
+        window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
+        stale_session = _make_mock_session()
+        fresh_session = _make_mock_session()
+
+        call_count = [0]
+
+        def stale_send(method, params=None, **kwargs):
+            raise Exception("Not attached to target session")
+
+        def fresh_send(method, params=None, **kwargs):
+            if "Runtime.evaluate" in method:
+                return {"result": {"type": "string", "value": "complete"}}
+            return {}
+
+        stale_session.send_command.side_effect = stale_send
+        fresh_session.send_command.side_effect = fresh_send
+
+        # First call returns stale session, second call returns fresh session
+        web_mock._get_or_create_session.side_effect = [
+            stale_session,
+            fresh_session,
+        ]
+
+        tool = _get_tool(mcp_router, "desktop.web_wait_for")
+        result = json.loads(
+            asyncio.get_event_loop().run_until_complete(
+                tool.fn(
+                    window_ref=window_ref,
+                    condition={"type": "page_loaded"},
+                    timeout_ms=2000,
+                    poll_interval_ms=100,
+                )
+            )
+        )
+        assert result["success"] is True
+        assert web_mock._get_or_create_session.call_count == 2
+
+    def test_stale_session_exhausted_returns_error(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
+        """When stale session retries are exhausted, an error is returned."""
+        window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
+
+        stale_session = _make_mock_session()
+
+        def stale_send(method, params=None, **kwargs):
+            raise Exception("Session not found in browser")
+
+        stale_session.send_command.side_effect = stale_send
+
+        # All session creation attempts return stale sessions
+        web_mock._get_or_create_session.return_value = stale_session
+
+        tool = _get_tool(mcp_router, "desktop.web_wait_for")
+        result = json.loads(
+            asyncio.get_event_loop().run_until_complete(
+                tool.fn(
+                    window_ref=window_ref,
+                    condition={"type": "page_loaded"},
+                    timeout_ms=500,
+                    poll_interval_ms=50,
+                )
+            )
+        )
+        assert result["error"] == "web_wait_for_error"
+        assert "re-attach" in result["message"].lower() or "invalidated" in result["message"].lower()
+
+    def test_non_stale_error_keeps_polling(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
+        """Non-stale CDP errors should still be treated as transient (keep polling)."""
+        window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
+        session = _make_mock_session()
+        web_mock._get_or_create_session.return_value = session
+
+        call_count = [0]
+
+        def mock_send(method, params=None, **kwargs):
+            if "Runtime.evaluate" in method:
+                call_count[0] += 1
+                if call_count[0] <= 2:
+                    raise Exception("Random CDP glitch")
+                return {"result": {"type": "string", "value": "complete"}}
+            return {}
+
+        session.send_command.side_effect = mock_send
+
+        tool = _get_tool(mcp_router, "desktop.web_wait_for")
+        result = json.loads(
+            asyncio.get_event_loop().run_until_complete(
+                tool.fn(
+                    window_ref=window_ref,
+                    condition={"type": "page_loaded"},
+                    timeout_ms=2000,
+                    poll_interval_ms=100,
+                )
+            )
+        )
+        assert result["success"] is True
+        # Session should NOT have been recreated for non-stale errors
+        assert web_mock._get_or_create_session.call_count == 1
+
+    def test_session_recreation_failure_returns_error(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
+        """If session recreation fails, an error should be returned."""
+        window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
+        stale_session = _make_mock_session()
+
+        def stale_send(method, params=None, **kwargs):
+            raise Exception("Not attached to target session")
+
+        stale_session.send_command.side_effect = stale_send
+
+        # First call returns stale session, recreation raises
+        web_mock._get_or_create_session.side_effect = [
+            stale_session,
+            Exception("Cannot create session"),
+        ]
+
+        tool = _get_tool(mcp_router, "desktop.web_wait_for")
+        result = json.loads(
+            asyncio.get_event_loop().run_until_complete(
+                tool.fn(
+                    window_ref=window_ref,
+                    condition={"type": "page_loaded"},
+                    timeout_ms=2000,
+                    poll_interval_ms=100,
+                )
+            )
+        )
+        assert result["error"] == "web_wait_for_error"
+        assert "recreate" in result["message"].lower() or "session" in result["message"].lower()
+
+
+class TestIsStaleSessionException:
+    """Tests for _is_stale_session_exception helper in web_wait_for (GW-128)."""
+
+    def test_not_attached_message(self):
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert _is_stale_session_exception(Exception("Not attached to target"))
+
+    def test_session_not_found_message(self):
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert _is_stale_session_exception(Exception("Session not found"))
+
+    def test_session_is_closing_message(self):
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert _is_stale_session_exception(Exception("Session is closing"))
+
+    def test_target_closed_message(self):
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert _is_stale_session_exception(Exception("Target closed"))
+
+    def test_cdp_error_code_32000(self):
+        from guidewire.cdp.protocol import CDPError
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert _is_stale_session_exception(CDPError(-32000, "Something went wrong"))
+
+    def test_guidewire_error_not_attached(self):
+        from guidewire.errors import GuidewireError
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert _is_stale_session_exception(GuidewireError("Session is not attached"))
+
+    def test_non_stale_exception_returns_false(self):
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert not _is_stale_session_exception(Exception("Random error"))
+
+    def test_cdp_error_non_stale_code_returns_false(self):
+        from guidewire.cdp.protocol import CDPError
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        assert not _is_stale_session_exception(CDPError(-32601, "Method not found"))
+
+    def test_chained_cause_detected(self):
+        from guidewire.cdp.protocol import CDPError
+        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        wrapped = Exception("Command failed")
+        wrapped.__cause__ = CDPError(-32000, "Not attached to target")
+        assert _is_stale_session_exception(wrapped)
+
+
 class TestWebScreenshotRiskClassification:
     """web_screenshot returns READ_ONLY risk classification."""
 
