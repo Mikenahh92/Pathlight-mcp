@@ -266,6 +266,37 @@ class WebBackend(DesktopBackend):
         """
         return self._session_registry.get_domains(target_id)
 
+    def _invalidate_session(self, target_id: str) -> None:
+        """Invalidate the session and domain caches for *target_id* (GW-130).
+
+        Marks the session as detached and removes cached domain wrappers so
+        that the next tool call creates a fresh session.  Call this after
+        page transitions (navigation, reload) and tab operations (activate,
+        close) to ensure subsequent operations use valid sessions.
+
+        Also invalidates the AX/bounds caches since they are tied to the
+        previous page state.
+
+        Args:
+            target_id: The CDP target identifier to invalidate.
+        """
+        self._session_registry.invalidate(target_id)
+        self._ax_cache.clear()
+        self._bounds_cache.clear()
+
+    def _remove_session(self, target_id: str) -> None:
+        """Remove the session and domain caches for *target_id* (GW-130).
+
+        Completely removes the session entry — used when a target is closed
+        or destroyed.  Also clears AX/bounds caches.
+
+        Args:
+            target_id: The CDP target identifier to remove.
+        """
+        self._session_registry.remove(target_id)
+        self._ax_cache.clear()
+        self._bounds_cache.clear()
+
     # -- DesktopBackend interface ---------------------------------------------
 
     def list_windows(self) -> list[NativeHandle]:

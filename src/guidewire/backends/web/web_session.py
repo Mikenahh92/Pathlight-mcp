@@ -129,6 +129,11 @@ class WebSessionRegistry:
         Domain wrappers are cached per target so they are only constructed
         once per session lifecycle.
 
+        Includes a staleness guard (GW-130): if cached domains exist but
+        the underlying session is no longer attached (e.g. the browser
+        detached it between operations), the cached domains are discarded
+        so fresh ones are created on the re-attached session.
+
         Args:
             target_id: The browser target identifier.
 
@@ -138,7 +143,20 @@ class WebSessionRegistry:
         """
         domains = self._domains.get(target_id)
         if domains is not None:
-            return domains
+            # Staleness guard: verify the session is still attached (GW-130).
+            # If the session was detached (e.g. by the browser sending
+            # Target.detachedFromTarget between operations), discard cached
+            # domains so fresh ones are created on the re-attached session.
+            session = self._sessions.get(target_id)
+            if session is not None and session.is_attached:
+                return domains
+            # Session is stale — discard cached domains and fall through to
+            # create fresh ones after session re-attach.
+            logger.debug(
+                "Stale domain cache detected for target_id=%s, refreshing",
+                target_id,
+            )
+            self._domains.pop(target_id, None)
 
         session = self.get_or_create(target_id)
         acc = AccessibilityDomain(session)
@@ -149,6 +167,55 @@ class WebSessionRegistry:
         domains = (acc, dom, inp, page, target)
         self._domains[target_id] = domains
         return domains
+
+    # -- Invalidation (GW-130) -----------------------------------------------
+
+    def invalidate(self, target_id: str) -> None:
+        """Invalidate the session and domain caches for *target_id*.
+
+        Marks the session as detached and removes cached domain wrappers so
+        that the next access creates a fresh session and domain objects.
+        This is the recommended way to handle page transitions, navigation,
+        and tab switches — it defers the actual re-attach cost until the
+        next tool call (lazy invalidation).
+
+        Args:
+            target_id: The CDP target identifier to invalidate.
+        """
+        session = self._sessions.get(target_id)
+        if session is not None:
+            try:
+                session.mark_detached()
+            except Exception:
+                logger.debug(
+                    "Failed to mark session detached during invalidate for %s",
+                    target_id,
+                    exc_info=True,
+                )
+        self._domains.pop(target_id, None)
+        logger.debug("Invalidated session registry for target_id=%s", target_id)
+
+    def remove(self, target_id: str) -> None:
+        """Remove the session and domain caches for *target_id* entirely.
+
+        Unlike :meth:`invalidate`, this completely removes the entry from
+        the session cache — used when a target is closed or destroyed.
+
+        Args:
+            target_id: The CDP target identifier to remove.
+        """
+        session = self._sessions.pop(target_id, None)
+        if session is not None:
+            try:
+                session.close()
+            except Exception:
+                logger.debug(
+                    "Error closing session during remove for %s",
+                    target_id,
+                    exc_info=True,
+                )
+        self._domains.pop(target_id, None)
+        logger.debug("Removed session registry entry for target_id=%s", target_id)
 
     # -- Cache management -----------------------------------------------------
 

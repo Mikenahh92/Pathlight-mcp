@@ -216,13 +216,14 @@ def register(
             except Exception:
                 pass
 
-        # --- Invalidate caches (AC-5 / Architecture §5) ---
+        # --- Invalidate caches (AC-5 / Architecture §5, GW-130) ---
         # Navigation replaces the page DOM, so all cached AX trees, bounds,
-        # and element references are stale.  Window ("w"-prefixed) refs are
-        # preserved so callers can issue subsequent tool calls.
+        # element references, and CDP session state are stale.  Invalidate
+        # the session registry so the next tool call gets a fresh session
+        # and domain wrappers — this prevents stale session errors in long
+        # sequential browsing operations (GW-130).
         ref_store.clear_prefix("e")
-        web._ax_cache.clear()
-        web._bounds_cache.clear()
+        web._invalidate_session(target.id)
 
         return json.dumps(
             {

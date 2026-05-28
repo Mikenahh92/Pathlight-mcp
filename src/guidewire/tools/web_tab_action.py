@@ -181,9 +181,11 @@ def _activate(
 
     connection.send_command("Target.activateTarget", {"targetId": target_id})
 
-    # Invalidate AX/bounds caches on activate
-    web._ax_cache.clear()
-    web._bounds_cache.clear()
+    # Invalidate session registry and caches on activate (GW-130).
+    # Tab activation may cause the browser to invalidate the CDP session
+    # for the previously active tab, so proactively invalidate to prevent
+    # stale session errors on subsequent operations.
+    web._invalidate_session(target_id)
 
     return json.dumps(
         {
@@ -227,12 +229,9 @@ def _close(
     result = connection.send_command("Target.closeTarget", {"targetId": target_id})
     closed = result.get("success", False)
 
-    # Clean up session registry and remove from ref store on close
+    # Clean up session registry and remove from ref store on close (GW-130)
     if closed:
-        web._sessions.pop(target_id, None)
-        # Invalidate AX/bounds caches on close
-        web._ax_cache.clear()
-        web._bounds_cache.clear()
+        web._remove_session(target_id)
 
     return json.dumps(
         {
@@ -325,6 +324,10 @@ def _navigate(
     page = PageDomain(session)
     page.navigate(url)
 
+    # Invalidate session after navigation — the page DOM is replaced and
+    # the browser may detach the CDP session (GW-130).
+    web._invalidate_session(target_id)
+
     return json.dumps(
         {
             "success": True,
@@ -359,9 +362,9 @@ def _reload(
     page = PageDomain(session)
     page.reload()
 
-    # Invalidate caches after reload
-    web._ax_cache.clear()
-    web._bounds_cache.clear()
+    # Invalidate session and caches after reload — reload replaces the
+    # page DOM and the browser may detach the CDP session (GW-130).
+    web._invalidate_session(target_id)
 
     return json.dumps(
         {
