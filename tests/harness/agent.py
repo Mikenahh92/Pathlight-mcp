@@ -1,12 +1,12 @@
 """Anthropic agent client for integration testing.
 
-Connects to the Guidewire MCP server, converts MCP tools to Anthropic
+Connects to the Pathlight MCP server, converts MCP tools to Anthropic
 tool definitions, sends prompts via the Anthropic Messages API, and
 records tool calls for verification.
 
 Usage::
 
-    async with GuidewireServerProcess() as server:
+    async with PathlightMCPServerProcess() as server:
         agent = AgentClient(server)
         result = await agent.send_prompt("List all windows")
         assert_tool_called(result, "desktop.list_windows")
@@ -57,13 +57,13 @@ class AgentResult:
 
 
 class AgentClient:
-    """Anthropic agent that uses Guidewire MCP tools.
+    """Anthropic agent that uses Pathlight MCP tools.
 
     Wraps an MCP ``ClientSession`` to convert MCP tool schemas into
     Anthropic tool definitions, executes prompts, and records tool calls.
 
     Args:
-        server: A running :class:`GuidewireServerProcess`.
+        server: A running :class:`PathlightMCPServerProcess`.
         model: Anthropic model to use (default from ``ANTHROPIC_MODEL`` env
             or ``"claude-sonnet-4-20250514"``).
         base_url: Anthropic API base URL (default from ``ANTHROPIC_BASE_URL``

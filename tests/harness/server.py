@@ -1,11 +1,11 @@
-"""Guidewire MCP server subprocess manager.
+"""Pathlight MCP server subprocess manager.
 
-Spawns ``python -m guidewire`` as a child process, connects an MCP
+Spawns ``python -m pathlight_mcp`` as a child process, connects an MCP
 ``ClientSession`` over stdio transport, and provides clean shutdown.
 
 Usage::
 
-    async with GuidewireServerProcess() as server:
+    async with PathlightMCPServerProcess() as server:
         tools = await server.list_tools()
         assert len(tools) == 9
 """
@@ -21,7 +21,7 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import CallToolResult, ListToolsResult, Tool
 
-__all__ = ["GuidewireServerProcess"]
+__all__ = ["PathlightMCPServerProcess"]
 
 # Resolve the project source root relative to this file (tests/harness/server.py
 # → tests/ → project root → src/).
@@ -30,15 +30,15 @@ _DEFAULT_SRC_DIR = str(_PROJECT_ROOT / "src")
 
 
 @dataclass
-class GuidewireServerProcess:
-    """Manages a Guidewire MCP server subprocess lifecycle.
+class PathlightMCPServerProcess:
+    """Manages a Pathlight MCP server subprocess lifecycle.
 
-    Spawns the server via ``python -m guidewire``, connects an MCP
+    Spawns the server via ``python -m pathlight_mcp``, connects an MCP
     client session over stdio, and exposes helper methods for
     listing/calling tools.
 
     The server subprocess automatically receives a ``PYTHONPATH`` that
-    includes the project ``src/`` directory so that ``guidewire`` is
+    includes the project ``src/`` directory so that ``pathlight_mcp`` is
     importable even without a prior ``pip install -e``.
 
     Attributes:
@@ -77,7 +77,7 @@ class GuidewireServerProcess:
         env: dict[str, str] = dict(os.environ)
         if self.env:
             env.update(self.env)
-        # Prepend src_dir to PYTHONPATH so the subprocess can import guidewire.
+        # Prepend src_dir to PYTHONPATH so the subprocess can import pathlight_mcp.
         existing = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = self.src_dir + ((os.pathsep + existing) if existing else "")
         # Ensure PYTHONIOENCODING is set to utf-8 for stdio transport.
@@ -88,7 +88,7 @@ class GuidewireServerProcess:
         """Spawn the server subprocess and connect the MCP client session."""
         server_params = StdioServerParameters(
             command=self.command,
-            args=["-m", "guidewire", "--backend", self.backend],
+            args=["-m", "pathlight_mcp", "--backend", self.backend],
             env=self._build_env(),
             cwd=self.cwd or str(_PROJECT_ROOT),
         )
@@ -123,7 +123,7 @@ class GuidewireServerProcess:
         self._stdio_context = None
 
     async def list_tools(self) -> list[Tool]:
-        """List all tools exposed by the Guidewire server.
+        """List all tools exposed by the Pathlight MCP server.
 
         Returns:
             List of :class:`mcp.types.Tool` objects.
@@ -144,7 +144,7 @@ class GuidewireServerProcess:
         )
         return result
 
-    async def __aenter__(self) -> "GuidewireServerProcess":
+    async def __aenter__(self) -> "PathlightMCPServerProcess":
         await self.start()
         return self
 

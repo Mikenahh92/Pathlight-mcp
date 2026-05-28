@@ -20,11 +20,11 @@ from unittest.mock import patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
-from guidewire.errors import ActionNotSupportedError
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.errors import ActionNotSupportedError
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -296,7 +296,7 @@ class TestGetTableInfoErrors:
         backend: MockBackend,
     ) -> None:
         """Should return action_not_supported error when backend raises."""
-        from guidewire.backends.types import DesktopAction
+        from pathlight_mcp.backends.types import DesktopAction
 
         original_perform_action = backend.perform_action
 

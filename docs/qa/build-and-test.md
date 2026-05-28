@@ -1,4 +1,4 @@
-# Build & Test Guide — Guidewire
+# Build & Test Guide — Pathlight MCP
 
 ## Setup
 

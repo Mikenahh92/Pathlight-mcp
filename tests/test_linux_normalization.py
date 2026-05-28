@@ -23,8 +23,8 @@ from __future__ import annotations
 
 import pytest
 
-from guidewire.backends.normalize import normalize_element, normalize_states
-from guidewire.models.mappings import (
+from pathlight_mcp.backends.normalize import normalize_element, normalize_states
+from pathlight_mcp.models.mappings import (
     _LINUX_ACTIONS,
     _LINUX_ROLES,
     _LINUX_STATES,
@@ -1462,7 +1462,7 @@ class TestLinuxMappingCompleteness:
 
     def test_all_linux_actions_resolve_to_known_desktop_actions(self) -> None:
         """Every ``_LINUX_ACTIONS`` value is a valid ``DesktopAction``."""
-        from guidewire.models import DesktopAction
+        from pathlight_mcp.models import DesktopAction
 
         valid_actions = set(DesktopAction.__args__)  # type: ignore[attr-defined]
         for atspi_action, normalized in _LINUX_ACTIONS.items():
@@ -1509,7 +1509,7 @@ class TestLinuxMappingCompleteness:
     def test_linux_role_map_keys_do_not_overlap_with_windows(self) -> None:
         """Linux and Windows role maps do not share raw key strings
         (they may share normalized values, but not native keys)."""
-        from guidewire.models.mappings import _WINDOWS_ROLES
+        from pathlight_mcp.models.mappings import _WINDOWS_ROLES
 
         overlap = set(_LINUX_ROLES.keys()) & set(_WINDOWS_ROLES.keys())
         # The only acceptable overlap would be lowercase equivalents that
@@ -1524,7 +1524,7 @@ class TestLinuxMappingCompleteness:
         ``ElementStates`` fields or intentionally filtered out."""
         from dataclasses import fields
 
-        from guidewire.models import ElementStates
+        from pathlight_mcp.models import ElementStates
 
         valid_fields = {f.name for f in fields(ElementStates)}
         # These fields are in _LINUX_STATES but NOT on ElementStates yet;

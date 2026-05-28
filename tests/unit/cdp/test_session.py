@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.cdp._types import CDPTarget, SessionState
-from guidewire.cdp.connection import CDPConnection
-from guidewire.cdp.session import CDPSession
-from guidewire.errors import GuidewireError
+from pathlight_mcp.cdp._types import CDPTarget, SessionState
+from pathlight_mcp.cdp.connection import CDPConnection
+from pathlight_mcp.cdp.session import CDPSession
+from pathlight_mcp.errors import PathlightMCPError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -69,7 +69,7 @@ def _create_connected_connection() -> tuple[CDPConnection, FakeWebSocket]:
     fake_ws = FakeWebSocket()
     ws_mod = _fake_ws_module(fake_ws)
 
-    with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+    with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
         conn = CDPConnection(url="ws://localhost:9222/devtools/browser")
         conn.connect()
 
@@ -201,7 +201,7 @@ class TestCDPSessionAttach:
 
         _attach_session(session, fake_ws)
 
-        with pytest.raises(GuidewireError, match="already attached"):
+        with pytest.raises(PathlightMCPError, match="already attached"):
             session.attach()
 
     def test_attach_failure_resets_state(self) -> None:
@@ -220,7 +220,7 @@ class TestCDPSessionAttach:
             ),
         ).start()
 
-        with pytest.raises(GuidewireError):
+        with pytest.raises(PathlightMCPError):
             session.attach()
 
         assert session.state == SessionState.DETACHED
@@ -237,7 +237,7 @@ class TestCDPSessionAttach:
             lambda: fake_ws.enqueue({"id": 1, "result": {}}),
         ).start()
 
-        with pytest.raises(GuidewireError, match="no sessionId"):
+        with pytest.raises(PathlightMCPError, match="no sessionId"):
             session.attach()
 
         assert session.state == SessionState.DETACHED
@@ -281,7 +281,7 @@ class TestCDPSessionDetach:
         target = _create_target()
         session = CDPSession(connection=conn, target=target)
 
-        with pytest.raises(GuidewireError, match="not attached"):
+        with pytest.raises(PathlightMCPError, match="not attached"):
             session.detach()
 
     def test_detach_failure_still_resets_state(self) -> None:
@@ -380,7 +380,7 @@ class TestCDPSessionSendCommand:
             ),
         ).start()
 
-        with pytest.raises(GuidewireError):
+        with pytest.raises(PathlightMCPError):
             session.send_command("Page.enable")
 
     def test_send_command_with_custom_timeout(self) -> None:
@@ -606,7 +606,7 @@ class TestAutoReattach:
             ),
         ).start()
 
-        with pytest.raises(GuidewireError, match="Method not found"):
+        with pytest.raises(PathlightMCPError, match="Method not found"):
             session.send_command("Nonexistent.method")
 
     def test_send_command_reattach_exhausted_raises(self) -> None:
@@ -629,7 +629,7 @@ class TestAutoReattach:
             ),
         ).start()
 
-        with pytest.raises(GuidewireError):
+        with pytest.raises(PathlightMCPError):
             session.send_command("Test.method")
 
 
@@ -637,42 +637,42 @@ class TestIsStaleSessionError:
     """Tests for _is_stale_session_error heuristic."""
 
     def test_not_attached_message(self) -> None:
-        from guidewire.cdp.protocol import CDPError
+        from pathlight_mcp.cdp.protocol import CDPError
         assert CDPSession._is_stale_session_error(
             CDPError(-32000, "Not attached to target")
         )
 
     def test_session_not_found_message(self) -> None:
-        from guidewire.cdp.protocol import CDPError
+        from pathlight_mcp.cdp.protocol import CDPError
         assert CDPSession._is_stale_session_error(
             CDPError(-32000, "Session not found")
         )
 
     def test_session_is_closing_message(self) -> None:
-        from guidewire.cdp.protocol import CDPError
+        from pathlight_mcp.cdp.protocol import CDPError
         assert CDPSession._is_stale_session_error(
             CDPError(-32000, "Session is closing")
         )
 
     def test_target_closed_message(self) -> None:
-        from guidewire.cdp.protocol import CDPError
+        from pathlight_mcp.cdp.protocol import CDPError
         assert CDPSession._is_stale_session_error(
             CDPError(-32000, "Target closed")
         )
 
     def test_cdp_error_code_32000(self) -> None:
-        from guidewire.cdp.protocol import CDPError
+        from pathlight_mcp.cdp.protocol import CDPError
         assert CDPSession._is_stale_session_error(
             CDPError(-32000, "Something went wrong")
         )
 
-    def test_guidewire_error_not_attached(self) -> None:
+    def test_pathlight_mcp_error_not_attached(self) -> None:
         assert CDPSession._is_stale_session_error(
-            GuidewireError("Session not attached to target")
+            PathlightMCPError("Session not attached to target")
         )
 
     def test_non_stale_error_returns_false(self) -> None:
-        from guidewire.cdp.protocol import CDPError
+        from pathlight_mcp.cdp.protocol import CDPError
         assert not CDPSession._is_stale_session_error(
             CDPError(-32601, "Method not found")
         )
@@ -693,13 +693,13 @@ class TestExponentialBackoffReattach:
 
     def test_max_reattach_attempts_is_three(self) -> None:
         """GW-128: _MAX_REATTACH_ATTEMPTS should be 3 (not 1)."""
-        from guidewire.cdp.session import _MAX_REATTACH_ATTEMPTS
+        from pathlight_mcp.cdp.session import _MAX_REATTACH_ATTEMPTS
 
         assert _MAX_REATTACH_ATTEMPTS == 3
 
     def test_backoff_base_is_positive(self) -> None:
         """GW-128: _REATTACH_BACKOFF_BASE should be a positive value."""
-        from guidewire.cdp.session import _REATTACH_BACKOFF_BASE
+        from pathlight_mcp.cdp.session import _REATTACH_BACKOFF_BASE
 
         assert _REATTACH_BACKOFF_BASE > 0
 
@@ -767,7 +767,7 @@ class TestExponentialBackoffReattach:
                 ),
             ).start()
 
-        with pytest.raises(GuidewireError):
+        with pytest.raises(PathlightMCPError):
             session.send_command("Test.method", timeout=10.0)
 
     def test_send_command_recovers_on_second_stale_error(self) -> None:
@@ -852,5 +852,5 @@ class TestExponentialBackoffReattach:
                 ),
             ).start()
 
-        with pytest.raises(GuidewireError):
+        with pytest.raises(PathlightMCPError):
             session.send_command("Test.method", timeout=10.0)

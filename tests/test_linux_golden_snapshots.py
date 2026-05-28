@@ -235,7 +235,7 @@ def _validate_metadata(metadata: dict[str, Any]) -> list[str]:
         "captured_at",
         "os_version",
         "app_name",
-        "guidewire_version",
+        "pathlight_mcp_version",
         "max_depth",
         "max_nodes",
     }

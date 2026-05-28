@@ -23,13 +23,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter, TaggedHandle
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import CDPTarget
-from guidewire.errors import BackendUnavailableError
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter, TaggedHandle
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.errors import BackendUnavailableError
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -122,7 +122,7 @@ class TestWebConnectWired:
         web_connect = next(t for t in tools if t.name == "desktop.web_connect")
 
         mock_web = _make_mock_web_backend()
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result_json = web_connect.fn(host="localhost", port=9222)
 
         result = json.loads(result_json)
@@ -146,7 +146,7 @@ class TestWebConnectWired:
         web_connect = next(t for t in tools if t.name == "desktop.web_connect")
 
         mock_web = _make_mock_web_backend()
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result_json = web_connect.fn(host="localhost", port=9222)
 
         result = json.loads(result_json)
@@ -197,7 +197,7 @@ class TestWebConnectWired:
         mock_web = MagicMock(spec=WebBackend)
         mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
 
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result_json = web_connect.fn(host="localhost", port=9222)
 
         result = json.loads(result_json)
@@ -236,7 +236,7 @@ class TestWebConnectWired:
         mock_web2 = _make_mock_web_backend([
             CDPTarget(id="t1", type="page", title="Existing Page", url="https://existing.com"),
         ])
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web2):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web2):
             # First connect
             result1_json = web_connect.fn(host="localhost", port=9222)
             result1 = json.loads(result1_json)
@@ -262,7 +262,7 @@ class TestWebConnectWired:
             CDPTarget(id="t3", type="page", title="Page 3", url="https://three.com"),
         ]
         mock_web = _make_mock_web_backend(pages)
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result_json = web_connect.fn(host="localhost", port=9222)
 
         result = json.loads(result_json)
@@ -305,7 +305,7 @@ class TestWebNavigateWired:
         ]
         mock_web = _make_mock_web_backend(pages)
 
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result_json = web_connect.fn(host="localhost", port=9222)
 
         result = json.loads(result_json)
@@ -444,7 +444,7 @@ class TestWebNavigateWired:
         mock_web, _ = self._setup_connected_router(mcp_router, ref_store)
 
         # Store a native window ref (not tagged as "web")
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         native_handle = NativeHandle("native-window-0")
         native_ref = ref_store.store(native_handle, prefix="w")
@@ -519,19 +519,19 @@ class TestWebSafetyClassification:
 
     def test_web_connect_is_sensitive(self) -> None:
         """web_connect system action is SENSITIVE."""
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_connect"] == "SENSITIVE"
 
     def test_web_navigate_is_sensitive(self) -> None:
         """web_navigate system action is SENSITIVE."""
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_navigate"] == "SENSITIVE"
 
     def test_classify_web_connect(self) -> None:
         """classify_system_action returns SENSITIVE for web_connect."""
-        from guidewire.safety import classify_system_action
+        from pathlight_mcp.safety import classify_system_action
 
         result = classify_system_action("web_connect", target="localhost:9222")
         assert result.risk_level == "SENSITIVE"
@@ -540,7 +540,7 @@ class TestWebSafetyClassification:
 
     def test_classify_web_navigate(self) -> None:
         """classify_system_action returns SENSITIVE for web_navigate."""
-        from guidewire.safety import classify_system_action
+        from pathlight_mcp.safety import classify_system_action
 
         result = classify_system_action("web_navigate", target="https://example.com")
         assert result.risk_level == "SENSITIVE"
@@ -556,7 +556,7 @@ class TestWebHints:
 
     def test_web_connect_error_hints(self) -> None:
         """web_connect_error has registered hints."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_connect_error")
         assert len(hints) > 0
@@ -564,7 +564,7 @@ class TestWebHints:
 
     def test_web_navigate_error_hints(self) -> None:
         """web_navigate_error has registered hints."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_navigate_error")
         assert len(hints) > 0

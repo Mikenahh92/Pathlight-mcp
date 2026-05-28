@@ -3,7 +3,7 @@
 Validates :class:`CDPConnection` with a mocked WebSocket transport.
 The tests exercise command sending, response waiting, event buffering,
 error handling, timeout behavior, connection lifecycle, state transitions,
-Guidewire error mapping, keepalive pinger, dead-peer detection, and
+Pathlight MCP error mapping, keepalive pinger, dead-peer detection, and
 automatic reconnect (GW-127).
 """
 
@@ -15,11 +15,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.cdp._types import ConnectionState
-from guidewire.cdp.connection import CDPConnection
-from guidewire.cdp.events import EventBuffer
-from guidewire.cdp.protocol import CDPError
-from guidewire.errors import BackendUnavailableError, ElementNotFoundError, GuidewireError
+from pathlight_mcp.cdp._types import ConnectionState
+from pathlight_mcp.cdp.connection import CDPConnection
+from pathlight_mcp.cdp.events import EventBuffer
+from pathlight_mcp.cdp.protocol import CDPError
+from pathlight_mcp.errors import BackendUnavailableError, ElementNotFoundError, PathlightMCPError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -105,7 +105,7 @@ def _create_connected_connection(
     kwargs.setdefault("ping_interval", 0)
     kwargs.setdefault("max_reconnect_attempts", 0)
 
-    with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+    with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
         conn = CDPConnection(url=url, **kwargs)
         conn.connect()
 
@@ -189,7 +189,7 @@ class TestCDPConnectionLifecycle:
     def test_connect_failure_raises_backend_unavailable(self) -> None:
         ws_mod = MagicMock()
         ws_mod.create_connection.side_effect = OSError("refused")
-        with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
             conn = CDPConnection(url="ws://localhost:9222/test")
             with pytest.raises(BackendUnavailableError, match="Failed to connect"):
                 conn.connect()
@@ -198,7 +198,7 @@ class TestCDPConnectionLifecycle:
     def test_context_manager(self) -> None:
         fake_ws = FakeWebSocket()
         ws_mod = _fake_ws_module(fake_ws)
-        with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
             with CDPConnection(url="ws://localhost:9222/test", ping_interval=0,
                                max_reconnect_attempts=0) as conn:
                 assert conn.state == ConnectionState.CONNECTED
@@ -232,7 +232,7 @@ class TestCDPConnectionSendCommand:
         assert sent[0]["method"] == "Page.navigate"
         assert sent[0]["params"] == {"url": "https://example.com"}
 
-    def test_send_command_error_maps_to_guidewire_error(self) -> None:
+    def test_send_command_error_maps_to_pathlight_mcp_error(self) -> None:
         conn, fake_ws = _create_connected_connection()
 
         fake_ws.enqueue({"id": 1, "error": {"code": -32000, "message": "Not found"}})
@@ -240,12 +240,12 @@ class TestCDPConnectionSendCommand:
         with pytest.raises(ElementNotFoundError, match="Not found"):
             conn.send_command("Page.navigate", {"url": "bad"})
 
-    def test_send_command_generic_error_maps_to_guidewire_error(self) -> None:
+    def test_send_command_generic_error_maps_to_pathlight_mcp_error(self) -> None:
         conn, fake_ws = _create_connected_connection()
 
         fake_ws.enqueue({"id": 1, "error": {"code": -32600, "message": "Invalid request"}})
 
-        with pytest.raises(GuidewireError, match="CDP error"):
+        with pytest.raises(PathlightMCPError, match="CDP error"):
             conn.send_command("Page.navigate", {"url": "bad"})
 
     def test_send_command_no_params(self) -> None:
@@ -380,23 +380,23 @@ class TestCDPConnectionClosePending:
 
 
 class TestCDPErrorMapping:
-    """Tests for CDP error to Guidewire error mapping."""
+    """Tests for CDP error to Pathlight MCP error mapping."""
 
     def test_not_found_maps_to_element_not_found(self) -> None:
         error = CDPError(code=-32000, message="Node not found")
         mapped = CDPConnection._map_cdp_error(error)
         assert isinstance(mapped, ElementNotFoundError)
 
-    def test_generic_cdp_error_maps_to_guidewire_error(self) -> None:
+    def test_generic_cdp_error_maps_to_pathlight_mcp_error(self) -> None:
         error = CDPError(code=-32600, message="Invalid request")
         mapped = CDPConnection._map_cdp_error(error)
-        assert isinstance(mapped, GuidewireError)
+        assert isinstance(mapped, PathlightMCPError)
         assert not isinstance(mapped, ElementNotFoundError)
 
-    def test_non_cdp_error_maps_to_guidewire_error(self) -> None:
+    def test_non_cdp_error_maps_to_pathlight_mcp_error(self) -> None:
         error = RuntimeError("something broke")
         mapped = CDPConnection._map_cdp_error(error)
-        assert isinstance(mapped, GuidewireError)
+        assert isinstance(mapped, PathlightMCPError)
 
 
 # ---------------------------------------------------------------------------
@@ -408,7 +408,7 @@ class TestImportGuard:
     """Tests for websocket-client import guard."""
 
     def test_missing_websocket_raises_backend_unavailable(self) -> None:
-        with patch("guidewire.cdp.connection._import_websocket") as mock_import:
+        with patch("pathlight_mcp.cdp.connection._import_websocket") as mock_import:
             mock_import.side_effect = BackendUnavailableError(
                 "websocket-client is required"
             )
@@ -457,7 +457,7 @@ class TestKeepalivePinger:
         fake_ws = FakeWebSocket()
         ws_mod = _fake_ws_module(fake_ws)
 
-        with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
             conn = CDPConnection(
                 url="ws://localhost:9222/test",
                 ping_interval=0.1,
@@ -494,7 +494,7 @@ class TestKeepalivePinger:
 
         # Keep patch active for the entire test (reconnect calls _import_websocket)
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(
@@ -552,7 +552,7 @@ class TestDeadPeerDetection:
             return new_ws_mod
 
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(
@@ -602,7 +602,7 @@ class TestDeadPeerDetection:
         fake_ws.ping = _failing_ping  # type: ignore[assignment]
 
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(
@@ -653,7 +653,7 @@ class TestAutoReconnect:
             return new_ws_mod
 
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(
@@ -705,7 +705,7 @@ class TestAutoReconnect:
             return fail_mod
 
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(
@@ -757,7 +757,7 @@ class TestAutoReconnect:
         buf = EventBuffer(maxsize_per_method=50)
 
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(
@@ -807,7 +807,7 @@ class TestAutoReconnect:
             return new_ws_mod
 
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(
@@ -862,7 +862,7 @@ class TestAutoReconnect:
             return new_ws_mod
 
         with patch(
-            "guidewire.cdp.connection._import_websocket",
+            "pathlight_mcp.cdp.connection._import_websocket",
             side_effect=_ws_factory,
         ):
             conn = CDPConnection(

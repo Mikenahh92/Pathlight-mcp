@@ -13,8 +13,8 @@ Verifies that the privacy module:
 
 import pytest
 
-from guidewire.models import Bounds, ElementStates, NormalizedElement
-from guidewire.privacy import (
+from pathlight_mcp.models import Bounds, ElementStates, NormalizedElement
+from pathlight_mcp.privacy import (
     PrivacyConfig,
     is_password_field,
     redact_clipboard_text,
@@ -131,7 +131,7 @@ class TestExports:
     """Verify module exports exactly 6 public names (F6)."""
 
     def test_all_exports(self) -> None:
-        import guidewire.privacy as mod
+        import pathlight_mcp.privacy as mod
 
         assert sorted(mod.__all__) == [
             "PrivacyConfig",
@@ -143,12 +143,12 @@ class TestExports:
         ]
 
     def test_privacy_config_importable(self) -> None:
-        from guidewire.privacy import PrivacyConfig
+        from pathlight_mcp.privacy import PrivacyConfig
 
         assert PrivacyConfig is PrivacyConfig
 
     def test_functions_importable(self) -> None:
-        from guidewire.privacy import (
+        from pathlight_mcp.privacy import (
             is_password_field,
             redact_clipboard_text,
             redact_element,

@@ -6,7 +6,7 @@ reading a value from one application, copying it to the clipboard, switching
 to a second application, and pasting the value.
 
 Uses the AgentClient replay_script mode to bypass the real Anthropic API.
-This test boots the Guidewire server with ``--backend mock`` and replays a
+This test boots the Pathlight MCP server with ``--backend mock`` and replays a
 multi-turn agent interaction:
 
 1. ``desktop.list_windows`` — discover running applications
@@ -32,7 +32,7 @@ from tests.harness.assertions import (
     assert_tool_called,
     assert_tool_not_called,
 )
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 # -- Replay script: simulated Claude clipboard cross-app interaction --------
 # This replay script models the full agent loop that Claude would execute
@@ -228,7 +228,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_clipboard_workflow_completes(self) -> None:
         """Agent replay should execute the full clipboard cross-app workflow."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -249,7 +249,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_tool_call_order(self) -> None:
         """Tool calls should follow the expected clipboard workflow sequence."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -273,7 +273,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_total_tool_call_count(self) -> None:
         """Exactly 10 tool calls across the full clipboard agent loop."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -283,7 +283,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_clipboard_write_before_focus_switch(self) -> None:
         """clipboard_write should be called before focus_window."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -298,7 +298,7 @@ class TestAgentClipboardCrossApp:
         self,
     ) -> None:
         """clipboard_write should contain the value read from the source app."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -310,7 +310,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_type_text_targets_second_app_element(self) -> None:
         """type_text should target the text input in the second app."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -323,7 +323,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_focus_window_switches_to_target(self) -> None:
         """focus_window should target the TextEditor window (w2)."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -335,7 +335,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_snapshots_target_different_windows(self) -> None:
         """Two snapshots should target different windows (Calculator then TextEditor)."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -348,7 +348,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_get_text_before_clipboard_write(self) -> None:
         """get_text on source app should precede clipboard_write."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -361,7 +361,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_clipboard_read_is_final_tool_call(self) -> None:
         """clipboard_read should be the last tool call before end_turn."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."
@@ -374,7 +374,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_server_exposes_clipboard_tools(self) -> None:
         """Server should expose both clipboard_read and clipboard_write tools."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             tools = await server.list_tools()
             names = {t.name for t in tools}
             assert "desktop.clipboard_read" in names
@@ -382,7 +382,7 @@ class TestAgentClipboardCrossApp:
 
     async def test_no_unnecessary_tools_used(self) -> None:
         """Clipboard workflow should not need click, press_key, or manage_window."""
-        async with GuidewireServerProcess(backend="mock") as server:
+        async with PathlightMCPServerProcess(backend="mock") as server:
             agent = AgentClient(server, replay_script=CLIPBOARD_CROSS_APP_REPLAY, max_turns=12)
             result = await agent.send_prompt(
                 "Read the value from Calculator and paste it into TextEditor using the clipboard."

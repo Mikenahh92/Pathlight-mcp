@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.cdp.browser_resolver import (
+from pathlight_mcp.cdp.browser_resolver import (
     _DEFAULT_ORDER_LINUX,
     _DEFAULT_ORDER_WINDOWS,
     BROWSER_NAMES,
@@ -88,13 +88,13 @@ class TestBrowserNameValidation:
 class TestDefaultDiscoveryOrder:
     """Default discovery order is platform-specific."""
 
-    @patch("guidewire.cdp.browser_resolver.sys")
+    @patch("pathlight_mcp.cdp.browser_resolver.sys")
     def test_windows_order(self, mock_sys: MagicMock) -> None:
         """Windows uses Edge → Chrome → Brave → Chromium."""
         mock_sys.platform = "win32"
         assert BrowserResolver._default_order() == _DEFAULT_ORDER_WINDOWS
 
-    @patch("guidewire.cdp.browser_resolver.sys")
+    @patch("pathlight_mcp.cdp.browser_resolver.sys")
     def test_linux_order(self, mock_sys: MagicMock) -> None:
         """Linux uses Chromium → Chrome → Brave."""
         mock_sys.platform = "linux"
@@ -123,7 +123,7 @@ class TestWindowsDiscovery:
         fake_path = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
         with (
             patch("os.path.isfile", return_value=True),
-            patch("guidewire.cdp.browser_resolver._WINDOWS_PATHS", {"edge": [fake_path]}),
+            patch("pathlight_mcp.cdp.browser_resolver._WINDOWS_PATHS", {"edge": [fake_path]}),
         ):
             result = resolver._find_windows("edge")
             assert result == fake_path
@@ -133,7 +133,7 @@ class TestWindowsDiscovery:
         fake_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
         with (
             patch("os.path.isfile", return_value=True),
-            patch("guidewire.cdp.browser_resolver._WINDOWS_PATHS", {"chrome": [fake_path]}),
+            patch("pathlight_mcp.cdp.browser_resolver._WINDOWS_PATHS", {"chrome": [fake_path]}),
         ):
             result = resolver._find_windows("chrome")
             assert result == fake_path
@@ -159,7 +159,7 @@ class TestWindowsDiscovery:
 
         with (
             patch("os.path.isfile", side_effect=isfile_side_effect),
-            patch("guidewire.cdp.browser_resolver._WINDOWS_PATHS", {"brave": paths}),
+            patch("pathlight_mcp.cdp.browser_resolver._WINDOWS_PATHS", {"brave": paths}),
         ):
             result = resolver._find_windows("brave")
             assert result == paths[2]
@@ -258,7 +258,7 @@ class TestResolve:
         # Use the real _find_browser but patch the underlying platform method
         with (
             patch.object(resolver, "_find_linux", return_value="/usr/bin/chrome") as mock_find,
-            patch("guidewire.cdp.browser_resolver.sys") as mock_sys,
+            patch("pathlight_mcp.cdp.browser_resolver.sys") as mock_sys,
         ):
             mock_sys.platform = "linux"
             result1 = resolver.resolve("chrome")
@@ -452,7 +452,7 @@ class TestWaitForReady:
 
         with (
             patch("urllib.request.urlopen", side_effect=urlopen_side_effect),
-            patch("guidewire.cdp.browser_resolver._LAUNCH_POLL_INTERVAL", 0.01),
+            patch("pathlight_mcp.cdp.browser_resolver._LAUNCH_POLL_INTERVAL", 0.01),
         ):
             result = resolver.wait_for_ready(timeout=2.0)
             assert result is True
@@ -461,7 +461,7 @@ class TestWaitForReady:
         """Returns False when the endpoint never responds."""
         with (
             patch("urllib.request.urlopen", side_effect=ConnectionRefusedError),
-            patch("guidewire.cdp.browser_resolver._LAUNCH_POLL_INTERVAL", 0.01),
+            patch("pathlight_mcp.cdp.browser_resolver._LAUNCH_POLL_INTERVAL", 0.01),
         ):
             result = resolver.wait_for_ready(timeout=0.1)
             assert result is False
@@ -488,19 +488,19 @@ class TestModuleConvenience:
     def test_returns_resolver(self) -> None:
         """resolve_browser returns a BrowserResolver instance."""
         # Reset module state
-        import guidewire.cdp.browser_resolver as mod
+        import pathlight_mcp.cdp.browser_resolver as mod
         mod._module_resolver = None
 
-        from guidewire.cdp.browser_resolver import resolve_browser
+        from pathlight_mcp.cdp.browser_resolver import resolve_browser
         r = resolve_browser()
         assert isinstance(r, BrowserResolver)
 
     def test_returns_same_instance(self) -> None:
         """resolve_browser returns the same instance on repeated calls."""
-        import guidewire.cdp.browser_resolver as mod
+        import pathlight_mcp.cdp.browser_resolver as mod
         mod._module_resolver = None
 
-        from guidewire.cdp.browser_resolver import resolve_browser
+        from pathlight_mcp.cdp.browser_resolver import resolve_browser
         r1 = resolve_browser()
         r2 = resolve_browser()
         assert r1 is r2

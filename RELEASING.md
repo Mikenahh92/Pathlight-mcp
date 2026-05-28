@@ -1,6 +1,6 @@
 # Release & Rollback Procedures
 
-This document covers the release workflow for **guidewire** on PyPI, including
+This document covers the release workflow for **pathlight-mcp** on PyPI, including
 how to yank or roll back a problematic release.
 
 > **See also:** [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and
@@ -21,7 +21,7 @@ how to yank or roll back a problematic release.
 
 ## Release Workflow
 
-Guidewire uses a **tag-triggered release pipeline** (`.github/workflows/release.yml`)
+Pathlight MCP uses a **tag-triggered release pipeline** (`.github/workflows/release.yml`)
 with OIDC trusted publishing. No API tokens or manual uploads are required.
 
 ### Steps
@@ -40,11 +40,11 @@ with OIDC trusted publishing. No API tokens or manual uploads are required.
    - **Publish to PyPI** — OIDC trusted publishing (no stored secrets)
    - **Verify** — installs from PyPI and confirms the version matches the tag
    - **Release** — generates `CHANGELOG.md` via git-cliff and creates a GitHub Release
-4. **Confirm** the new version appears at [pypi.org/project/guidewire](https://pypi.org/project/guidewire/).
+4. **Confirm** the new version appears at [pypi.org/project/pathlight-mcp](https://pypi.org/project/pathlight-mcp/).
 
 ### Version Numbering
 
-Guidewire follows [Semantic Versioning](https://semver.org/):
+Pathlight MCP follows [Semantic Versioning](https://semver.org/):
 
 - **Patch** (`X.Y.Z+1`): bug fixes, no new features or breaking changes
 - **Minor** (`X.Y+1.0`): new features, backward-compatible
@@ -59,7 +59,7 @@ git tags, not hardcoded in source.
 
 ### Production (automatic)
 
-Releases to [PyPI](https://pypi.org/project/guidewire/) are **fully automated**.
+Releases to [PyPI](https://pypi.org/project/pathlight-mcp/) are **fully automated**.
 Push a `vX.Y.Z` tag to `main` and the pipeline handles everything. See
 [Release Workflow](#release-workflow) above.
 
@@ -73,7 +73,7 @@ affecting the production package:
 3. Verify the package installs from TestPyPI.
 
 This uses OIDC trusted publishing against
-[test.pypi.org](https://test.pypi.org/project/guidewire/) and does **not**
+[test.pypi.org](https://test.pypi.org/project/pathlight-mcp/) and does **not**
 require any manual token.
 
 ---
@@ -81,8 +81,8 @@ require any manual token.
 ## Yanking a Release
 
 Yanking removes a version from the PyPI install index while keeping it available
-for anyone who pinned it. Users running `pip install guidewire` will skip the
-yanked version, but `pip install guidewire==X.Y.Z` still works.
+for anyone who pinned it. Users running `pip install pathlight-mcp` will skip the
+yanked version, but `pip install pathlight-mcp==X.Y.Z` still works.
 
 ### When to yank
 
@@ -92,7 +92,7 @@ yanked version, but `pip install guidewire==X.Y.Z` still works.
 
 ### Steps
 
-1. **Go to [pypi.org/manage/project/guidewire/releases](https://pypi.org/manage/project/guidewire/releases/)**.
+1. **Go to [pypi.org/manage/project/pathlight-mcp/releases](https://pypi.org/manage/project/pathlight-mcp/releases/)**.
 2. Find the version you want to yank.
 3. Click **Options → Yank**.
 4. Confirm the yank.
@@ -101,7 +101,7 @@ Alternatively, use the command line:
 
 ```bash
 pip install twine
-twine upload --verbose --repository pypi dist/guidewire-X.Y.Z.tar.gz guidewire-X.Y.Z-py3-none-any.whl
+twine upload --verbose --repository pypi dist/pathlight-mcp-X.Y.Z.tar.gz pathlight-mcp-X.Y.Z-py3-none-any.whl
 # Or use the PyPI API directly:
 pip install pypiserver  # if needed
 ```
@@ -114,7 +114,7 @@ The simplest CLI method:
 ```
 
 > **Note:** Yanking requires PyPI maintainer or owner access for the
-> `guidewire` project. Contact a project owner if you lack permissions.
+> `pathlight-mcp` project. Contact a project owner if you lack permissions.
 
 ### After yanking
 
@@ -140,7 +140,7 @@ needed — **yanking is preferred** in most cases.
 ### Steps
 
 1. **Delete the distribution files from PyPI**:
-   - Go to [pypi.org/manage/project/guidewire/releases](https://pypi.org/manage/project/guidewire/releases/).
+   - Go to [pypi.org/manage/project/pathlight-mcp/releases](https://pypi.org/manage/project/pathlight-mcp/releases/).
    - Select the affected version.
    - Delete each file (sdist and wheel).
 
@@ -238,5 +238,5 @@ Ensure the correct tag is checked out and there are no uncommitted changes.
 
 PyPI's CDN may cache for a short period. Wait a few minutes and try:
 ```bash
-pip install --no-cache-dir guidewire
+pip install --no-cache-dir pathlight-mcp
 ```

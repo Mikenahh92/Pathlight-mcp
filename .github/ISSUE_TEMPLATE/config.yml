@@ -2,7 +2,7 @@ blank_issues_enabled: false
 contact_links:
   - name: GitHub Discussions
     url: https://github.com/HarmenBakhuis/Guidewire/discussions
-    about: Ask questions, share ideas, and connect with other Guidewire users.
+    about: Ask questions, share ideas, and connect with other Pathlight MCP users.
   - name: Security Vulnerability
     url: https://github.com/HarmenBakhuis/Guidewire/security/advisories/new
     about: |

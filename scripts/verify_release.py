@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Pre-release verification script for Guidewire.
+"""Pre-release verification script for Pathlight MCP.
 
 Validates all pre-conditions for a PyPI release:
 - Version derivation (setuptools-scm)
@@ -730,7 +730,7 @@ def print_report(results: list[CheckResult]) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for the pre-release verification script."""
     parser = argparse.ArgumentParser(
-        description="Pre-release verification script for Guidewire.",
+        description="Pre-release verification script for Pathlight MCP.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Checks performed:

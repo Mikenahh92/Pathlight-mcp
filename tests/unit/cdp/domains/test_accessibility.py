@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from guidewire.cdp._types import AXNode
-from guidewire.cdp.domains.accessibility import AccessibilityDomain
+from pathlight_mcp.cdp._types import AXNode
+from pathlight_mcp.cdp.domains.accessibility import AccessibilityDomain
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-We take the security of Guidewire seriously. If you believe you have found a
+We take the security of Pathlight MCP seriously. If you believe you have found a
 security vulnerability, please report it responsibly.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
@@ -38,13 +38,13 @@ Please include the following information in your report:
 
 ## Security Best Practices
 
-When using Guidewire:
+When using Pathlight MCP:
 
 - Only grant accessibility permissions to trusted applications
 - Review automation scripts before executing them
 - Be cautious when automating applications that handle sensitive data
   (passwords, financial information, personal data)
-- Use the privacy controls (`guidewire.privacy`) to redact sensitive fields in
+- Use the privacy controls (`pathlight_mcp.privacy`) to redact sensitive fields in
   snapshots and logs
 
 ## Supported Versions

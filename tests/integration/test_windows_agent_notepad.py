@@ -5,7 +5,7 @@ Prompt-driven agent integration test validating the full Windows stack
 into Notepad and reading it back via semantic accessibility actions.
 
 Uses the AgentClient replay_script mode to bypass the real Anthropic API.
-This test boots the Guidewire server with ``--backend auto`` and replays
+This test boots the Pathlight MCP server with ``--backend auto`` and replays
 a multi-turn agent interaction:
 
 1. ``desktop.list_windows`` — discover the Notepad window
@@ -25,7 +25,7 @@ import pytest
 
 from tests.harness.agent import AgentClient
 from tests.harness.assertions import assert_call_order, assert_tool_called
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 skip_not_windows = pytest.mark.skipif(
     sys.platform != "win32",
@@ -34,7 +34,7 @@ skip_not_windows = pytest.mark.skipif(
 
 # -- Replay script: simulated Claude interaction with Notepad ---------------
 # This replay script models the full agent loop that Claude would execute
-# when asked to "type 'Hello from Guidewire' into Notepad and read it back".
+# when asked to "type 'Hello from Pathlight MCP' into Notepad and read it back".
 # Each frame is one LLM response containing tool_use blocks.
 
 NOTEPAD_AGENT_REPLAY = [
@@ -88,13 +88,13 @@ NOTEPAD_AGENT_REPLAY = [
         "content_blocks": [
             {
                 "type": "text",
-                "text": "Found the text editor. Now typing 'Hello from Guidewire'.",
+                "text": "Found the text editor. Now typing 'Hello from Pathlight MCP'.",
             },
             {
                 "type": "tool_use",
                 "id": "tu_004",
                 "name": "desktop.type_text",
-                "input": {"element_ref": "e1", "text": "Hello from Guidewire"},
+                "input": {"element_ref": "e1", "text": "Hello from Pathlight MCP"},
             },
         ],
     },
@@ -116,7 +116,7 @@ NOTEPAD_AGENT_REPLAY = [
         "content_blocks": [
             {
                 "type": "text",
-                "text": "Successfully typed 'Hello from Guidewire' into Notepad "
+                "text": "Successfully typed 'Hello from Pathlight MCP' into Notepad "
                 "and verified the text was entered correctly.",
             }
         ],
@@ -136,10 +136,10 @@ class TestWindowsAgentNotepad:
 
     async def test_agent_discovers_and_interacts_with_notepad(self) -> None:
         """Agent replay should call list_windows, snapshot, find, type_text, get_text."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NOTEPAD_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt(
-                "Type 'Hello from Guidewire' into Notepad and read it back."
+                "Type 'Hello from Pathlight MCP' into Notepad and read it back."
             )
 
         # Verify all 5 tool calls were made
@@ -165,27 +165,27 @@ class TestWindowsAgentNotepad:
         assert result.stop_reason == "end_turn"
 
         # Verify the final text mentions the typed content
-        assert "Hello from Guidewire" in result.text
+        assert "Hello from Pathlight MCP" in result.text
 
     async def test_type_text_arguments(self) -> None:
         """The type_text tool call should include the correct text argument."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NOTEPAD_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt(
-                "Type 'Hello from Guidewire' into Notepad and read it back."
+                "Type 'Hello from Pathlight MCP' into Notepad and read it back."
             )
 
         type_text_calls = assert_tool_called(result, "desktop.type_text")
         assert len(type_text_calls) == 1
-        assert type_text_calls[0].input["text"] == "Hello from Guidewire"
+        assert type_text_calls[0].input["text"] == "Hello from Pathlight MCP"
         assert type_text_calls[0].input["element_ref"] == "e1"
 
     async def test_get_text_arguments(self) -> None:
         """The get_text tool call should reference the same element as type_text."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NOTEPAD_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt(
-                "Type 'Hello from Guidewire' into Notepad and read it back."
+                "Type 'Hello from Pathlight MCP' into Notepad and read it back."
             )
 
         get_text_calls = assert_tool_called(result, "desktop.get_text")
@@ -194,17 +194,17 @@ class TestWindowsAgentNotepad:
 
     async def test_total_tool_call_count(self) -> None:
         """Exactly 5 tool calls should be made across the full agent loop."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NOTEPAD_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt(
-                "Type 'Hello from Guidewire' into Notepad and read it back."
+                "Type 'Hello from Pathlight MCP' into Notepad and read it back."
             )
 
         assert len(result.tool_calls) == 5
 
     async def test_server_discovers_eight_tools(self) -> None:
         """Server should expose all 8 tools on the Windows backend."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             tools = await server.list_tools()
             names = {t.name for t in tools}
             assert len(names) == 8
@@ -219,7 +219,7 @@ class TestWindowsAgentNotepad:
 
     async def test_tool_schemas_valid_on_windows(self) -> None:
         """Each tool should have a valid JSON Schema input on Windows."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             tools = await server.list_tools()
             for tool in tools:
                 schema = tool.inputSchema

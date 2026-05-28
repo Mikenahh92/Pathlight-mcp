@@ -23,13 +23,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter, TaggedHandle
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import CDPTarget
-from guidewire.errors import BackendUnavailableError
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter, TaggedHandle
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.errors import BackendUnavailableError
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -101,7 +101,7 @@ def _setup_connected_router(
         ]
     mock_web = _make_mock_web_backend(pages)
 
-    with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+    with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
         result_json = web_connect.fn(host="localhost", port=9222)
 
     result = json.loads(result_json)
@@ -398,7 +398,7 @@ class TestWebFrameTreeWired:
             ],
         }
 
-        with patch("guidewire.cdp.domains.page.PageDomain", return_value=mock_page):
+        with patch("pathlight_mcp.cdp.domains.page.PageDomain", return_value=mock_page):
             tool = self._get_tool(mcp_router)
             result = json.loads(tool.fn(window_ref=window_ref))
 
@@ -426,7 +426,7 @@ class TestWebFrameTreeWired:
             "frame": {"id": "main", "url": "https://example.com"},
         }
 
-        with patch("guidewire.cdp.domains.page.PageDomain", return_value=mock_page):
+        with patch("pathlight_mcp.cdp.domains.page.PageDomain", return_value=mock_page):
             tool = self._get_tool(mcp_router)
             result = json.loads(tool.fn(target_id="target-1"))
 
@@ -485,7 +485,7 @@ class TestWebFrameTreeWired:
             ],
         }
 
-        with patch("guidewire.cdp.domains.page.PageDomain", return_value=mock_page):
+        with patch("pathlight_mcp.cdp.domains.page.PageDomain", return_value=mock_page):
             tool = self._get_tool(mcp_router)
             result = json.loads(tool.fn(target_id="target-1"))
 

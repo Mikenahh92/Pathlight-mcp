@@ -19,22 +19,22 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.backends.base import DesktopBackend
-from guidewire.backends.linux import LinuxBackend
-from guidewire.backends.mock import MockBackend
-from guidewire.backends.normalize import normalize_element
-from guidewire.backends.types import DesktopAction
-from guidewire.errors import (
+from pathlight_mcp.backends.base import DesktopBackend
+from pathlight_mcp.backends.linux import LinuxBackend
+from pathlight_mcp.backends.mock import MockBackend
+from pathlight_mcp.backends.normalize import normalize_element
+from pathlight_mcp.backends.types import DesktopAction
+from pathlight_mcp.errors import (
     ActionNotSupportedError,
     BackendUnavailableError,
     ElementNotFoundError,
     StaleElementReferenceError,
     WindowNotFoundError,
 )
-from guidewire.models import ElementStates, NormalizedElement
-from guidewire.privacy import redact_snapshot
-from guidewire.refs import ElementRefStore
-from guidewire.safety import classify
+from pathlight_mcp.models import ElementStates, NormalizedElement
+from pathlight_mcp.privacy import redact_snapshot
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.safety import classify
 from tests.fixtures.helpers import (
     load_linux_golden_snapshot,
 )
@@ -69,8 +69,8 @@ class TestLinuxBackendAbcContract:
             assert callable(getattr(LinuxBackend, name)), f"Missing: {name}"
 
     def test_reexported_from_package(self) -> None:
-        """LinuxBackend must be importable from guidewire.backends."""
-        from guidewire.backends import LinuxBackend as ImportedLinuxBackend
+        """LinuxBackend must be importable from pathlight_mcp.backends."""
+        from pathlight_mcp.backends import LinuxBackend as ImportedLinuxBackend
 
         assert ImportedLinuxBackend is LinuxBackend
 
@@ -889,9 +889,9 @@ class TestLinuxErrorContainment:
             backend.dispose()
             assert backend.is_valid(None) is False
 
-    def test_all_linux_errors_are_guidewire_errors(self) -> None:
-        """All error types used by LinuxBackend must inherit GuidewireError."""
-        from guidewire.errors import GuidewireError
+    def test_all_linux_errors_are_pathlight_mcp_errors(self) -> None:
+        """All error types used by LinuxBackend must inherit PathlightMCPError."""
+        from pathlight_mcp.errors import PathlightMCPError
 
         for exc_class in [
             BackendUnavailableError,
@@ -900,7 +900,7 @@ class TestLinuxErrorContainment:
             ActionNotSupportedError,
             WindowNotFoundError,
         ]:
-            assert issubclass(exc_class, GuidewireError)
+            assert issubclass(exc_class, PathlightMCPError)
 
 
 # ---------------------------------------------------------------------------

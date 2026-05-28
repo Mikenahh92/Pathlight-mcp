@@ -18,10 +18,10 @@ import json
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -297,7 +297,7 @@ class TestMockBackendScrollToItem:
 
     def test_scroll_to_item_requires_name_or_index(self, backend: MockBackend) -> None:
         """MockBackend.scroll_to_item raises when neither name nor index is given."""
-        from guidewire.errors import ActionNotSupportedError
+        from pathlight_mcp.errors import ActionNotSupportedError
 
         window = backend.list_windows()[0]
         elements = backend.find_elements(window, role="list")
@@ -307,7 +307,7 @@ class TestMockBackendScrollToItem:
 
     def test_scroll_to_item_invalid_container(self, backend: MockBackend) -> None:
         """MockBackend.scroll_to_item raises for invalid container handle."""
-        from guidewire.errors import ElementNotFoundError
+        from pathlight_mcp.errors import ElementNotFoundError
 
         with pytest.raises(ElementNotFoundError):
             backend.scroll_to_item(NativeHandle("nonexistent"), item_name="test")
@@ -359,7 +359,7 @@ class TestNormalizedElementIsVirtualized:
 
     def test_is_virtualized_field(self) -> None:
         """NormalizedElement supports is_virtualized field."""
-        from guidewire.models import NormalizedElement
+        from pathlight_mcp.models import NormalizedElement
 
         elem = NormalizedElement(
             ref="e0",
@@ -378,7 +378,7 @@ class TestNormalizedElementIsVirtualized:
 
     def test_to_dict_includes_is_virtualized(self) -> None:
         """to_dict() includes is_virtualized when set."""
-        from guidewire.models import NormalizedElement
+        from pathlight_mcp.models import NormalizedElement
 
         elem = NormalizedElement(
             ref="e0",
@@ -405,7 +405,7 @@ class TestNormalizeIsVirtualized:
     """normalize_element() passes is_virtualized through."""
 
     def test_passes_true(self) -> None:
-        from guidewire.backends.normalize import normalize_element
+        from pathlight_mcp.backends.normalize import normalize_element
 
         elem = normalize_element(
             platform="windows",
@@ -417,7 +417,7 @@ class TestNormalizeIsVirtualized:
         assert elem.is_virtualized is True
 
     def test_passes_false(self) -> None:
-        from guidewire.backends.normalize import normalize_element
+        from pathlight_mcp.backends.normalize import normalize_element
 
         elem = normalize_element(
             platform="linux",
@@ -429,7 +429,7 @@ class TestNormalizeIsVirtualized:
         assert elem.is_virtualized is False
 
     def test_passes_none_default(self) -> None:
-        from guidewire.backends.normalize import normalize_element
+        from pathlight_mcp.backends.normalize import normalize_element
 
         elem = normalize_element(
             platform="windows",
@@ -447,12 +447,12 @@ class TestDesktopActionScrollToItem:
     """DesktopAction enum includes SCROLL_TO_ITEM."""
 
     def test_has_scroll_to_item(self) -> None:
-        from guidewire.backends.types import DesktopAction
+        from pathlight_mcp.backends.types import DesktopAction
 
         assert hasattr(DesktopAction, "SCROLL_TO_ITEM")
         assert DesktopAction.SCROLL_TO_ITEM.value == "scroll_to_item"
 
     def test_scroll_to_item_in_enum(self) -> None:
-        from guidewire.backends.types import DesktopAction
+        from pathlight_mcp.backends.types import DesktopAction
 
         assert DesktopAction("scroll_to_item") == DesktopAction.SCROLL_TO_ITEM

@@ -8,13 +8,13 @@ Validates:
 - Integration with Windows backend snapshot pipeline
 """
 
-from guidewire.backends.normalize import (
+from pathlight_mcp.backends.normalize import (
     normalize_actions,
     normalize_bounds,
     normalize_element,
     normalize_states,
 )
-from guidewire.models import ElementStates, NormalizedElement
+from pathlight_mcp.models import ElementStates, NormalizedElement
 
 # ---------------------------------------------------------------------------
 # normalize_states

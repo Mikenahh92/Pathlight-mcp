@@ -13,7 +13,7 @@ import typing
 
 import pytest
 
-from guidewire.backends.types import (
+from pathlight_mcp.backends.types import (
     DesktopAction,
     ElementBounds,
     ElementState,
@@ -242,7 +242,7 @@ class TestModuleExports:
     """Verify the types module __all__ (TC-15)."""
 
     def test_all_exports(self) -> None:
-        from guidewire.backends.types import __all__
+        from pathlight_mcp.backends.types import __all__
 
         expected = {"DesktopAction", "ElementBounds", "ElementState", "NativeHandle"}
         assert set(__all__) == expected

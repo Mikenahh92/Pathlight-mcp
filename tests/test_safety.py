@@ -1,4 +1,4 @@
-"""Tests for guidewire.safety — PRD R12 three-tier element and system-action
+"""Tests for pathlight_mcp.safety — PRD R12 three-tier element and system-action
 risk classification."""
 
 from __future__ import annotations
@@ -7,8 +7,8 @@ from typing import ClassVar
 
 import pytest
 
-from guidewire.models import DesktopAction, ElementStates, NormalizedElement
-from guidewire.safety import (
+from pathlight_mcp.models import DesktopAction, ElementStates, NormalizedElement
+from pathlight_mcp.safety import (
     CDP_METHOD_ALLOWLIST,
     DESTRUCTIVE_NAME_PATTERNS,
     ROLE_RISK_MAP,
@@ -693,7 +693,7 @@ class TestNormalizedElementIntegration:
         assert result.risk_level == "READ_ONLY"
 
     def test_element_with_bounds(self) -> None:
-        from guidewire.models import Bounds
+        from pathlight_mcp.models import Bounds
 
         elem = NormalizedElement(
             ref="e10",
@@ -824,7 +824,7 @@ class TestExports:
     """Public API is correctly exported."""
 
     def test_all_entries(self) -> None:
-        from guidewire import safety
+        from pathlight_mcp import safety
 
         assert set(safety.__all__) == {
             "RiskAssessment",
@@ -842,36 +842,36 @@ class TestExports:
         }
 
     def test_all_count(self) -> None:
-        from guidewire import safety
+        from pathlight_mcp import safety
 
         assert len(safety.__all__) == 12
 
     def test_import_risk_assessment(self) -> None:
-        from guidewire.safety import RiskAssessment  # noqa: F401
+        from pathlight_mcp.safety import RiskAssessment  # noqa: F401
 
     def test_import_risk_level(self) -> None:
-        from guidewire.safety import RiskLevel  # noqa: F401
+        from pathlight_mcp.safety import RiskLevel  # noqa: F401
 
     def test_import_sensitive_roles(self) -> None:
-        from guidewire.safety import SENSITIVE_ROLES  # noqa: F401
+        from pathlight_mcp.safety import SENSITIVE_ROLES  # noqa: F401
 
     def test_import_destructive_name_patterns(self) -> None:
-        from guidewire.safety import DESTRUCTIVE_NAME_PATTERNS  # noqa: F401
+        from pathlight_mcp.safety import DESTRUCTIVE_NAME_PATTERNS  # noqa: F401
 
     def test_import_classify(self) -> None:
-        from guidewire.safety import classify  # noqa: F401
+        from pathlight_mcp.safety import classify  # noqa: F401
 
     def test_import_role_risk_map(self) -> None:
-        from guidewire.safety import ROLE_RISK_MAP  # noqa: F401
+        from pathlight_mcp.safety import ROLE_RISK_MAP  # noqa: F401
 
     def test_import_system_action_risk_map(self) -> None:
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP  # noqa: F401
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP  # noqa: F401
 
     def test_import_system_action(self) -> None:
-        from guidewire.safety import SystemAction  # noqa: F401
+        from pathlight_mcp.safety import SystemAction  # noqa: F401
 
     def test_import_classify_system_action(self) -> None:
-        from guidewire.safety import classify_system_action  # noqa: F401
+        from pathlight_mcp.safety import classify_system_action  # noqa: F401
 
 
 # ---------------------------------------------------------------------------

@@ -127,7 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/guidewire/
+      url: https://pypi.org/project/pathlight-mcp/
     permissions:
       id-token: write  # OIDC trusted publishing
     steps:
@@ -154,17 +154,17 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG_VERSION#v}"
-          echo "Installing guidewire==$VERSION from PyPI ..."
+          echo "Installing pathlight-mcp==$VERSION from PyPI ..."
 
           # Retry loop to allow PyPI propagation
           MAX_RETRIES=10
           for i in $(seq 1 $MAX_RETRIES); do
-            if pip install "guidewire==$VERSION" --no-cache-dir 2>/dev/null; then
-              echo "✅ Installed guidewire==$VERSION"
+            if pip install "pathlight-mcp==$VERSION" --no-cache-dir 2>/dev/null; then
+              echo "✅ Installed pathlight-mcp==$VERSION"
               break
             fi
             if [ "$i" -eq "$MAX_RETRIES" ]; then
-              echo "❌ Failed to install guidewire==$VERSION after $MAX_RETRIES attempts"
+              echo "❌ Failed to install pathlight-mcp==$VERSION after $MAX_RETRIES attempts"
               exit 1
             fi
             echo "Package not yet available on PyPI (attempt $i/$MAX_RETRIES), retrying in 30s ..."
@@ -177,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG_VERSION#v}"
-          INSTALLED=$(python -c "import importlib.metadata; print(importlib.metadata.version('guidewire'))")
+          INSTALLED=$(python -c "import importlib.metadata; print(importlib.metadata.version('pathlight-mcp'))")
           echo "Tag version:   $VERSION"
           echo "Installed:     $INSTALLED"
           if [ "$INSTALLED" != "$VERSION" ]; then
@@ -187,8 +187,8 @@ jobs:
           echo "✅ Version matches"
       - name: Verify imports
         run: |
-          python -c "import guidewire; print(f'guidewire {guidewire.__version__} installed from PyPI')"
-          python -c "from guidewire.backends import MockBackend; print('Backend import OK')"
+          python -c "import pathlight_mcp; print(f'pathlight-mcp {pathlight_mcp.__version__} installed from PyPI')"
+          python -c "from pathlight_mcp.backends import MockBackend; print('Backend import OK')"
 
   # ── 7. Changelog and GitHub Release ──────────────────────────────────
   release:

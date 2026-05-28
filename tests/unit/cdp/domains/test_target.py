@@ -7,8 +7,8 @@ activate target, create/close targets, auto-attach, etc.
 from typing import Any
 from unittest.mock import MagicMock
 
-from guidewire.cdp._types import CDPTarget
-from guidewire.cdp.domains.target import TargetDomain
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.cdp.domains.target import TargetDomain
 
 # ---------------------------------------------------------------------------
 # Helpers

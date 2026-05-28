@@ -9,7 +9,7 @@ import asyncio
 import pytest
 
 import tests.harness.server as server_mod
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 
 @pytest.mark.integration
@@ -18,7 +18,7 @@ class TestServerCrashDetection:
 
     async def test_crash_on_nonexistent_module(self) -> None:
         """Server subprocess using a non-existent module should fail to start."""
-        server = GuidewireServerProcess(
+        server = PathlightMCPServerProcess(
             startup_timeout=5.0,
         )
 
@@ -58,7 +58,7 @@ class TestStartupTimeout:
 
     async def test_startup_timeout_triggers(self) -> None:
         """Server that doesn't initialize within timeout should raise."""
-        server = GuidewireServerProcess(startup_timeout=0.001)
+        server = PathlightMCPServerProcess(startup_timeout=0.001)
 
         async def _hanging_start():
             from mcp.client.stdio import StdioServerParameters, stdio_client

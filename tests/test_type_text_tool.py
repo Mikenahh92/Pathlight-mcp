@@ -21,12 +21,12 @@ from unittest.mock import patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
-from guidewire.errors import ActionNotSupportedError
-from guidewire.refs import ElementRefStore
-from guidewire.tools import _BACKEND_TOOL_MODULES, register_all
-from guidewire.tools import type_text as type_text_mod
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.errors import ActionNotSupportedError
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import _BACKEND_TOOL_MODULES, register_all
+from pathlight_mcp.tools import type_text as type_text_mod
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -363,7 +363,7 @@ class TestTypeTextSafetyEdgeCases:
 
     async def test_tc_tt_11_disabled_element_read_only_risk(self) -> None:
         """TC-TT-11: Typing into a disabled element returns read_only risk classification."""
-        from guidewire.backends.types import ElementState
+        from pathlight_mcp.backends.types import ElementState
 
         backend = MockBackend().add_window(title="Form", app="TestApp", focused=True)
         window_handle = backend.list_windows()[0]

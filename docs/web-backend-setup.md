@@ -1,16 +1,16 @@
 # Web Backend Setup Guide
 
-Guidewire's **Web Backend** connects to Chromium-based browsers via the Chrome DevTools Protocol (CDP) and exposes their accessibility trees to MCP clients. This guide walks you through launching a browser with remote debugging enabled and connecting Guidewire.
+Pathlight MCP's **Web Backend** connects to Chromium-based browsers via the Chrome DevTools Protocol (CDP) and exposes their accessibility trees to MCP clients. This guide walks you through launching a browser with remote debugging enabled and connecting Pathlight MCP.
 
 ## Prerequisites
 
-- Guidewire installed (`pip install guidewire`)
+- Pathlight MCP installed (`pip install pathlight-mcp`)
 - A Chromium-based browser (Chrome, Edge, or Brave)
-- `websocket-client>=1.6` (installed automatically as a Guidewire dependency)
+- `websocket-client>=1.6` (installed automatically as a Pathlight MCP dependency)
 
 ## Launch a Browser with Remote Debugging
 
-The web backend communicates with the browser over a **debug port**. You must launch the browser with `--remote-debugging-port` before connecting Guidewire.
+The web backend communicates with the browser over a **debug port**. You must launch the browser with `--remote-debugging-port` before connecting Pathlight MCP.
 
 ### Google Chrome
 
@@ -69,7 +69,7 @@ google-chrome --headless=new --remote-debugging-port=9222 --no-sandbox
 
 ### Custom Port
 
-The default port is `9222`. To use a different port, replace `9222` with your chosen port in both the browser launch command and the Guidewire connection configuration.
+The default port is `9222`. To use a different port, replace `9222` with your chosen port in both the browser launch command and the Pathlight MCP connection configuration.
 
 ### User Data Directory (Optional)
 
@@ -79,12 +79,12 @@ To launch a browser with a separate profile (avoids conflicts with your main bro
 google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug
 ```
 
-## Connect Guidewire
+## Connect Pathlight MCP
 
-Once the browser is running with remote debugging enabled, connect Guidewire to it:
+Once the browser is running with remote debugging enabled, connect Pathlight MCP to it:
 
 ```python
-from guidewire.backends.web import WebBackend
+from pathlight_mcp.backends.web import WebBackend
 
 # Connect to the default debug port (localhost:9222)
 backend = WebBackend(host="localhost", port=9222)
@@ -105,8 +105,8 @@ backend.dispose()
 When both a native desktop backend and the web backend are available, the `BackendRouter` transparently routes requests based on window handle origin:
 
 ```python
-from guidewire.backends.web import WebBackend
-from guidewire.backends.router import BackendRouter
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.backends.router import BackendRouter
 
 # The router merges windows from both backends
 web = WebBackend(host="localhost", port=9222)
@@ -147,7 +147,7 @@ Both should return JSON responses. If `curl` fails, the browser is not listening
   ```
   > Chrome 110+ blocks cross-origin DevTools connections by default. Without this flag, MCP clients connecting via CDP may be rejected.
 - In CI environments, use `--no-sandbox` only in isolated containers.
-- The web backend respects Guidewire's privacy controls: password fields are redacted, and sensitive form data is filtered (see [Privacy Controls](../README.md#safety-model)).
+- The web backend respects Pathlight MCP's privacy controls: password fields are redacted, and sensitive form data is filtered (see [Privacy Controls](../README.md#safety-model)).
 
 ## Architecture
 

@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from guidewire.cdp._types import CDPTarget, ConnectionState, SessionState
+from pathlight_mcp.cdp._types import CDPTarget, ConnectionState, SessionState
 
 # ---------------------------------------------------------------------------
 # ConnectionState

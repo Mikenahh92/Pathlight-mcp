@@ -9,9 +9,9 @@ Validates that the session registry:
 
 from unittest.mock import MagicMock
 
-from guidewire.backends.web.web_session import WebSessionRegistry
-from guidewire.cdp._types import CDPTarget, SessionState
-from guidewire.cdp.session import CDPSession
+from pathlight_mcp.backends.web.web_session import WebSessionRegistry
+from pathlight_mcp.cdp._types import CDPTarget, SessionState
+from pathlight_mcp.cdp.session import CDPSession
 
 # -- Fixtures ----------------------------------------------------------------
 
@@ -304,7 +304,7 @@ class TestWebBackendSessionMethods:
 
     def test_invalidate_session_clears_all_caches(self) -> None:
         """_invalidate_session should invalidate registry, AX, and bounds caches."""
-        from guidewire.backends.web import WebBackend
+        from pathlight_mcp.backends.web import WebBackend
 
         mock_browser = MagicMock()
         backend = WebBackend(browser=mock_browser)
@@ -325,7 +325,7 @@ class TestWebBackendSessionMethods:
 
     def test_remove_session_clears_all_caches(self) -> None:
         """_remove_session should remove from registry and clear AX/bounds caches."""
-        from guidewire.backends.web import WebBackend
+        from pathlight_mcp.backends.web import WebBackend
 
         mock_browser = MagicMock()
         backend = WebBackend(browser=mock_browser)

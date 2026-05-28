@@ -1,6 +1,6 @@
 """Tests for the cross-platform mapping tables."""
 
-from guidewire.models.mappings import (
+from pathlight_mcp.models.mappings import (
     ACTION_MAP,
     ROLE_MAP,
     STATE_MAP,

@@ -15,14 +15,14 @@ Verifies that MockBackend:
 
 import pytest
 
-from guidewire.backends import (
+from pathlight_mcp.backends import (
     DesktopAction,
     DesktopBackend,
     ElementBounds,
     MockBackend,
     NativeHandle,
 )
-from guidewire.errors import (
+from pathlight_mcp.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
     WindowNotFoundError,

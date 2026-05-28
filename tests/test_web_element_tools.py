@@ -27,12 +27,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import AXNode, BoxModel, CDPTarget, DOMNode
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import AXNode, BoxModel, CDPTarget, DOMNode
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -119,7 +119,7 @@ def _setup_web_ref(
         title="Test Page",
         url="https://example.com",
     )
-    from guidewire.backends.router import _tag
+    from pathlight_mcp.backends.router import _tag
 
     tagged_handle = _tag(target, "web")
     ref = ref_store.store(tagged_handle, prefix="w")
@@ -341,8 +341,8 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -376,8 +376,8 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -409,8 +409,8 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -445,8 +445,8 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -485,8 +485,8 @@ class TestWebTypeSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -521,8 +521,8 @@ class TestWebTypeSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -557,8 +557,8 @@ class TestWebTypeSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -612,8 +612,8 @@ class TestWebHoverSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
@@ -653,7 +653,7 @@ class TestSelectorTimeout:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls:
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls:
             mock_dom = MagicMock()
             mock_dom.get_document.return_value = DOMNode(
                 node_id=1, node_name="#document"
@@ -692,7 +692,7 @@ class TestAmbiguousSelector:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls:
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls:
             mock_dom = MagicMock()
             mock_dom.get_document.return_value = DOMNode(
                 node_id=1, node_name="#document"
@@ -722,7 +722,7 @@ class TestAmbiguousSelector:
 
     def test_ambiguous_selector_hints_registered(self):
         """ambiguous_selector error code has registered hints."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("ambiguous_selector")
         assert len(hints) > 0
@@ -759,7 +759,7 @@ class TestElementRefResolution:
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         # Store an element ref that maps to a web element
-        from guidewire.backends.router import _tag
+        from pathlight_mcp.backends.router import _tag
 
         ax_node_id = "ax-node-42"
         tagged_el = _tag(ax_node_id, "web")
@@ -778,8 +778,8 @@ class TestElementRefResolution:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom = MagicMock()
             mock_dom_cls.return_value = mock_dom
@@ -807,7 +807,7 @@ class TestElementRefResolution:
         """web_hover resolves element_ref from AX cache bounds."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
-        from guidewire.backends.router import _tag
+        from pathlight_mcp.backends.router import _tag
 
         ax_node_id = "ax-node-99"
         tagged_el = _tag(ax_node_id, "web")
@@ -826,8 +826,8 @@ class TestElementRefResolution:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "guidewire.cdp.domains.input.InputDomain"
+        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
+            "pathlight_mcp.cdp.domains.input.InputDomain"
         ) as mock_inp_cls:
             mock_dom = MagicMock()
             mock_dom_cls.return_value = mock_dom
@@ -853,7 +853,7 @@ class TestElementRefResolution:
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         # Store an element ref tagged with 'native' backend
-        from guidewire.backends.router import _tag
+        from pathlight_mcp.backends.router import _tag
 
         tagged_el = _tag("native-handle-1", "native")
         el_ref = ref_store.store(tagged_el, prefix="e")
@@ -878,17 +878,17 @@ class TestRiskMetadata:
     """All three tools return INTERACTION risk level."""
 
     def test_web_click_interaction_risk(self):
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_click"] == "INTERACTION"
 
     def test_web_type_interaction_risk(self):
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_type"] == "INTERACTION"
 
     def test_web_hover_interaction_risk(self):
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_hover"] == "INTERACTION"
 
@@ -906,7 +906,7 @@ class TestToolRegistration:
         assert "desktop.web_hover" in tool_names
 
     def test_tools_not_in_backend_modules(self):
-        from guidewire.tools import _BACKEND_TOOL_MODULES
+        from pathlight_mcp.tools import _BACKEND_TOOL_MODULES
 
         assert ".web_click" not in _BACKEND_TOOL_MODULES
         assert ".web_type" not in _BACKEND_TOOL_MODULES
@@ -920,12 +920,12 @@ class TestCDPAllowlist:
     """DOM.focus and DOM.scrollIntoViewIfNeeded are on the CDP allowlist."""
 
     def test_dom_focus_allowed(self):
-        from guidewire.safety import is_cdp_method_allowed
+        from pathlight_mcp.safety import is_cdp_method_allowed
 
         assert is_cdp_method_allowed("DOM.focus") is True
 
     def test_dom_scroll_into_view_allowed(self):
-        from guidewire.safety import is_cdp_method_allowed
+        from pathlight_mcp.safety import is_cdp_method_allowed
 
         assert is_cdp_method_allowed("DOM.scrollIntoViewIfNeeded") is True
 
@@ -937,14 +937,14 @@ class TestHintsRegistry:
     """New error code hints are registered."""
 
     def test_web_element_error_hints(self):
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_element_error")
         assert len(hints) > 0
         assert any("selector" in h.lower() for h in hints)
 
     def test_selector_timeout_hints(self):
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("selector_timeout")
         assert len(hints) > 0
@@ -958,7 +958,7 @@ class TestWebSelectorModule:
     """The _web_selector module is importable and provides shared functions."""
 
     def test_module_importable(self):
-        from guidewire.tools._web_selector import (
+        from pathlight_mcp.tools._web_selector import (
             DEFAULT_TIMEOUT_MS,
             POLL_INTERVAL,
             resolve_element,

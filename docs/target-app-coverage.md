@@ -1,6 +1,6 @@
 # Target App Coverage Report
 
-Summary of snapshot capture, integration test coverage, and observed accessibility gaps across target applications for the Guidewire MVP.
+Summary of snapshot capture, integration test coverage, and observed accessibility gaps across target applications for the Pathlight MCP MVP.
 
 ## Windows (UIA Backend)
 

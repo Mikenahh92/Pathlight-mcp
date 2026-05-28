@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from guidewire.cdp._protocol import CDPProtocol
-from guidewire.cdp.events import EventBuffer
-from guidewire.cdp.protocol import CDPError, CDPResponse
+from pathlight_mcp.cdp._protocol import CDPProtocol
+from pathlight_mcp.cdp.events import EventBuffer
+from pathlight_mcp.cdp.protocol import CDPError, CDPResponse
 
 # ---------------------------------------------------------------------------
 # Helpers

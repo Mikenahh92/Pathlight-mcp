@@ -15,8 +15,8 @@ import json
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 

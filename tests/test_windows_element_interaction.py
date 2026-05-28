@@ -23,8 +23,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.backends.types import DesktopAction, NativeHandle
-from guidewire.backends.windows import (
+from pathlight_mcp.backends.types import DesktopAction, NativeHandle
+from pathlight_mcp.backends.windows import (
     _UIA_CONTROL_TYPE_NAMES,
     _UIA_EXPAND_COLLAPSE_PATTERN_ID,
     _UIA_HAS_KEYBOARD_FOCUS_PROPERTY_ID,
@@ -47,7 +47,7 @@ from guidewire.backends.windows import (
     WindowsBackend,
     _ComHandle,
 )
-from guidewire.errors import (
+from pathlight_mcp.errors import (
     ActionNotSupportedError,
     ElementNotFoundError,
     StaleElementReferenceError,
@@ -362,7 +362,7 @@ class TestPerformActionClickFallback:
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
             patch(
-                "guidewire.backends.windows._get_sendinput_structs",
+                "pathlight_mcp.backends.windows._get_sendinput_structs",
                 return_value={"INPUT": mock_input},
             ),
         ):
@@ -1585,7 +1585,7 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
             WindowsBackend._send_key_combo("ctrl+s")
 
@@ -1604,7 +1604,7 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
             WindowsBackend._send_key_combo("alt+tab")
 
@@ -1619,7 +1619,7 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
             WindowsBackend._send_key_combo("ctrl+shift+escape")
 
@@ -1682,7 +1682,7 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("guidewire.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
         ):
             WindowsBackend._send_key_combo("ctrl+a")
 

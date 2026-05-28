@@ -23,12 +23,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import CDPTarget
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -94,7 +94,7 @@ def _setup_connected_router(
     web_connect = next(t for t in tools if t.name == "desktop.web_connect")
 
     mock_web = _make_mock_web_backend()
-    with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+    with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
         result_json = web_connect.fn(host="localhost", port=9222)
 
     result = json.loads(result_json)
@@ -235,9 +235,9 @@ class TestWebSelectOptionErrors:
         mock_web._get_or_create_session.return_value = mock_session
 
         with patch(
-            "guidewire.cdp.domains.dom.DOMDomain"
+            "pathlight_mcp.cdp.domains.dom.DOMDomain"
         ) as MockDOM, patch(
-            "guidewire.cdp.domains.runtime.RuntimeDomain"
+            "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
         ) as MockRuntime:
             mock_dom = MockDOM.return_value
             mock_dom.get_document.return_value = MagicMock(node_id=1)
@@ -259,13 +259,13 @@ class TestWebSelectOptionSafety:
 
     def test_web_select_option_is_interaction(self) -> None:
         """web_select_option system action is INTERACTION."""
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_select_option"] == "INTERACTION"
 
     def test_classify_web_select_option(self) -> None:
         """classify_system_action returns INTERACTION for web_select_option."""
-        from guidewire.safety import classify_system_action
+        from pathlight_mcp.safety import classify_system_action
 
         result = classify_system_action("web_select_option", target="opt1")
         assert result.risk_level == "INTERACTION"
@@ -280,7 +280,7 @@ class TestWebSelectOptionHints:
 
     def test_web_select_option_error_hints(self) -> None:
         """web_select_option_error has registered hints."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_select_option_error")
         assert len(hints) > 0
@@ -288,7 +288,7 @@ class TestWebSelectOptionHints:
 
     def test_web_select_option_hints_mention_select(self) -> None:
         """web_select_option_error hints mention select element."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_select_option_error")
         assert any("select" in h.lower() for h in hints)
@@ -308,12 +308,12 @@ class TestWebSelectOptionRegistry:
 
     def test_web_select_option_not_in_backend_modules(self) -> None:
         """web_select_option is NOT in _BACKEND_TOOL_MODULES."""
-        from guidewire.tools import _BACKEND_TOOL_MODULES
+        from pathlight_mcp.tools import _BACKEND_TOOL_MODULES
 
         assert ".web_select_option" not in _BACKEND_TOOL_MODULES
 
     def test_web_select_option_in_tool_modules(self) -> None:
         """web_select_option IS in _TOOL_MODULES."""
-        from guidewire.tools import _TOOL_MODULES
+        from pathlight_mcp.tools import _TOOL_MODULES
 
         assert ".web_select_option" in _TOOL_MODULES

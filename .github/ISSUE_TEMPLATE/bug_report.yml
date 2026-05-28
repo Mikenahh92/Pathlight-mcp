@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug or unexpected behavior in Guidewire
+description: Report a bug or unexpected behavior in Pathlight MCP
 labels: ["bug", "triage"]
 body:
   - type: markdown
@@ -54,10 +54,10 @@ body:
       render: shell
 
   - type: input
-    id: guidewire-version
+    id: pathlight-mcp-version
     attributes:
-      label: Guidewire Version
-      description: What version of Guidewire are you running?
+      label: Pathlight MCP Version
+      description: What version of Pathlight MCP are you running?
       placeholder: e.g. 0.3.0
     validations:
       required: true

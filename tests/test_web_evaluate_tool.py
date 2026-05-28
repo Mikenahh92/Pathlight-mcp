@@ -23,13 +23,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import CDPTarget
-from guidewire.refs import ElementRefStore
-from guidewire.safety import EvaluateRateLimiter
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.safety import EvaluateRateLimiter
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -103,7 +103,7 @@ def _setup_connected_router(
     web_connect = next(t for t in tools if t.name == "desktop.web_connect")
 
     mock_web = _make_mock_web_backend()
-    with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+    with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
         result_json = web_connect.fn(host="localhost", port=9222)
 
     result = json.loads(result_json)
@@ -151,9 +151,9 @@ class TestWebEvaluateWired:
         mock_session.is_attached = True
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 mock_runtime = MockRuntime.return_value
                 mock_runtime.evaluate.return_value = 42
@@ -184,9 +184,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = "hello"
                 result_json = web_evaluate.fn(
@@ -208,9 +208,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = None
                 result_json = web_evaluate.fn(
@@ -239,9 +239,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = None
                 result_json = web_evaluate.fn(
@@ -270,9 +270,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = "resolved"
                 result_json = web_evaluate.fn(
@@ -301,9 +301,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = "hello world"
                 result_json = web_evaluate.fn(
@@ -324,9 +324,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = True
                 result_json = web_evaluate.fn(
@@ -347,9 +347,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = None
                 result_json = web_evaluate.fn(
@@ -370,9 +370,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = {"key": "value"}
                 result_json = web_evaluate.fn(
@@ -393,9 +393,9 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = [1, 2, 3]
                 result_json = web_evaluate.fn(
@@ -423,13 +423,13 @@ class TestWebEvaluateSanitization:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.return_value = "password=test123"
                 with patch(
-                    "guidewire.tools.web_evaluate.redact_web_content",
+                    "pathlight_mcp.tools.web_evaluate.redact_web_content",
                     side_effect=lambda t: "[REDACTED]" if "password" in t else t,
                 ):
                     result_json = web_evaluate.fn(
@@ -442,11 +442,11 @@ class TestWebEvaluateSanitization:
 
     def test_sanitizes_nested_dict_strings(self) -> None:
         """String values inside dict results are sanitized recursively."""
-        from guidewire.tools.web_evaluate import _sanitize_result
+        from pathlight_mcp.tools.web_evaluate import _sanitize_result
 
         data = {"safe": "hello", "secret": "password=abc"}
         with patch(
-            "guidewire.tools.web_evaluate.redact_web_content",
+            "pathlight_mcp.tools.web_evaluate.redact_web_content",
             side_effect=lambda t: "[REDACTED]" if "password" in t else t,
         ):
             result = _sanitize_result(data)
@@ -455,11 +455,11 @@ class TestWebEvaluateSanitization:
 
     def test_sanitizes_nested_list_strings(self) -> None:
         """String values inside list results are sanitized recursively."""
-        from guidewire.tools.web_evaluate import _sanitize_result
+        from pathlight_mcp.tools.web_evaluate import _sanitize_result
 
         data = ["hello", "api_key=secret123"]
         with patch(
-            "guidewire.tools.web_evaluate.redact_web_content",
+            "pathlight_mcp.tools.web_evaluate.redact_web_content",
             side_effect=lambda t: "[REDACTED]" if "api_key" in t else t,
         ):
             result = _sanitize_result(data)
@@ -477,9 +477,9 @@ class TestWebEvaluateSanitization:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.side_effect = Exception(
                     "Error: password=secret in context"
@@ -512,7 +512,7 @@ class TestWebEvaluateRateLimiting:
         mock_limiter.is_allowed.return_value = False
         mock_limiter.remaining = 0
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", mock_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", mock_limiter):
             result_json = web_evaluate.fn(
                 window_ref=window_ref, expression="1+1"
             )
@@ -533,8 +533,8 @@ class TestWebEvaluateRateLimiting:
         mock_limiter.is_allowed.return_value = False
         mock_limiter.remaining = 0
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", mock_limiter), patch(
-            "guidewire.cdp.domains.runtime.RuntimeDomain"
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", mock_limiter), patch(
+            "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
         ) as MockRuntime:
             web_evaluate.fn(window_ref=window_ref, expression="1+1")
             MockRuntime.return_value.evaluate.assert_not_called()
@@ -598,7 +598,7 @@ class TestWebEvaluateErrors:
     ) -> None:
         """web_evaluate returns error when no web backend is connected."""
         web_evaluate = _get_web_evaluate_tool(mcp_router)
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             result_json = web_evaluate.fn(
                 window_ref="w1", expression="1+1"
             )
@@ -611,7 +611,7 @@ class TestWebEvaluateErrors:
     ) -> None:
         """web_evaluate returns error when backend is not a BackendRouter."""
         web_evaluate = _get_web_evaluate_tool(mcp_no_router)
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             result_json = web_evaluate.fn(
                 window_ref="w1", expression="1+1"
             )
@@ -627,7 +627,7 @@ class TestWebEvaluateErrors:
         _setup_connected_router(mcp_router, ref_store)
         web_evaluate = _get_web_evaluate_tool(mcp_router)
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             result_json = web_evaluate.fn(
                 window_ref="w999", expression="1+1"
             )
@@ -643,12 +643,12 @@ class TestWebEvaluateErrors:
         _setup_connected_router(mcp_router, ref_store)
         web_evaluate = _get_web_evaluate_tool(mcp_router)
 
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         native_handle = NativeHandle("native-window-0")
         native_ref = ref_store.store(native_handle, prefix="w")
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             result_json = web_evaluate.fn(
                 window_ref=native_ref, expression="1+1"
             )
@@ -666,7 +666,7 @@ class TestWebEvaluateErrors:
 
         mock_web._get_or_create_session.side_effect = Exception("Target not found")
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             result_json = web_evaluate.fn(
                 window_ref=window_ref, expression="1+1"
             )
@@ -685,9 +685,9 @@ class TestWebEvaluateErrors:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("guidewire.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
             with patch(
-                "guidewire.cdp.domains.runtime.RuntimeDomain"
+                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
             ) as MockRuntime:
                 MockRuntime.return_value.evaluate.side_effect = Exception(
                     "SyntaxError: Unexpected token"
@@ -709,13 +709,13 @@ class TestWebEvaluateSafetyClassification:
 
     def test_web_evaluate_is_sensitive(self) -> None:
         """web_evaluate system action is SENSITIVE."""
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_evaluate"] == "SENSITIVE"
 
     def test_classify_web_evaluate(self) -> None:
         """classify_system_action returns SENSITIVE for web_evaluate."""
-        from guidewire.safety import classify_system_action
+        from pathlight_mcp.safety import classify_system_action
 
         result = classify_system_action("web_evaluate", target="document.cookie")
         assert result.risk_level == "SENSITIVE"
@@ -730,7 +730,7 @@ class TestWebEvaluateHints:
 
     def test_web_evaluate_error_hints(self) -> None:
         """web_evaluate_error has registered hints."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_evaluate_error")
         assert len(hints) > 0
@@ -738,14 +738,14 @@ class TestWebEvaluateHints:
 
     def test_web_evaluate_error_hints_include_timeout(self) -> None:
         """web_evaluate_error hints mention timeout."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_evaluate_error")
         assert any("timeout" in h.lower() for h in hints)
 
     def test_web_evaluate_error_hints_include_syntax(self) -> None:
         """web_evaluate_error hints mention syntax errors."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_evaluate_error")
         assert any("syntax" in h.lower() for h in hints)
@@ -765,12 +765,12 @@ class TestWebEvaluateRegistry:
 
     def test_web_evaluate_not_in_backend_modules(self) -> None:
         """web_evaluate is NOT in _BACKEND_TOOL_MODULES (web tools bypass ABC)."""
-        from guidewire.tools import _BACKEND_TOOL_MODULES
+        from pathlight_mcp.tools import _BACKEND_TOOL_MODULES
 
         assert ".web_evaluate" not in _BACKEND_TOOL_MODULES
 
     def test_web_evaluate_in_tool_modules(self) -> None:
         """web_evaluate IS in _TOOL_MODULES."""
-        from guidewire.tools import _TOOL_MODULES
+        from pathlight_mcp.tools import _TOOL_MODULES
 
         assert ".web_evaluate" in _TOOL_MODULES

@@ -16,10 +16,10 @@ import json
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.errors import ActionNotSupportedError
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.errors import ActionNotSupportedError
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -136,7 +136,7 @@ class TestMultiActionValidation:
 
     async def test_batch_too_large_rejected(self, mcp: FastMCP) -> None:
         """Batch exceeding MAX_BATCH_SIZE should be rejected."""
-        from guidewire.tools.multi_action import MAX_BATCH_SIZE
+        from pathlight_mcp.tools.multi_action import MAX_BATCH_SIZE
 
         actions = [{"action": "click", "element_ref": f"e{i}"} for i in range(MAX_BATCH_SIZE + 1)]
         result, _meta = await mcp.call_tool(

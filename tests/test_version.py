@@ -1,4 +1,4 @@
-"""Sanity checks for the guidewire package."""
+"""Sanity checks for the pathlight_mcp package."""
 
 from importlib.metadata import PackageNotFoundError, version
 
@@ -8,7 +8,7 @@ import packaging.version
 def _get_version() -> str:
     """Return the package version, with fallback for uninstalled development."""
     try:
-        return version("guidewire")
+        return version("pathlight_mcp")
     except PackageNotFoundError:
         return "0.0.0"
 
@@ -27,5 +27,5 @@ def test_version_is_pep440() -> None:
 
 
 def test_package_importable() -> None:
-    """The guidewire package should be importable."""
-    import guidewire  # noqa: F401
+    """The pathlight_mcp package should be importable."""
+    import pathlight_mcp  # noqa: F401

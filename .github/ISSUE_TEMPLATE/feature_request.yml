@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a new feature or enhancement for Guidewire
+description: Suggest a new feature or enhancement for Pathlight MCP
 labels: ["enhancement", "triage"]
 body:
   - type: markdown

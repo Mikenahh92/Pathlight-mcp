@@ -28,12 +28,12 @@ from unittest.mock import MagicMock
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter, _tag
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import CDPTarget
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter, _tag
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -1190,43 +1190,43 @@ class TestIsStaleSessionException:
     """Tests for _is_stale_session_exception helper in web_wait_for (GW-128)."""
 
     def test_not_attached_message(self):
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         assert _is_stale_session_exception(Exception("Not attached to target"))
 
     def test_session_not_found_message(self):
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         assert _is_stale_session_exception(Exception("Session not found"))
 
     def test_session_is_closing_message(self):
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         assert _is_stale_session_exception(Exception("Session is closing"))
 
     def test_target_closed_message(self):
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         assert _is_stale_session_exception(Exception("Target closed"))
 
     def test_cdp_error_code_32000(self):
-        from guidewire.cdp.protocol import CDPError
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.cdp.protocol import CDPError
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         assert _is_stale_session_exception(CDPError(-32000, "Something went wrong"))
 
-    def test_guidewire_error_not_attached(self):
-        from guidewire.errors import GuidewireError
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
-        assert _is_stale_session_exception(GuidewireError("Session is not attached"))
+    def test_pathlight_mcp_error_not_attached(self):
+        from pathlight_mcp.errors import PathlightMCPError
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
+        assert _is_stale_session_exception(PathlightMCPError("Session is not attached"))
 
     def test_non_stale_exception_returns_false(self):
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         assert not _is_stale_session_exception(Exception("Random error"))
 
     def test_cdp_error_non_stale_code_returns_false(self):
-        from guidewire.cdp.protocol import CDPError
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.cdp.protocol import CDPError
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         assert not _is_stale_session_exception(CDPError(-32601, "Method not found"))
 
     def test_chained_cause_detected(self):
-        from guidewire.cdp.protocol import CDPError
-        from guidewire.tools.web_wait_for import _is_stale_session_exception
+        from pathlight_mcp.cdp.protocol import CDPError
+        from pathlight_mcp.tools.web_wait_for import _is_stale_session_exception
         wrapped = Exception("Command failed")
         wrapped.__cause__ = CDPError(-32000, "Not attached to target")
         assert _is_stale_session_exception(wrapped)

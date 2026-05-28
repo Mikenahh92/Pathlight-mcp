@@ -1,8 +1,8 @@
-"""Agent test harness — boots Guidewire MCP server, connects an AI agent,
+"""Agent test harness — boots Pathlight MCP server, connects an AI agent,
 and verifies tool usage.
 
 Public API:
-    GuidewireServerProcess — spawn and manage a Guidewire MCP server subprocess
+    PathlightMCPServerProcess — spawn and manage a Pathlight MCP server subprocess
     AgentClient            — Anthropic agent that uses MCP tools
     ToolCallRecord         — captured tool invocation for assertions
     assert_tool_called     — verify a specific tool was invoked
@@ -12,11 +12,11 @@ Public API:
 
 from tests.harness.agent import AgentClient, ToolCallRecord
 from tests.harness.assertions import assert_call_order, assert_tool_called, assert_tool_not_called
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 __all__ = [
     "AgentClient",
-    "GuidewireServerProcess",
+    "PathlightMCPServerProcess",
     "ToolCallRecord",
     "assert_call_order",
     "assert_tool_called",

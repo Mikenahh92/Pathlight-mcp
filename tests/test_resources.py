@@ -6,7 +6,7 @@ Validates that:
 - Reading each resource returns non-empty markdown content.
 - Resource content contains expected key terms/topics.
 - The resources registry module has the expected structure.
-- Resources are accessible from GuidewireServer after register_resources().
+- Resources are accessible from PathlightMCPServer after register_resources().
 - The error-recovery resource dynamically includes all registered error codes.
 """
 
@@ -15,8 +15,8 @@ import importlib
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.resources import _RESOURCE_MODULES, register_all
-from guidewire.server import GuidewireServer
+from pathlight_mcp.resources import _RESOURCE_MODULES, register_all
+from pathlight_mcp.server import PathlightMCPServer
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -30,9 +30,9 @@ def mcp_server():
 
 
 @pytest.fixture()
-def guidewire_server():
-    """Return a GuidewireServer with tools and resources registered."""
-    srv = GuidewireServer()
+def pathlight_mcp_server():
+    """Return a PathlightMCPServer with tools and resources registered."""
+    srv = PathlightMCPServer()
     srv.register_tools()
     srv.register_resources()
     return srv
@@ -42,7 +42,7 @@ def guidewire_server():
 
 EXPECTED_RESOURCES = [
     {
-        "uri": "guidewire://browser-limitations",
+        "uri": "pathlight-mcp://browser-limitations",
         "name": "browser-limitations",
         "title": "Browser Limitations & Web Tool Caveats",
         "mime_type": "text/markdown",
@@ -56,9 +56,9 @@ EXPECTED_RESOURCES = [
         ],
     },
     {
-        "uri": "guidewire://tool-usage",
+        "uri": "pathlight-mcp://tool-usage",
         "name": "tool-usage",
-        "title": "Guidewire Tool Usage Guide",
+        "title": "Pathlight MCP Tool Usage Guide",
         "mime_type": "text/markdown",
         "content_keywords": [
             "desktop.list_windows",
@@ -71,7 +71,7 @@ EXPECTED_RESOURCES = [
         ],
     },
     {
-        "uri": "guidewire://error-recovery",
+        "uri": "pathlight-mcp://error-recovery",
         "name": "error-recovery",
         "title": "Error Recovery Guide",
         "mime_type": "text/markdown",
@@ -153,7 +153,7 @@ class TestResourceModuleRegistry:
     @pytest.mark.parametrize("module_name", _RESOURCE_MODULES)
     def test_module_has_register_function(self, module_name):
         """Each resource module should export a callable ``register``."""
-        mod = importlib.import_module(module_name, package="guidewire.resources")
+        mod = importlib.import_module(module_name, package="pathlight_mcp.resources")
         assert callable(getattr(mod, "register", None)), (
             f"{module_name} is missing a 'register' function"
         )
@@ -167,27 +167,27 @@ class TestResourceModuleRegistry:
 
 
 class TestServerResources:
-    """Tests for resources registered through GuidewireServer."""
+    """Tests for resources registered through PathlightMCPServer."""
 
-    async def test_server_register_resources(self, guidewire_server):
-        """GuidewireServer should register all resources."""
-        resources = await guidewire_server.mcp.list_resources()
+    async def test_server_register_resources(self, pathlight_mcp_server):
+        """PathlightMCPServer should register all resources."""
+        resources = await pathlight_mcp_server.mcp.list_resources()
         uris = {str(r.uri) for r in resources}
         expected_uris = {spec["uri"] for spec in EXPECTED_RESOURCES}
         assert uris == expected_uris
 
-    async def test_server_tools_still_registered(self, guidewire_server):
+    async def test_server_tools_still_registered(self, pathlight_mcp_server):
         """Registering resources should not affect tool registration."""
-        tools = await guidewire_server.mcp.list_tools()
+        tools = await pathlight_mcp_server.mcp.list_tools()
         tool_names = {t.name for t in tools}
         # Verify at least the core tools are still there
         assert "desktop.click" in tool_names
         assert "desktop.snapshot" in tool_names
         assert "desktop.find" in tool_names
 
-    async def test_server_resource_readable(self, guidewire_server):
-        """Resources registered through GuidewireServer should be readable."""
-        content = await guidewire_server.mcp.read_resource("guidewire://tool-usage")
+    async def test_server_resource_readable(self, pathlight_mcp_server):
+        """Resources registered through PathlightMCPServer should be readable."""
+        content = await pathlight_mcp_server.mcp.read_resource("pathlight-mcp://tool-usage")
         text = str(content)
         assert "desktop.snapshot" in text
         assert "desktop.click" in text
@@ -201,18 +201,18 @@ class TestErrorRecoveryDynamicContent:
 
     async def test_all_error_codes_present(self, mcp_server):
         """All registered error codes should appear in the recovery guide."""
-        from guidewire.hints import _HINT_REGISTRY
+        from pathlight_mcp.hints import _HINT_REGISTRY
 
-        content = await mcp_server.read_resource("guidewire://error-recovery")
+        content = await mcp_server.read_resource("pathlight-mcp://error-recovery")
         text = str(content)
         for code in _HINT_REGISTRY:
             assert code in text, f"Error code '{code}' missing from recovery guide"
 
     async def test_hints_appear_in_content(self, mcp_server):
         """Registered hint text should appear in the recovery guide."""
-        from guidewire.hints import _HINT_REGISTRY
+        from pathlight_mcp.hints import _HINT_REGISTRY
 
-        content = await mcp_server.read_resource("guidewire://error-recovery")
+        content = await mcp_server.read_resource("pathlight-mcp://error-recovery")
         text = str(content)
         # Check at least one hint from each code appears
         for code, hints in _HINT_REGISTRY.items():
@@ -230,20 +230,20 @@ class TestBrowserLimitationsContent:
 
     async def test_includes_connection_requirements(self, mcp_server):
         """Browser limitations should cover connection requirements."""
-        content = await mcp_server.read_resource("guidewire://browser-limitations")
+        content = await mcp_server.read_resource("pathlight-mcp://browser-limitations")
         text = str(content)
         assert "remote-debugging-port" in text
         assert "CDP" in text
 
     async def test_includes_rate_limiting(self, mcp_server):
         """Browser limitations should document rate limiting."""
-        content = await mcp_server.read_resource("guidewire://browser-limitations")
+        content = await mcp_server.read_resource("pathlight-mcp://browser-limitations")
         text = str(content)
         assert "rate" in text.lower()
 
     async def test_includes_recommended_workflow(self, mcp_server):
         """Browser limitations should include a recommended workflow."""
-        content = await mcp_server.read_resource("guidewire://browser-limitations")
+        content = await mcp_server.read_resource("pathlight-mcp://browser-limitations")
         text = str(content)
         assert "Recommended Workflow" in text or "workflow" in text.lower()
 
@@ -256,7 +256,7 @@ class TestToolUsageContent:
 
     async def test_covers_all_tool_categories(self, mcp_server):
         """Tool usage should cover all major tool categories."""
-        content = await mcp_server.read_resource("guidewire://tool-usage")
+        content = await mcp_server.read_resource("pathlight-mcp://tool-usage")
         text = str(content)
         categories = [
             "Window Management",
@@ -272,7 +272,7 @@ class TestToolUsageContent:
 
     async def test_includes_element_reference_explanation(self, mcp_server):
         """Tool usage should explain element references."""
-        content = await mcp_server.read_resource("guidewire://tool-usage")
+        content = await mcp_server.read_resource("pathlight-mcp://tool-usage")
         text = str(content)
         assert "element_ref" in text or "element reference" in text.lower()
         assert "stale" in text.lower()
@@ -287,4 +287,4 @@ class TestResourceErrorHandling:
     async def test_read_nonexistent_resource_raises_error(self, mcp_server):
         """Reading a non-existent URI should raise an error (TC-14, AC-3)."""
         with pytest.raises((ValueError, RuntimeError)):
-            await mcp_server.read_resource("guidewire://nonexistent")
+            await mcp_server.read_resource("pathlight-mcp://nonexistent")

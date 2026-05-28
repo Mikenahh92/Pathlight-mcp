@@ -1,11 +1,11 @@
-"""Shared test fixtures for Guidewire test suite."""
+"""Shared test fixtures for Pathlight MCP test suite."""
 
 import pytest
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
-from guidewire.models import Bounds, ElementStates, NormalizedElement
-from guidewire.refs import ElementRefStore
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.models import Bounds, ElementStates, NormalizedElement
+from pathlight_mcp.refs import ElementRefStore
 
 # ---------------------------------------------------------------------------
 # Backend fixtures

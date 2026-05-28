@@ -9,7 +9,7 @@ These tests do NOT require an Anthropic API key.
 import pytest
 
 from tests.harness.agent import AgentClient
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 
 @pytest.mark.integration
@@ -18,7 +18,7 @@ class TestAgentClient:
 
     async def test_available_tools_after_init(self) -> None:
         """AgentClient should discover all 8 tools from the server."""
-        async with GuidewireServerProcess() as server:
+        async with PathlightMCPServerProcess() as server:
             agent = AgentClient(server)
             await agent._ensure_client()
             assert len(agent.available_tools) == 8
@@ -26,7 +26,7 @@ class TestAgentClient:
 
     async def test_anthropic_tool_format(self) -> None:
         """Converted tools should have Anthropic-compatible schema."""
-        async with GuidewireServerProcess() as server:
+        async with PathlightMCPServerProcess() as server:
             agent = AgentClient(server)
             await agent._ensure_client()
             tools = agent._to_anthropic_tools()

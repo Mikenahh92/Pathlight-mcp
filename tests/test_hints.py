@@ -1,8 +1,8 @@
-"""Tests for guidewire.hints — standalone hint registry module."""
+"""Tests for pathlight_mcp.hints — standalone hint registry module."""
 
 import pytest
 
-from guidewire.hints import _HINT_REGISTRY, hints_for, register_hints
+from pathlight_mcp.hints import _HINT_REGISTRY, hints_for, register_hints
 
 # ---------------------------------------------------------------------------
 # Module-level registry content
@@ -95,27 +95,27 @@ class TestAutoPopulation:
     """Error instances auto-populate hints from the registry at construction."""
 
     def test_concrete_error_gets_registry_hints(self) -> None:
-        from guidewire.errors import ElementNotFoundError
+        from pathlight_mcp.errors import ElementNotFoundError
 
         err = ElementNotFoundError("button")
         expected = hints_for("element_not_found")
         assert err.hints == expected
 
     def test_base_error_has_no_hints(self) -> None:
-        from guidewire.errors import GuidewireError
+        from pathlight_mcp.errors import PathlightMCPError
 
-        err = GuidewireError("generic")
+        err = PathlightMCPError("generic")
         assert err.hints == []
 
     def test_with_hints_appends_to_registry_hints(self) -> None:
-        from guidewire.errors import StaleElementReferenceError
+        from pathlight_mcp.errors import StaleElementReferenceError
 
         err = StaleElementReferenceError("ref").with_hints("extra")
         assert "extra" in err.hints
         assert len(err.hints) > 1  # registry hints + extra
 
     def test_each_instance_gets_own_copy(self) -> None:
-        from guidewire.errors import WindowNotFoundError
+        from pathlight_mcp.errors import WindowNotFoundError
 
         a = WindowNotFoundError()
         b = WindowNotFoundError()
@@ -132,13 +132,13 @@ class TestHintsExports:
     """Module exports the public API."""
 
     def test_all_contains_public_functions(self) -> None:
-        from guidewire import hints
+        from pathlight_mcp import hints
 
         assert "hints_for" in hints.__all__
         assert "register_hints" in hints.__all__
 
     def test_all_entries_importable(self) -> None:
-        from guidewire import hints
+        from pathlight_mcp import hints
 
         for name in hints.__all__:
             obj = getattr(hints, name)

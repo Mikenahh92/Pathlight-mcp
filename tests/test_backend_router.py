@@ -17,9 +17,9 @@ Validates that:
 
 import pytest
 
-from guidewire.backends import BackendRouter, MockBackend, TaggedHandle
-from guidewire.backends.types import DesktopAction
-from guidewire.errors import WindowNotFoundError
+from pathlight_mcp.backends import BackendRouter, MockBackend, TaggedHandle
+from pathlight_mcp.backends.types import DesktopAction
+from pathlight_mcp.errors import WindowNotFoundError
 
 # -- Fixtures ----------------------------------------------------------------
 
@@ -483,17 +483,17 @@ class TestBackwardCompatibility:
 
 
 class TestServerIntegration:
-    """Integration tests using GuidewireServer with BackendRouter."""
+    """Integration tests using PathlightMCPServer with BackendRouter."""
 
     async def test_router_works_with_server(self):
-        """BackendRouter should work as the backend for GuidewireServer."""
-        from guidewire.server import GuidewireServer
+        """BackendRouter should work as the backend for PathlightMCPServer."""
+        from pathlight_mcp.server import PathlightMCPServer
 
         native = MockBackend().add_window(title="Native", app="native.exe")
         web = MockBackend().add_window(title="Web", app="browser")
         router = BackendRouter(native=native, web=web)
 
-        srv = GuidewireServer(backend=router)
+        srv = PathlightMCPServer(backend=router)
         srv.register_tools()
 
         result, _meta = await srv.mcp.call_tool("desktop.list_windows", arguments={})
@@ -506,13 +506,13 @@ class TestServerIntegration:
         """Snapshot should work through BackendRouter via the server pipeline."""
         import json
 
-        from guidewire.server import GuidewireServer
+        from pathlight_mcp.server import PathlightMCPServer
 
         native = MockBackend().add_window(title="Native", app="native.exe")
         web = MockBackend().add_window(title="Web", app="browser")
         router = BackendRouter(native=native, web=web)
 
-        srv = GuidewireServer(backend=router)
+        srv = PathlightMCPServer(backend=router)
         srv.register_tools()
 
         # List windows first to get refs
@@ -538,13 +538,13 @@ class TestServerIntegration:
         """
         import json
 
-        from guidewire.server import GuidewireServer
+        from pathlight_mcp.server import PathlightMCPServer
 
         native = MockBackend().add_window(title="Native", app="native.exe")
         web = MockBackend().add_window(title="Web", app="browser")
         router = BackendRouter(native=native, web=web)
 
-        srv = GuidewireServer(backend=router)
+        srv = PathlightMCPServer(backend=router)
         srv.register_tools()
 
         # List windows
@@ -574,7 +574,7 @@ class TestServerIntegration:
         """
         import json
 
-        from guidewire.server import GuidewireServer
+        from pathlight_mcp.server import PathlightMCPServer
 
         native = MockBackend().add_window(title="Native", app="native.exe")
         win_handle = native.last_window_handle
@@ -582,7 +582,7 @@ class TestServerIntegration:
         web = MockBackend().add_window(title="Web", app="browser")
         router = BackendRouter(native=native, web=web)
 
-        srv = GuidewireServer(backend=router)
+        srv = PathlightMCPServer(backend=router)
         srv.register_tools()
 
         # List windows

@@ -18,20 +18,20 @@ from unittest.mock import patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import (
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import (
     DesktopAction,
 )
-from guidewire.errors import (
+from pathlight_mcp.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
     WindowNotFoundError,
 )
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
-from guidewire.tools.find import _pluralize
-from guidewire.tools.press_key import _normalise_key_combo
-from guidewire.tools.snapshot import _assign_refs, _dict_to_element
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
+from pathlight_mcp.tools.find import _pluralize
+from pathlight_mcp.tools.press_key import _normalise_key_combo
+from pathlight_mcp.tools.snapshot import _assign_refs, _dict_to_element
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -470,7 +470,7 @@ class TestAssignRefs:
 
     def test_assigns_refs_to_children_only(self) -> None:
         """Root element keeps its ref; only children get e-prefixed refs."""
-        from guidewire.models import NormalizedElement
+        from pathlight_mcp.models import NormalizedElement
 
         root = NormalizedElement(
             ref="w1",
@@ -502,7 +502,7 @@ class TestAssignRefs:
 
     def test_no_children_is_noop(self) -> None:
         """Assigning refs to an element with no children is a no-op."""
-        from guidewire.models import NormalizedElement
+        from pathlight_mcp.models import NormalizedElement
 
         root = NormalizedElement(
             ref="w1",

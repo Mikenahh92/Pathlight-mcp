@@ -1,12 +1,12 @@
 """Tests for normalization functions (AC-7).
 
-Verifies the resolver helpers in guidewire.models.mappings:
+Verifies the resolver helpers in pathlight_mcp.models.mappings:
 - resolve_role: platform-specific role → normalized role
 - resolve_state: platform-specific state → (field, value) pair
 - resolve_action: platform-specific action → normalized action
 """
 
-from guidewire.models.mappings import (
+from pathlight_mcp.models.mappings import (
     ACTION_MAP,
     ROLE_MAP,
     STATE_MAP,

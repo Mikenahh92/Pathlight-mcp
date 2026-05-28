@@ -29,9 +29,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.backends.types import NativeHandle
-from guidewire.backends.windows import WindowsBackend
-from guidewire.errors import WindowNotFoundError
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.backends.windows import WindowsBackend
+from pathlight_mcp.errors import WindowNotFoundError
 
 # ---------------------------------------------------------------------------
 # Shared fixture

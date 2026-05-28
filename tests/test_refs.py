@@ -1,7 +1,7 @@
-"""Tests for guidewire.refs — Element Reference Store."""
+"""Tests for pathlight_mcp.refs — Element Reference Store."""
 
-from guidewire.backends.types import NativeHandle
-from guidewire.refs import ElementRefStore
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.refs import ElementRefStore
 
 # -- Helpers ------------------------------------------------------------------
 

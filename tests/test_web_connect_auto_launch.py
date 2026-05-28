@@ -18,13 +18,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import CDPTarget
-from guidewire.errors import BackendUnavailableError
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.errors import BackendUnavailableError
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -78,12 +78,12 @@ class TestBrowserParameterValidation:
         tool = _get_web_connect_tool(mcp_router)
 
         # Connection will fail but browser name should not cause validation error
-        with patch("guidewire.tools.web_connect.WebBackend") as mock_wb:
+        with patch("pathlight_mcp.tools.web_connect.WebBackend") as mock_wb:
             mock_instance = MagicMock(spec=WebBackend)
             mock_instance.connect.side_effect = BackendUnavailableError("fail")
             mock_wb.return_value = mock_instance
 
-            with patch("guidewire.tools.web_connect._try_auto_launch", return_value=False):
+            with patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=False):
                 result = json.loads(tool.fn(browser="chrome"))
                 assert result["error"] != "validation_error"
 
@@ -113,8 +113,8 @@ class TestBrowserParameterValidation:
         mock_web.connect.side_effect = BackendUnavailableError("fail")
 
         with (
-            patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web),
-            patch("guidewire.tools.web_connect._try_auto_launch", return_value=False),
+            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
+            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=False),
         ):
             result = json.loads(tool.fn(browser="Chrome"))
             # No validation error — case-insensitive match accepted
@@ -125,7 +125,7 @@ class TestBrowserParameterValidation:
         tool = _get_web_connect_tool(mcp_router)
 
         mock_web = _make_mock_web_backend()
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result = json.loads(tool.fn())
             assert result["success"] is True
 
@@ -144,8 +144,8 @@ class TestAutoLaunchDisabled:
         mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
 
         with (
-            patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web),
-            patch("guidewire.tools.web_connect._try_auto_launch") as mock_launch,
+            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
+            patch("pathlight_mcp.tools.web_connect._try_auto_launch") as mock_launch,
         ):
             result = json.loads(tool.fn(auto_launch=False))
             assert result["error"] == "web_connect_error"
@@ -158,7 +158,7 @@ class TestAutoLaunchDisabled:
         mock_web = MagicMock(spec=WebBackend)
         mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
 
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result = json.loads(tool.fn(auto_launch=False))
             assert result["error"] == "web_connect_error"
             assert any("auto_launch" in h or "desktop automation" in h for h in result["hints"])
@@ -188,8 +188,8 @@ class TestAutoLaunchEnabled:
             return mock_web_success
 
         with (
-            patch("guidewire.tools.web_connect.WebBackend", side_effect=web_backend_side_effect),
-            patch("guidewire.tools.web_connect._try_auto_launch", return_value=True),
+            patch("pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect),
+            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=True),
         ):
             result = json.loads(tool.fn(auto_launch=True))
             assert result["success"] is True
@@ -202,8 +202,8 @@ class TestAutoLaunchEnabled:
         mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
 
         with (
-            patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web),
-            patch("guidewire.tools.web_connect._try_auto_launch", return_value=False),
+            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
+            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=False),
         ):
             result = json.loads(tool.fn(auto_launch=True))
             assert result["error"] == "web_connect_error"
@@ -229,9 +229,9 @@ class TestAutoLaunchEnabled:
             return mock_web_success
 
         with (
-            patch("guidewire.tools.web_connect.WebBackend", side_effect=web_backend_side_effect),
-            patch("guidewire.tools.web_connect._try_auto_launch", return_value=True),
-            patch("guidewire.tools.web_connect._get_resolver", return_value=mock_resolver),
+            patch("pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect),
+            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=True),
+            patch("pathlight_mcp.tools.web_connect._get_resolver", return_value=mock_resolver),
         ):
             result = json.loads(tool.fn(auto_launch=True))
             assert result["success"] is True
@@ -244,7 +244,7 @@ class TestAutoLaunchEnabled:
         mock_web = _make_mock_web_backend()
 
         with (
-            patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web),
+            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
         ):
             result = json.loads(tool.fn())
             assert result["success"] is True
@@ -259,11 +259,11 @@ class TestAutoLaunchEnabled:
 
         with (
             patch(
-                "guidewire.tools.web_connect.WebBackend",
+                "pathlight_mcp.tools.web_connect.WebBackend",
                 return_value=mock_web,
             ),
             patch(
-                "guidewire.tools.web_connect._try_auto_launch",
+                "pathlight_mcp.tools.web_connect._try_auto_launch",
                 return_value=False,
             ) as mock_launch,
         ):
@@ -285,7 +285,7 @@ class TestExistingBehaviorPreserved:
         tool = _get_web_connect_tool(mcp_router)
 
         mock_web = _make_mock_web_backend()
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result = json.loads(tool.fn(host="localhost", port=9222))
             assert result["success"] is True
             assert result["pages"]
@@ -320,7 +320,7 @@ class TestExistingBehaviorPreserved:
         tool = _get_web_connect_tool(mcp_router)
 
         mock_web = _make_mock_web_backend()
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             # First connect
             result1 = json.loads(tool.fn(host="localhost", port=9222))
             assert result1["success"] is True
@@ -351,49 +351,49 @@ class TestInternalPageFiltering:
 
     def test_chrome_newtab_filtered(self) -> None:
         """chrome://newtab pages are filtered out."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("chrome://newtab") is True
 
     def test_edge_newtab_filtered(self) -> None:
         """edge://newtab pages are filtered out."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("edge://newtab") is True
 
     def test_about_blank_filtered(self) -> None:
         """about:blank pages are filtered out."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("about:blank") is True
 
     def test_about_newtab_filtered(self) -> None:
         """about:newtab pages are filtered out."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("about:newtab") is True
 
     def test_chrome_extension_filtered(self) -> None:
         """chrome-extension:// pages are filtered out."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("chrome-extension://abc123/popup.html") is True
 
     def test_https_pages_not_filtered(self) -> None:
         """https:// pages are NOT filtered."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("https://example.com") is False
 
     def test_http_pages_not_filtered(self) -> None:
         """http:// pages are NOT filtered."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("http://localhost:3000") is False
 
     def test_empty_url_not_filtered(self) -> None:
         """Empty URLs are NOT filtered."""
-        from guidewire.tools.web_connect import _is_internal_page
+        from pathlight_mcp.tools.web_connect import _is_internal_page
 
         assert _is_internal_page("") is False
 
@@ -408,7 +408,7 @@ class TestInternalPageFiltering:
         ]
         mock_web = _make_mock_web_backend(pages=pages)
 
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result = json.loads(tool.fn(host="localhost", port=9222))
 
         assert result["success"] is True
@@ -426,7 +426,7 @@ class TestInternalPageFiltering:
         ]
         mock_web = _make_mock_web_backend(pages=pages)
 
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result = json.loads(tool.fn(host="localhost", port=9222))
 
         assert result["success"] is True
@@ -444,7 +444,7 @@ class TestInternalPageFiltering:
         ]
         mock_web = _make_mock_web_backend(pages=pages)
 
-        with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result = json.loads(tool.fn(host="localhost", port=9222))
 
         assert result["success"] is True

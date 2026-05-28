@@ -11,7 +11,7 @@ to gedit (text editor), including a read-only path bar, navigation buttons,
 and a hierarchical sidebar.
 
 Uses the AgentClient replay_script mode to bypass the real Anthropic API.
-This test boots the Guidewire server with ``--backend auto`` and replays
+This test boots the Pathlight MCP server with ``--backend auto`` and replays
 a multi-turn agent interaction:
 
 1. ``desktop.list_windows`` — discover the Nautilus window
@@ -34,7 +34,7 @@ from tests.harness.assertions import (
     assert_tool_called,
     assert_tool_not_called,
 )
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 skip_not_linux = pytest.mark.skipif(
     sys.platform != "linux",
@@ -134,7 +134,7 @@ class TestLinuxAgentNautilus:
 
     async def test_agent_reads_nautilus_path(self) -> None:
         """Agent replay should call list_windows, snapshot, find, get_text."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
             result = await agent.send_prompt("Open Files and read the current path.")
 
@@ -160,7 +160,7 @@ class TestLinuxAgentNautilus:
 
     async def test_find_targets_path_bar(self) -> None:
         """The find call should target the path bar by name."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
             result = await agent.send_prompt("Open Files and read the current path.")
 
@@ -171,7 +171,7 @@ class TestLinuxAgentNautilus:
 
     async def test_get_text_references_found_element(self) -> None:
         """The get_text call should reference the element found by find."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
             result = await agent.send_prompt("Open Files and read the current path.")
 
@@ -181,7 +181,7 @@ class TestLinuxAgentNautilus:
 
     async def test_total_tool_call_count(self) -> None:
         """Exactly 4 tool calls should be made across the full agent loop."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
             result = await agent.send_prompt("Open Files and read the current path.")
 
@@ -189,7 +189,7 @@ class TestLinuxAgentNautilus:
 
     async def test_no_type_text_or_click_used(self) -> None:
         """Read-only path workflow should not need type_text or click tools."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=NAUTILUS_AGENT_REPLAY, max_turns=5)
             result = await agent.send_prompt("Open Files and read the current path.")
 

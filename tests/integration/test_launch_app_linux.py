@@ -21,9 +21,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 skip_not_linux = pytest.mark.skipif(
     not sys.platform.startswith("linux"),
@@ -83,7 +83,7 @@ class TestLaunchAppLinuxIntegration:
     and the post-launch liveness check.
     """
 
-    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    @patch("pathlight_mcp.tools.launch_app.subprocess.Popen")
     async def test_display_propagated_to_child(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """On Linux, Popen should receive an env dict containing DISPLAY."""
         mock_popen.return_value = _make_live_proc(pid=9001)
@@ -97,7 +97,7 @@ class TestLaunchAppLinuxIntegration:
         assert kwargs["env"] is not None
         assert "DISPLAY" in kwargs["env"]
 
-    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    @patch("pathlight_mcp.tools.launch_app.subprocess.Popen")
     async def test_snap_binary_resolved_before_launch(
         self, mock_popen: MagicMock, mcp: FastMCP
     ) -> None:
@@ -105,7 +105,7 @@ class TestLaunchAppLinuxIntegration:
         mock_popen.return_value = _make_live_proc(pid=9002)
 
         with patch(
-            "guidewire.tools.launch_app._resolve_snap_binary",
+            "pathlight_mcp.tools.launch_app._resolve_snap_binary",
             return_value="/usr/bin/firefox",
         ) as mock_resolve:
             await mcp.call_tool(
@@ -117,7 +117,7 @@ class TestLaunchAppLinuxIntegration:
             args, _ = mock_popen.call_args
             assert args[0][0] == "/usr/bin/firefox"
 
-    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    @patch("pathlight_mcp.tools.launch_app.subprocess.Popen")
     async def test_electron_app_gets_no_sandbox(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """Electron apps should automatically receive --no-sandbox flag.
 
@@ -129,11 +129,11 @@ class TestLaunchAppLinuxIntegration:
 
         with (
             patch(
-                "guidewire.tools.launch_app._resolve_snap_binary",
+                "pathlight_mcp.tools.launch_app._resolve_snap_binary",
                 return_value="/snap/code/current/usr/share/code/code",
             ),
             patch(
-                "guidewire.tools.launch_app._is_electron_binary",
+                "pathlight_mcp.tools.launch_app._is_electron_binary",
                 return_value=True,
             ),
         ):
@@ -148,18 +148,18 @@ class TestLaunchAppLinuxIntegration:
             data = json.loads(result[0].text)
             assert data["success"] is True
 
-    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    @patch("pathlight_mcp.tools.launch_app.subprocess.Popen")
     async def test_non_electron_app_no_sandbox(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """Non-Electron apps should NOT receive --no-sandbox."""
         mock_popen.return_value = _make_live_proc(pid=9004)
 
         with (
             patch(
-                "guidewire.tools.launch_app._resolve_snap_binary",
+                "pathlight_mcp.tools.launch_app._resolve_snap_binary",
                 return_value="/usr/bin/gedit",
             ),
             patch(
-                "guidewire.tools.launch_app._is_electron_binary",
+                "pathlight_mcp.tools.launch_app._is_electron_binary",
                 return_value=False,
             ),
         ):
@@ -172,7 +172,7 @@ class TestLaunchAppLinuxIntegration:
             cmd = args[0]
             assert "--no-sandbox" not in cmd
 
-    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    @patch("pathlight_mcp.tools.launch_app.subprocess.Popen")
     async def test_liveness_check_detects_crash(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """Post-launch liveness check should detect immediate crash."""
         mock_popen.return_value = _make_dead_proc(pid=9005, exit_code=127)
@@ -189,7 +189,7 @@ class TestLaunchAppLinuxIntegration:
         assert "127" in data["message"]
         assert "hints" in data
 
-    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    @patch("pathlight_mcp.tools.launch_app.subprocess.Popen")
     async def test_live_process_succeeds(self, mock_popen: MagicMock, mcp: FastMCP) -> None:
         """A process that stays alive after liveness check should succeed."""
         mock_popen.return_value = _make_live_proc(pid=9006)
@@ -203,7 +203,7 @@ class TestLaunchAppLinuxIntegration:
         assert data["success"] is True
         assert data["pid"] == 9006
 
-    @patch("guidewire.tools.launch_app.subprocess.Popen")
+    @patch("pathlight_mcp.tools.launch_app.subprocess.Popen")
     async def test_launch_app_not_found_includes_hints(
         self, mock_popen: MagicMock, mcp: FastMCP
     ) -> None:

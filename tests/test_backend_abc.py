@@ -13,7 +13,7 @@ import inspect
 
 import pytest
 
-from guidewire.backends import DesktopBackend
+from pathlight_mcp.backends import DesktopBackend
 
 # -- TC-01: Cannot instantiate directly -------------------------------------
 
@@ -252,31 +252,31 @@ class TestPackageExports:
     """Verify public API of the backends package."""
 
     def test_desktop_backend_exported(self) -> None:
-        from guidewire.backends import DesktopBackend
+        from pathlight_mcp.backends import DesktopBackend
 
         assert DesktopBackend is not None
 
     def test_mock_backend_exported(self) -> None:
-        from guidewire.backends import MockBackend
+        from pathlight_mcp.backends import MockBackend
 
         assert MockBackend is not None
 
     def test_native_handle_exported(self) -> None:
-        from guidewire.backends import NativeHandle
+        from pathlight_mcp.backends import NativeHandle
 
         assert NativeHandle is not None
 
     def test_element_state_exported(self) -> None:
-        from guidewire.backends import ElementState
+        from pathlight_mcp.backends import ElementState
 
         assert ElementState is not None
 
     def test_element_bounds_exported(self) -> None:
-        from guidewire.backends import ElementBounds
+        from pathlight_mcp.backends import ElementBounds
 
         assert ElementBounds is not None
 
     def test_desktop_action_exported(self) -> None:
-        from guidewire.backends import DesktopAction
+        from pathlight_mcp.backends import DesktopAction
 
         assert DesktopAction is not None

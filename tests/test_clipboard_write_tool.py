@@ -14,9 +14,9 @@ from unittest.mock import patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.errors import BackendUnavailableError
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.errors import BackendUnavailableError
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -187,7 +187,7 @@ class TestClipboardWriteErrors:
     async def test_generic_exception_returns_backend_error(
         self, mcp: FastMCP, backend: MockBackend
     ) -> None:
-        """Non-GuidewireError exceptions should be caught and returned as backend_error."""
+        """Non-PathlightMCPError exceptions should be caught and returned as backend_error."""
         with patch.object(
             backend,
             "clipboard_write",

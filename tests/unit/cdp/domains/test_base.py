@@ -9,14 +9,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from guidewire.cdp._errors import map_cdp_error
-from guidewire.cdp.domains._base import CDPDomain
-from guidewire.cdp.protocol import CDPError
-from guidewire.errors import (
+from pathlight_mcp.cdp._errors import map_cdp_error
+from pathlight_mcp.cdp.domains._base import CDPDomain
+from pathlight_mcp.cdp.protocol import CDPError
+from pathlight_mcp.errors import (
     ActionNotSupportedError,
     BackendUnavailableError,
     ElementNotFoundError,
-    GuidewireError,
+    PathlightMCPError,
     StaleElementReferenceError,
 )
 
@@ -133,7 +133,7 @@ class TestCDPDomainSend:
 
 
 class TestCDPDomainErrorMapping:
-    """Tests for error mapping from CDP errors to Guidewire errors."""
+    """Tests for error mapping from CDP errors to Pathlight MCP errors."""
 
     def test_not_found_maps_to_element_not_found(self) -> None:
         error = CDPError(code=-32000, message="Node not found")
@@ -151,12 +151,12 @@ class TestCDPDomainErrorMapping:
         with pytest.raises(ActionNotSupportedError):
             domain.do_something()
 
-    def test_generic_error_maps_to_guidewire_error(self) -> None:
+    def test_generic_error_maps_to_pathlight_mcp_error(self) -> None:
         error = CDPError(code=-32600, message="Invalid request")
         session = _FailingSession(error)
         domain = _SampleDomain(session)
 
-        with pytest.raises(GuidewireError, match="CDP error"):
+        with pytest.raises(PathlightMCPError, match="CDP error"):
             domain.do_something()
 
     def test_connection_error_maps_to_backend_unavailable(self) -> None:
@@ -190,13 +190,13 @@ class TestMapCdpError:
         result = map_cdp_error(error)
         assert isinstance(result, BackendUnavailableError)
 
-    def test_invalid_params_maps_to_guidewire_error(self) -> None:
+    def test_invalid_params_maps_to_pathlight_mcp_error(self) -> None:
         error = CDPError(code=-32602, message="Invalid params")
         result = map_cdp_error(error)
-        assert isinstance(result, GuidewireError)
+        assert isinstance(result, PathlightMCPError)
         assert not isinstance(result, ElementNotFoundError)
 
     def test_generic_code(self) -> None:
         error = CDPError(code=-99999, message="Unknown")
         result = map_cdp_error(error)
-        assert isinstance(result, GuidewireError)
+        assert isinstance(result, PathlightMCPError)

@@ -1,6 +1,6 @@
-# Contributing to Guidewire
+# Contributing to Pathlight MCP
 
-Thank you for your interest in contributing to Guidewire! This document provides
+Thank you for your interest in contributing to Pathlight MCP! This document provides
 guidelines and instructions for contributing.
 
 ## Table of Contents
@@ -26,7 +26,7 @@ By participating, you are expected to uphold this code.
 
 ## Project Architecture
 
-Guidewire is an MCP (Model Context Protocol) server that exposes desktop automation
+Pathlight MCP is an MCP (Model Context Protocol) server that exposes desktop automation
 tools to AI agents. The architecture follows a layered pipeline:
 
 ```
@@ -37,18 +37,18 @@ MCP Server  →  Tools  →  Refs  →  Normalize  →  Backends
 
 | Layer | Location | Responsibility |
 |-------|----------|----------------|
-| **MCP Server** | `src/guidewire/server.py` | FastMCP entry point; wires dependencies and registers all tools |
-| **Tools** | `src/guidewire/tools/` | One module per tool; each exposes `register(mcp, *, backend, ref_store)` |
-| **Element Refs** | `src/guidewire/refs.py` | `ElementRefStore` — maps short `e`-prefixed refs to native accessibility handles |
-| **Normalize** | `src/guidewire/models/` | `NormalizedElement` dataclass and mapping tables for cross-platform element roles/states/actions |
-| **Backends** | `src/guidewire/backends/` | `DesktopBackend` ABC with platform implementations (Linux X11, Windows UI Automation) |
+| **MCP Server** | `src/pathlight_mcp/server.py` | FastMCP entry point; wires dependencies and registers all tools |
+| **Tools** | `src/pathlight_mcp/tools/` | One module per tool; each exposes `register(mcp, *, backend, ref_store)` |
+| **Element Refs** | `src/pathlight_mcp/refs.py` | `ElementRefStore` — maps short `e`-prefixed refs to native accessibility handles |
+| **Normalize** | `src/pathlight_mcp/models/` | `NormalizedElement` dataclass and mapping tables for cross-platform element roles/states/actions |
+| **Backends** | `src/pathlight_mcp/backends/` | `DesktopBackend` ABC with platform implementations (Linux X11, Windows UI Automation) |
 
 ### Supporting modules
 
-- **Errors** (`src/guidewire/errors.py`) — structured error codes with hints for agent self-recovery
-- **Safety** (`src/guidewire/safety.py`) — risk classification for actions on sensitive elements
-- **Privacy** (`src/guidewire/privacy.py`) — redaction of passwords and sensitive clipboard content
-- **Hints** (`src/guidewire/hints.py`) — hint registry providing contextual guidance in error responses
+- **Errors** (`src/pathlight_mcp/errors.py`) — structured error codes with hints for agent self-recovery
+- **Safety** (`src/pathlight_mcp/safety.py`) — risk classification for actions on sensitive elements
+- **Privacy** (`src/pathlight_mcp/privacy.py`) — redaction of passwords and sensitive clipboard content
+- **Hints** (`src/pathlight_mcp/hints.py`) — hint registry providing contextual guidance in error responses
 
 ### Data flow (typical tool call)
 
@@ -62,10 +62,10 @@ MCP Server  →  Tools  →  Refs  →  Normalize  →  Backends
 ### Project structure
 
 ```
-src/guidewire/
+src/pathlight_mcp/
   __init__.py          Package version
   __main__.py          CLI entry point (--backend flag)
-  server.py            GuidewireServer (FastMCP wrapper, stdio transport)
+  server.py            PathlightMCPServer (FastMCP wrapper, stdio transport)
   refs.py              ElementRefStore (short ref to native handle mapping)
   errors.py            8 structured error types with hint registry
   safety.py            3-tier risk classification model
@@ -118,7 +118,7 @@ src/guidewire/
 
 ## Development Setup
 
-Guidewire requires **Python 3.11** or later.
+Pathlight MCP requires **Python 3.11** or later.
 
 ```bash
 # Create and activate a virtual environment
@@ -144,11 +144,11 @@ pip install -e ".[integration]"  # Anthropic SDK for integration tests
 
 ## Adding a New MCP Tool
 
-Follow these steps to add a new tool to the Guidewire MCP server:
+Follow these steps to add a new tool to the Pathlight MCP MCP server:
 
 ### 1. Create the tool module
 
-Create a new file `src/guidewire/tools/<name>.py` with a `register` function:
+Create a new file `src/pathlight_mcp/tools/<name>.py` with a `register` function:
 
 ```python
 """desktop.<name> — <short description>."""
@@ -159,8 +159,8 @@ from typing import TYPE_CHECKING
 from mcp.server.fastmcp import FastMCP
 
 if TYPE_CHECKING:
-    from guidewire.backends.base import DesktopBackend
-    from guidewire.refs import ElementRefStore
+    from pathlight_mcp.backends.base import DesktopBackend
+    from pathlight_mcp.refs import ElementRefStore
 
 
 def register(
@@ -195,23 +195,23 @@ The `desktop.` prefix is contractual — all tools use it. The decorator
 
 ### 3. Add to the tool registry
 
-Edit `src/guidewire/tools/__init__.py`:
+Edit `src/pathlight_mcp/tools/__init__.py`:
 
 1. Add `".<name>"` to the `_TOOL_MODULES` list.
 2. If the tool needs a backend, also add it to `_BACKEND_TOOL_MODULES`.
 
 ### 4. Include error hints
 
-Import `hints_for` from `guidewire.hints` and include a `"hints"` key in every
+Import `hints_for` from `pathlight_mcp.hints` and include a `"hints"` key in every
 error JSON response:
 
 ```python
-from guidewire.hints import hints_for
+from pathlight_mcp.hints import hints_for
 
 # For non-exception paths:
 return json.dumps({"error": "...", "message": "...", "hints": hints_for("error_code")})
 
-# For caught GuidewireError exceptions:
+# For caught PathlightMCPError exceptions:
 except SomeError as exc:
     return json.dumps({"error": "...", "message": "...", "hints": exc.hints})
 
@@ -230,7 +230,7 @@ Create `tests/test_<name>_tool.py` covering:
 
 ### Checklist
 
-- [ ] Tool module created in `src/guidewire/tools/<name>.py`
+- [ ] Tool module created in `src/pathlight_mcp/tools/<name>.py`
 - [ ] `register(mcp, *, backend, ref_store)` function with `@mcp.tool(name="desktop.<name>")`
 - [ ] Added to `_TOOL_MODULES` in `__init__.py`
 - [ ] Added to `_BACKEND_TOOL_MODULES` if tool needs a backend
@@ -268,7 +268,7 @@ We use [pytest](https://docs.pytest.org/) with `pytest-asyncio`.
 pytest
 
 # Run with coverage
-pytest --cov=guidewire
+pytest --cov=pathlight-mcp
 
 # Run a specific test file
 pytest tests/test_errors.py
@@ -380,5 +380,5 @@ with the release.
 
 ## License
 
-By contributing to Guidewire, you agree that your contributions will be licensed
+By contributing to Pathlight MCP, you agree that your contributions will be licensed
 under the [MIT License](LICENSE).

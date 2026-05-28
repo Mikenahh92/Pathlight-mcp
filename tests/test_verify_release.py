@@ -32,7 +32,7 @@ def project_dir(tmp_path: Path) -> Path:
             build-backend = "setuptools.build_meta"
 
             [project]
-            name = "guidewire"
+            name = "pathlight_mcp"
             dynamic = ["version"]
             description = "Test description"
             readme = "README.md"
@@ -522,8 +522,8 @@ class TestCheckBuild:
             mock_tmpdir.return_value.__enter__ = MagicMock(return_value=str(tmp_path / "dist"))
             mock_tmpdir.return_value.__exit__ = MagicMock(return_value=False)
             (tmp_path / "dist").mkdir(exist_ok=True)
-            (tmp_path / "dist" / "guidewire-1.0.0.tar.gz").touch()
-            (tmp_path / "dist" / "guidewire-1.0.0-py3-none-any.whl").touch()
+            (tmp_path / "dist" / "pathlight_mcp-1.0.0.tar.gz").touch()
+            (tmp_path / "dist" / "pathlight_mcp-1.0.0-py3-none-any.whl").touch()
             result = vr.check_build(config)
 
         assert result.passed is True
@@ -546,9 +546,9 @@ class TestCheckBuild:
             mock_tmpdir.return_value.__enter__ = MagicMock(return_value=str(tmp_path / "dist2"))
             mock_tmpdir.return_value.__exit__ = MagicMock(return_value=False)
             (tmp_path / "dist2").mkdir(exist_ok=True)
-            (tmp_path / "dist2" / "guidewire-1.0.0.tar.gz").touch()
+            (tmp_path / "dist2" / "pathlight_mcp-1.0.0.tar.gz").touch()
             # Platform-specific wheel (NOT py3-none-any)
-            (tmp_path / "dist2" / "guidewire-1.0.0-cp311-cp311-linux_x86_64.whl").touch()
+            (tmp_path / "dist2" / "pathlight_mcp-1.0.0-cp311-cp311-linux_x86_64.whl").touch()
             result = vr.check_build(config)
 
         assert result.passed is False
@@ -571,8 +571,8 @@ class TestCheckBuild:
             mock_tmpdir.return_value.__enter__ = MagicMock(return_value=str(tmp_path / "dist3"))
             mock_tmpdir.return_value.__exit__ = MagicMock(return_value=False)
             (tmp_path / "dist3").mkdir(exist_ok=True)
-            (tmp_path / "dist3" / "guidewire-1.0.0.tar.gz").touch()
-            (tmp_path / "dist3" / "guidewire-1.0.0-py3-none-any.whl").touch()
+            (tmp_path / "dist3" / "pathlight_mcp-1.0.0.tar.gz").touch()
+            (tmp_path / "dist3" / "pathlight_mcp-1.0.0-py3-none-any.whl").touch()
             result = vr.check_build(config)
 
         assert result.passed is True

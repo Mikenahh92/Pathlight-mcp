@@ -10,7 +10,7 @@ exercises semantic accessibility actions across two distinct applications,
 demonstrating window switching via ``desktop.focus_window``.
 
 Uses the AgentClient replay_script mode to bypass the real Anthropic API.
-This test boots the Guidewire server with ``--backend auto`` and replays
+This test boots the Pathlight MCP server with ``--backend auto`` and replays
 a multi-turn agent interaction:
 
 1. ``desktop.list_windows`` — discover all windows (Calculator + Notepad)
@@ -38,7 +38,7 @@ from tests.harness.assertions import (
     assert_tool_called,
     assert_tool_not_called,
 )
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 skip_not_windows = pytest.mark.skipif(
     sys.platform != "win32",
@@ -225,7 +225,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_cross_app_workflow_reads_calculator_types_notepad(self) -> None:
         """Agent replay should execute the full cross-app workflow."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=CROSS_APP_AGENT_REPLAY, max_turns=10)
             result = await agent.send_prompt(
                 "Read the value from Calculator and type it into Notepad."
@@ -260,7 +260,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_focus_window_switches_to_notepad(self) -> None:
         """The focus_window call should target the Notepad window."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=CROSS_APP_AGENT_REPLAY, max_turns=10)
             result = await agent.send_prompt(
                 "Read the value from Calculator and type it into Notepad."
@@ -272,7 +272,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_calculator_value_read_before_type(self) -> None:
         """get_text on calculator (e1) should precede type_text on Notepad (e2)."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=CROSS_APP_AGENT_REPLAY, max_turns=10)
             result = await agent.send_prompt(
                 "Read the value from Calculator and type it into Notepad."
@@ -292,7 +292,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_total_tool_call_count(self) -> None:
         """Exactly 9 tool calls across the full cross-app agent loop."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=CROSS_APP_AGENT_REPLAY, max_turns=10)
             result = await agent.send_prompt(
                 "Read the value from Calculator and type it into Notepad."
@@ -302,7 +302,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_snapshots_target_different_windows(self) -> None:
         """Two snapshots should target different windows (Calculator then Notepad)."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=CROSS_APP_AGENT_REPLAY, max_turns=10)
             result = await agent.send_prompt(
                 "Read the value from Calculator and type it into Notepad."
@@ -315,7 +315,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_finds_target_different_roles_per_app(self) -> None:
         """Two find calls should target different roles per application."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=CROSS_APP_AGENT_REPLAY, max_turns=10)
             result = await agent.send_prompt(
                 "Read the value from Calculator and type it into Notepad."
@@ -332,7 +332,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_server_discovers_eight_tools(self) -> None:
         """Server should expose all 8 tools on the Windows backend."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             tools = await server.list_tools()
             names = {t.name for t in tools}
             assert len(names) == 8
@@ -347,7 +347,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_tool_schemas_valid_on_windows(self) -> None:
         """Each tool should have a valid JSON Schema input on Windows."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             tools = await server.list_tools()
             for tool in tools:
                 schema = tool.inputSchema
@@ -356,7 +356,7 @@ class TestWindowsAgentCrossApp:
 
     async def test_no_click_or_press_key_used(self) -> None:
         """Cross-app workflow should not need click or press_key tools."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=CROSS_APP_AGENT_REPLAY, max_turns=10)
             result = await agent.send_prompt(
                 "Read the value from Calculator and type it into Notepad."

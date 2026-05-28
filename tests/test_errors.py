@@ -1,20 +1,20 @@
-"""Tests for guidewire.errors — PRD R14 structured error codes + hint infrastructure."""
+"""Tests for pathlight_mcp.errors — PRD R14 structured error codes + hint infrastructure."""
 
 import pytest
 
-from guidewire.errors import (
+from pathlight_mcp.errors import (
     ActionNotSupportedError,
     AmbiguousSelectorError,
     BackendUnavailableError,
     ElementNotFoundError,
-    GuidewireError,
+    PathlightMCPError,
     PermissionRequiredError,
     StaleElementReferenceError,
     WindowNotFoundError,
     hints_for,
     register_hints,
 )
-from guidewire.hints import _HINT_REGISTRY
+from pathlight_mcp.hints import _HINT_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Hierarchy
@@ -22,7 +22,7 @@ from guidewire.hints import _HINT_REGISTRY
 
 
 class TestInheritance:
-    """Every concrete error must inherit from GuidewireError."""
+    """Every concrete error must inherit from PathlightMCPError."""
 
     @pytest.mark.parametrize(
         "cls",
@@ -37,10 +37,10 @@ class TestInheritance:
         ],
     )
     def test_concrete_errors_inherit_base(self, cls: type) -> None:
-        assert issubclass(cls, GuidewireError)
+        assert issubclass(cls, PathlightMCPError)
 
     def test_base_is_exception(self) -> None:
-        assert issubclass(GuidewireError, Exception)
+        assert issubclass(PathlightMCPError, Exception)
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ class TestCodes:
             (WindowNotFoundError, "window_not_found"),
         ],
     )
-    def test_error_code_value(self, cls: type[GuidewireError], expected: str) -> None:
+    def test_error_code_value(self, cls: type[PathlightMCPError], expected: str) -> None:
         assert cls.error_code == expected
 
     @pytest.mark.parametrize(
@@ -78,7 +78,7 @@ class TestCodes:
             WindowNotFoundError,
         ],
     )
-    def test_error_code_on_instance(self, cls: type[GuidewireError]) -> None:
+    def test_error_code_on_instance(self, cls: type[PathlightMCPError]) -> None:
         instance = cls()
         assert instance.error_code == cls.error_code
 
@@ -104,7 +104,7 @@ class TestCodes:
             AmbiguousSelectorError.error_code,
             WindowNotFoundError.error_code,
         ]
-        assert GuidewireError.error_code not in concrete_codes
+        assert PathlightMCPError.error_code not in concrete_codes
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +127,7 @@ class TestConstruction:
             WindowNotFoundError,
         ],
     )
-    def test_default_message(self, cls: type[GuidewireError]) -> None:
+    def test_default_message(self, cls: type[PathlightMCPError]) -> None:
         err = cls()
         assert isinstance(err.message, str)
         assert len(err.message) > 0
@@ -144,7 +144,7 @@ class TestConstruction:
             WindowNotFoundError,
         ],
     )
-    def test_custom_message(self, cls: type[GuidewireError]) -> None:
+    def test_custom_message(self, cls: type[PathlightMCPError]) -> None:
         err = cls("custom detail")
         assert err.message == "custom detail"
 
@@ -160,7 +160,7 @@ class TestConstruction:
             WindowNotFoundError,
         ],
     )
-    def test_str_representation(self, cls: type[GuidewireError]) -> None:
+    def test_str_representation(self, cls: type[PathlightMCPError]) -> None:
         err = cls("something went wrong")
         assert str(err) == "something went wrong"
 
@@ -176,8 +176,8 @@ class TestConstruction:
             WindowNotFoundError,
         ],
     )
-    def test_catchability(self, cls: type[GuidewireError]) -> None:
-        with pytest.raises(GuidewireError):
+    def test_catchability(self, cls: type[PathlightMCPError]) -> None:
+        with pytest.raises(PathlightMCPError):
             raise cls("boom")
 
     @pytest.mark.parametrize(
@@ -192,17 +192,17 @@ class TestConstruction:
             WindowNotFoundError,
         ],
     )
-    def test_catch_specific(self, cls: type[GuidewireError]) -> None:
+    def test_catch_specific(self, cls: type[PathlightMCPError]) -> None:
         with pytest.raises(cls):
             raise cls("boom")
 
     def test_catch_by_base_does_not_match_unrelated(self) -> None:
-        """GuidewireError should not catch standard Python exceptions."""
+        """PathlightMCPError should not catch standard Python exceptions."""
         with pytest.raises(ValueError):
             try:
-                raise ValueError("not a guidewire error")
-            except GuidewireError:
-                pytest.fail("GuidewireError caught a ValueError")
+                raise ValueError("not a pathlight_mcp error")
+            except PathlightMCPError:
+                pytest.fail("PathlightMCPError caught a ValueError")
 
 
 # ---------------------------------------------------------------------------
@@ -214,8 +214,8 @@ class TestHintsAttribute:
     """Every error instance carries a hints list auto-populated from the registry."""
 
     def test_base_class_hints_empty(self) -> None:
-        """GuidewireError base has no registry entry so defaults to empty."""
-        err = GuidewireError()
+        """PathlightMCPError base has no registry entry so defaults to empty."""
+        err = PathlightMCPError()
         assert err.hints == []
 
     @pytest.mark.parametrize(
@@ -230,7 +230,7 @@ class TestHintsAttribute:
             WindowNotFoundError,
         ],
     )
-    def test_concrete_errors_auto_populate_hints(self, cls: type[GuidewireError]) -> None:
+    def test_concrete_errors_auto_populate_hints(self, cls: type[PathlightMCPError]) -> None:
         err = cls()
         assert len(err.hints) > 0, f"{cls.__name__} should have auto-populated hints"
         assert all(isinstance(h, str) for h in err.hints)
@@ -242,7 +242,7 @@ class TestHintsAttribute:
             ElementNotFoundError,
         ],
     )
-    def test_with_hints_adds_to_auto_populated(self, cls: type[GuidewireError]) -> None:
+    def test_with_hints_adds_to_auto_populated(self, cls: type[PathlightMCPError]) -> None:
         err = cls("msg").with_hints("extra hint")
         assert "extra hint" in err.hints
         # Auto-populated hints should still be present
@@ -363,21 +363,21 @@ class TestExports:
     """All error classes, base, and registry functions must be importable."""
 
     def test_all_contains_ten_entries(self) -> None:
-        from guidewire import errors
+        from pathlight_mcp import errors
 
         assert len(errors.__all__) == 10
 
     def test_all_entries_importable(self) -> None:
-        from guidewire import errors
+        from pathlight_mcp import errors
 
         for name in errors.__all__:
             obj = getattr(errors, name)
             assert obj is not None, f"{name} is None"
 
-    def test_all_error_classes_are_guidewire_subclasses(self) -> None:
-        from guidewire import errors
+    def test_all_error_classes_are_pathlight_mcp_subclasses(self) -> None:
+        from pathlight_mcp import errors
 
         error_names = [n for n in errors.__all__ if n not in ("hints_for", "register_hints")]
         for name in error_names:
             obj = getattr(errors, name)
-            assert issubclass(obj, GuidewireError), f"{name} is not a GuidewireError subclass"
+            assert issubclass(obj, PathlightMCPError), f"{name} is not a PathlightMCPError subclass"

@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `desktop.multi_action` tool — batch 2–20 actions with per-action safety classification and stop-on-first-error ([#GW-066](https://github.com/Mikenahh92/Guidewire/issues/GW-066))
 - Error hint integration — context-aware recovery hints on all 14 MCP tool handlers ([#GW-062](https://github.com/Mikenahh92/Guidewire/issues/GW-062))
-- Error hint infrastructure — extend `GuidewireError` with hints field and hint registry module ([#GW-061](https://github.com/Mikenahh92/Guidewire/issues/GW-061))
+- Error hint infrastructure — extend `PathlightMCPError` with hints field and hint registry module ([#GW-061](https://github.com/Mikenahh92/Guidewire/issues/GW-061))
 - `desktop.wait_for` tool — async polling with 4 condition types (element_appears, element_disappears, text_equals, state_change) ([#GW-064](https://github.com/Mikenahh92/Guidewire/issues/GW-064))
 - Wait tool architecture spike — async handler validation and condition DSL feasibility ([#GW-063](https://github.com/Mikenahh92/Guidewire/issues/GW-063))
 - Multi-action design and safety classification ([#GW-065](https://github.com/Mikenahh92/Guidewire/issues/GW-065))

@@ -6,7 +6,7 @@ Validates :class:`InputDomain` — mouse events, key events, text insertion.
 from typing import Any
 from unittest.mock import MagicMock
 
-from guidewire.cdp.domains.input import InputDomain
+from pathlight_mcp.cdp.domains.input import InputDomain
 
 # ---------------------------------------------------------------------------
 # Helpers

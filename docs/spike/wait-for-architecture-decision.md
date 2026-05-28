@@ -99,7 +99,7 @@ async def wait_for(condition, timeout_ms=5000, poll_interval_ms=100):
 
 ### Tool Registration
 
-- **File**: `src/guidewire/tools/wait_for.py`
+- **File**: `src/pathlight_mcp/tools/wait_for.py`
 - **Handler**: `async def wait_for(condition, timeout_ms, poll_interval_ms) -> str`
 - **Registration**: `@mcp.tool(name="desktop.wait_for")`
 - **Dependencies**: `backend`, `ref_store` (same as other wired tools)

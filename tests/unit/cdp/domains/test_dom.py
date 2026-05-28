@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from guidewire.cdp._types import BoxModel, DOMNode
-from guidewire.cdp.domains.dom import DOMDomain
+from pathlight_mcp.cdp._types import BoxModel, DOMNode
+from pathlight_mcp.cdp.domains.dom import DOMDomain
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -23,12 +23,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.router import BackendRouter
-from guidewire.backends.web import WebBackend
-from guidewire.cdp._types import CDPTarget
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.router import BackendRouter
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.cdp._types import CDPTarget
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -94,7 +94,7 @@ def _setup_connected_router(
     web_connect = next(t for t in tools if t.name == "desktop.web_connect")
 
     mock_web = _make_mock_web_backend()
-    with patch("guidewire.tools.web_connect.WebBackend", return_value=mock_web):
+    with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
         result_json = web_connect.fn(host="localhost", port=9222)
 
     result = json.loads(result_json)
@@ -229,13 +229,13 @@ class TestWebUploadFilesSafety:
 
     def test_web_upload_files_is_sensitive(self) -> None:
         """web_upload_files system action is SENSITIVE."""
-        from guidewire.safety import SYSTEM_ACTION_RISK_MAP
+        from pathlight_mcp.safety import SYSTEM_ACTION_RISK_MAP
 
         assert SYSTEM_ACTION_RISK_MAP["web_upload_files"] == "SENSITIVE"
 
     def test_classify_web_upload_files(self) -> None:
         """classify_system_action returns SENSITIVE for web_upload_files."""
-        from guidewire.safety import classify_system_action
+        from pathlight_mcp.safety import classify_system_action
 
         result = classify_system_action(
             "web_upload_files", target="/tmp/file.txt",
@@ -252,7 +252,7 @@ class TestWebUploadFilesHints:
 
     def test_web_upload_files_error_hints(self) -> None:
         """web_upload_files_error has registered hints."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_upload_files_error")
         assert len(hints) > 0
@@ -260,7 +260,7 @@ class TestWebUploadFilesHints:
 
     def test_web_upload_files_hints_mention_file(self) -> None:
         """web_upload_files_error hints mention file input."""
-        from guidewire.hints import hints_for
+        from pathlight_mcp.hints import hints_for
 
         hints = hints_for("web_upload_files_error")
         assert any("file" in h.lower() for h in hints)
@@ -280,12 +280,12 @@ class TestWebUploadFilesRegistry:
 
     def test_web_upload_files_not_in_backend_modules(self) -> None:
         """web_upload_files is NOT in _BACKEND_TOOL_MODULES."""
-        from guidewire.tools import _BACKEND_TOOL_MODULES
+        from pathlight_mcp.tools import _BACKEND_TOOL_MODULES
 
         assert ".web_upload_files" not in _BACKEND_TOOL_MODULES
 
     def test_web_upload_files_in_tool_modules(self) -> None:
         """web_upload_files IS in _TOOL_MODULES."""
-        from guidewire.tools import _TOOL_MODULES
+        from pathlight_mcp.tools import _TOOL_MODULES
 
         assert ".web_upload_files" in _TOOL_MODULES

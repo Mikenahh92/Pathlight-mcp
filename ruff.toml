@@ -16,4 +16,4 @@ select = [
 ]
 
 [lint.isort]
-known-first-party = ["guidewire"]
+known-first-party = ["pathlight_mcp"]

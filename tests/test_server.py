@@ -1,7 +1,7 @@
-"""Tests for the Guidewire MCP server (GW-008).
+"""Tests for the Pathlight MCP server (GW-008).
 
 Validates that:
-- The GuidewireServer can be created without errors.
+- The PathlightMCPServer can be created without errors.
 - All tool stubs are registered and discoverable via list_tools.
 - Each tool has the correct name, description, and input schema.
 - The server metadata (name, instructions) is correct.
@@ -10,21 +10,21 @@ Validates that:
 
 import pytest
 
-from guidewire.server import GuidewireServer
+from pathlight_mcp.server import PathlightMCPServer
 
 
 @pytest.fixture()
 def server():
-    """Return a fresh Guidewire MCP server instance with tools registered."""
-    srv = GuidewireServer()
+    """Return a fresh Pathlight MCP server instance with tools registered."""
+    srv = PathlightMCPServer()
     srv.register_tools()
     return srv
 
 
 @pytest.fixture()
 def server_with_resources():
-    """Return a Guidewire MCP server instance with tools and resources registered."""
-    srv = GuidewireServer()
+    """Return a Pathlight MCP server instance with tools and resources registered."""
+    srv = PathlightMCPServer()
     srv.register_tools()
     srv.register_resources()
     return srv
@@ -37,8 +37,8 @@ class TestServerCreation:
     """Tests for server instantiation."""
 
     async def test_server_creates_without_error(self, server):
-        """GuidewireServer() should return a GuidewireServer instance."""
-        assert isinstance(server, GuidewireServer)
+        """PathlightMCPServer() should return a PathlightMCPServer instance."""
+        assert isinstance(server, PathlightMCPServer)
 
     async def test_server_has_fastmcp(self, server):
         """Server should expose a FastMCP instance."""
@@ -47,8 +47,8 @@ class TestServerCreation:
         assert isinstance(server.mcp, FastMCP)
 
     async def test_server_name(self, server):
-        """Server name should be 'guidewire'."""
-        assert server.mcp.name == "guidewire"
+        """Server name should be 'pathlight_mcp'."""
+        assert server.mcp.name == "pathlight_mcp"
 
     async def test_server_has_instructions(self, server):
         """Server should have non-empty instructions."""
@@ -379,14 +379,14 @@ class TestToolStubBehaviour:
 
 
 class TestResourceRegistration:
-    """Tests for resource registration via GuidewireServer (Story Task 5)."""
+    """Tests for resource registration via PathlightMCPServer (Story Task 5)."""
 
     async def test_resources_registered(self, server_with_resources):
         """list_resources should return all expected URIs after registration."""
         expected_uris = {
-            "guidewire://browser-limitations",
-            "guidewire://tool-usage",
-            "guidewire://error-recovery",
+            "pathlight-mcp://browser-limitations",
+            "pathlight-mcp://tool-usage",
+            "pathlight-mcp://error-recovery",
         }
         resources = await server_with_resources.mcp.list_resources()
         uris = {str(r.uri) for r in resources}

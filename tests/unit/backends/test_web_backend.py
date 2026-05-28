@@ -28,17 +28,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.backends.base import DesktopBackend
-from guidewire.backends.types import DesktopAction, NativeHandle
-from guidewire.backends.web import WebBackend
-from guidewire.backends.web_normalize import (
+from pathlight_mcp.backends.base import DesktopBackend
+from pathlight_mcp.backends.types import DesktopAction, NativeHandle
+from pathlight_mcp.backends.web import WebBackend
+from pathlight_mcp.backends.web_normalize import (
     build_normalized_tree,
     fetch_bounds_from_dom,
     find_root_ax_node,
     infer_ax_actions,
 )
-from guidewire.cdp._types import AXNode, CDPTarget
-from guidewire.errors import (
+from pathlight_mcp.cdp._types import AXNode, CDPTarget
+from pathlight_mcp.errors import (
     ActionNotSupportedError,
     BackendUnavailableError,
     ElementNotFoundError,
@@ -379,7 +379,7 @@ class TestSnapshot:
 
     def test_snapshot_empty_tree_dom_fallback(self, connected_backend, mock_browser) -> None:
         """Empty AX tree falls back to DOM snapshot (GW-120)."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         self._setup_snapshot(connected_backend, mock_browser, [])
         target = _make_target()
@@ -859,7 +859,7 @@ class TestLazyBoundsFetching:
     """TC-14: snapshot should fetch bounds via DOM domain when AX lacks them."""
 
     def test_fetches_bounds_from_dom(self, connected_backend, mock_browser) -> None:
-        from guidewire.cdp._types import BoxModel
+        from pathlight_mcp.cdp._types import BoxModel
 
         ax_nodes = [
             _make_ax_node(
@@ -994,7 +994,7 @@ class TestFetchBoundsFromDom:
     """TC-18: fetch_bounds_from_dom should get bounds via DOM domain."""
 
     def test_returns_bounds_dict(self) -> None:
-        from guidewire.cdp._types import BoxModel
+        from pathlight_mcp.cdp._types import BoxModel
 
         dom_mock = MagicMock()
         box = BoxModel(
@@ -1142,7 +1142,7 @@ class TestBoundsCaching:
 
     def test_caches_bounds_after_first_fetch(self, connected_backend, mock_browser) -> None:
         """Bounds fetched from DOM are cached and not re-fetched."""
-        from guidewire.cdp._types import BoxModel
+        from pathlight_mcp.cdp._types import BoxModel
 
         target = _make_target()
         session = MagicMock(
@@ -1618,7 +1618,7 @@ class TestClickBoundsCaching:
 
     def test_click_fetches_and_caches_bounds(self, connected_backend, mock_browser) -> None:
         """Click fetches bounds from DOM on first call, caches for second."""
-        from guidewire.cdp._types import BoxModel
+        from pathlight_mcp.cdp._types import BoxModel
 
         target = _make_target()
         session = MagicMock(
@@ -1667,7 +1667,7 @@ class TestIsVirtualizedContainer:
     """GW-101: is_virtualized_container detects aria-rowcount/setsize heuristics."""
 
     def test_table_with_rowcount(self) -> None:
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(
             node_id="grid1",
@@ -1679,7 +1679,7 @@ class TestIsVirtualizedContainer:
 
     def test_grid_with_matching_rowcount(self) -> None:
         """Grid where rowcount equals children is NOT virtualized."""
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(
             node_id="grid1",
@@ -1690,7 +1690,7 @@ class TestIsVirtualizedContainer:
         assert is_virtualized_container(node) is False
 
     def test_listbox_with_setsize(self) -> None:
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(
             node_id="lb1",
@@ -1701,7 +1701,7 @@ class TestIsVirtualizedContainer:
         assert is_virtualized_container(node) is True
 
     def test_list_with_setsize(self) -> None:
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(
             node_id="l1",
@@ -1712,7 +1712,7 @@ class TestIsVirtualizedContainer:
         assert is_virtualized_container(node) is True
 
     def test_tree_with_setsize(self) -> None:
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(
             node_id="t1",
@@ -1723,13 +1723,13 @@ class TestIsVirtualizedContainer:
         assert is_virtualized_container(node) is True
 
     def test_non_container_not_virtualized(self) -> None:
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(node_id="btn1", role="button")
         assert is_virtualized_container(node) is False
 
     def test_table_without_rowcount_not_virtualized(self) -> None:
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(
             node_id="grid1",
@@ -1739,7 +1739,7 @@ class TestIsVirtualizedContainer:
         assert is_virtualized_container(node) is False
 
     def test_invalid_rowcount_type_ignored(self) -> None:
-        from guidewire.backends.web_normalize import is_virtualized_container
+        from pathlight_mcp.backends.web_normalize import is_virtualized_container
 
         node = _make_ax_node(
             node_id="grid1",
@@ -1754,7 +1754,7 @@ class TestVirtualizedActions:
     """GW-101: Virtualized containers get scroll + scroll_to_item actions."""
 
     def test_virtualized_grid_has_scroll_to_item(self) -> None:
-        from guidewire.backends.web_normalize import infer_ax_actions
+        from pathlight_mcp.backends.web_normalize import infer_ax_actions
 
         node = _make_ax_node(
             node_id="grid1",
@@ -1767,7 +1767,7 @@ class TestVirtualizedActions:
         assert "scroll_to_item" in actions
 
     def test_virtualized_listbox_has_scroll_to_item(self) -> None:
-        from guidewire.backends.web_normalize import infer_ax_actions
+        from pathlight_mcp.backends.web_normalize import infer_ax_actions
 
         node = _make_ax_node(
             node_id="lb1",
@@ -1779,7 +1779,7 @@ class TestVirtualizedActions:
         assert "scroll_to_item" in actions
 
     def test_non_virtualized_no_scroll_to_item(self) -> None:
-        from guidewire.backends.web_normalize import infer_ax_actions
+        from pathlight_mcp.backends.web_normalize import infer_ax_actions
 
         node = _make_ax_node(node_id="list1", role="list", child_ids=("a", "b"))
         actions = infer_ax_actions(node)
@@ -1882,7 +1882,7 @@ class TestMultiFrameSnapshot:
         inp_mock = MagicMock()
         page_mock = MagicMock()
         # Return frame tree with one child iframe as FrameTree dataclass
-        from guidewire.cdp._types import FrameTree
+        from pathlight_mcp.cdp._types import FrameTree
 
         page_mock.get_frame_tree.return_value = FrameTree(
             frame={"id": "main-frame", "url": "https://example.com"},
@@ -1908,7 +1908,7 @@ class TestMultiFrameSnapshot:
             _make_ax_node(node_id="btn-ifr", role="button", name="Iframe Button"),
         ]
 
-        with patch("guidewire.backends.web.AccessibilityDomain", return_value=iframe_acc_mock):
+        with patch("pathlight_mcp.backends.web.AccessibilityDomain", return_value=iframe_acc_mock):
             result = connected_backend.snapshot(NativeHandle(target))
 
         # The main tree should include iframe nodes with prefixed IDs
@@ -1941,7 +1941,7 @@ class TestMultiFrameSnapshot:
         inp_mock = MagicMock()
         page_mock = MagicMock()
         # No child frames
-        from guidewire.cdp._types import FrameTree
+        from pathlight_mcp.cdp._types import FrameTree
 
         page_mock.get_frame_tree.return_value = FrameTree(
             frame={"id": "main-frame", "url": "https://example.com"},
@@ -2264,7 +2264,7 @@ class TestDOMFallbackSnapshot:
 
     def test_ax_timeout_falls_back_to_dom(self, connected_backend, mock_browser) -> None:
         """AX tree timeout triggers DOM fallback (GW-120)."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         target = self._setup_snapshot(connected_backend, mock_browser)
 
@@ -2304,7 +2304,7 @@ class TestDOMFallbackSnapshot:
 
     def test_ax_error_falls_back_to_dom(self, connected_backend, mock_browser) -> None:
         """AX tree generic error triggers DOM fallback (GW-120)."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         target = self._setup_snapshot(connected_backend, mock_browser)
 
@@ -2335,7 +2335,7 @@ class TestDOMFallbackSnapshot:
 
     def test_dom_fallback_respects_max_nodes(self, connected_backend, mock_browser) -> None:
         """DOM fallback tree respects max_nodes limit (GW-120)."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         target = self._setup_snapshot(connected_backend, mock_browser)
 
@@ -2368,7 +2368,7 @@ class TestDOMFallbackSnapshot:
 
     def test_dom_fallback_respects_max_depth(self, connected_backend, mock_browser) -> None:
         """DOM fallback tree respects max_depth limit (GW-120)."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         target = self._setup_snapshot(connected_backend, mock_browser)
 
@@ -2402,7 +2402,7 @@ class TestDOMFallbackSnapshot:
 
     def test_dom_role_mapping(self, connected_backend, mock_browser) -> None:
         """DOM fallback maps common HTML tags to normalized roles (GW-120)."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         target = self._setup_snapshot(connected_backend, mock_browser)
 
@@ -2481,7 +2481,7 @@ class TestSessionDetachmentAfterTimeout:
         self, connected_backend, mock_browser,
     ) -> None:
         """snapshot() calls session.mark_detached() when AX tree times out."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         target = self._setup(connected_backend, mock_browser)
 
@@ -2505,7 +2505,7 @@ class TestSessionDetachmentAfterTimeout:
         self, connected_backend, mock_browser,
     ) -> None:
         """snapshot() calls session.mark_detached() when AX tree raises generic error."""
-        from guidewire.cdp._types import DOMNode
+        from pathlight_mcp.cdp._types import DOMNode
 
         target = self._setup(connected_backend, mock_browser)
 
@@ -2646,7 +2646,7 @@ class TestIframeAxTimeout:
 
         # Patch AccessibilityDomain to control the iframe instance
         with patch(
-            "guidewire.backends.web.AccessibilityDomain",
+            "pathlight_mcp.backends.web.AccessibilityDomain",
         ) as mock_acc_domain:
             main_acc = acc_mock
             iframe_acc = MagicMock()

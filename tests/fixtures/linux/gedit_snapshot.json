@@ -3,7 +3,7 @@
     "captured_at": "2026-05-16T12:00:00Z",
     "os_version": "Ubuntu 24.04 LTS (GNOME 46)",
     "app_name": "gedit",
-    "guidewire_version": "0.1.0",
+    "pathlight_mcp_version": "0.1.0",
     "max_depth": 4,
     "max_nodes": 500
   },

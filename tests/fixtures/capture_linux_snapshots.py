@@ -10,7 +10,7 @@ Usage:
 Requirements:
     - Linux with AT-SPI2 enabled
     - pyatspi installed
-    - guidewire installed in development mode
+    - pathlight_mcp installed in development mode
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ def _build_metadata(app_name: str) -> dict[str, Any]:
         "captured_at": datetime.now(tz=datetime.UTC).isoformat(),
         "os_version": _get_os_version(),
         "app_name": app_name,
-        "guidewire_version": _get_guidewire_version(),
+        "pathlight_mcp_version": _get_pathlight_mcp_version(),
         "max_depth": 4,
         "max_nodes": 500,
     }
@@ -67,12 +67,12 @@ def _get_os_version() -> str:
     return f"{platform.system()} {platform.version()}"
 
 
-def _get_guidewire_version() -> str:
-    """Return the installed guidewire package version."""
+def _get_pathlight_mcp_version() -> str:
+    """Return the installed pathlight_mcp package version."""
     try:
         from importlib.metadata import version
 
-        return version("guidewire")
+        return version("pathlight_mcp")
     except Exception:
         return "unknown"
 
@@ -100,7 +100,7 @@ def _capture_snapshot(
     Returns the normalized snapshot dict, or None on failure.
     """
     try:
-        from guidewire.backends import LinuxBackend
+        from pathlight_mcp.backends import LinuxBackend
 
         backend = LinuxBackend()
 

@@ -36,10 +36,10 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from guidewire.backends.base import DesktopBackend
-from guidewire.backends.linux import LinuxBackend
-from guidewire.backends.types import DesktopAction, NativeHandle
-from guidewire.errors import (
+from pathlight_mcp.backends.base import DesktopBackend
+from pathlight_mcp.backends.linux import LinuxBackend
+from pathlight_mcp.backends.types import DesktopAction, NativeHandle
+from pathlight_mcp.errors import (
     ActionNotSupportedError,
     BackendUnavailableError,
     ElementNotFoundError,
@@ -66,7 +66,7 @@ class TestLinuxBackendStructure:
 
     def test_exports_in_backends_package(self) -> None:
         """LinuxBackend must be re-exported from the backends package."""
-        from guidewire.backends import LinuxBackend as ImportedLinuxBackend
+        from pathlight_mcp.backends import LinuxBackend as ImportedLinuxBackend
 
         assert ImportedLinuxBackend is LinuxBackend
 
@@ -995,7 +995,7 @@ class TestIsValid:
 
     def test_probes_via_get_state(self, backend: LinuxBackend) -> None:
         """is_valid must use getState as its lightweight probe."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         accessible = MagicMock()
         backend.is_valid(NativeHandle(accessible))
@@ -1005,7 +1005,7 @@ class TestIsValid:
 
     def test_returns_false_for_defunct_element(self, backend: LinuxBackend) -> None:
         """is_valid returns False when getState raises RuntimeError."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         accessible = MagicMock()
         accessible.getState.side_effect = RuntimeError("defunct")
@@ -1013,7 +1013,7 @@ class TestIsValid:
 
     def test_returns_false_for_dbus_exception(self, backend: LinuxBackend) -> None:
         """is_valid returns False when D-Bus raises dbus.exceptions.DBusException."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         accessible = MagicMock()
         # Simulate a D-Bus error from stale AT-SPI proxy
@@ -1024,7 +1024,7 @@ class TestIsValid:
 
     def test_returns_false_for_attribute_error(self, backend: LinuxBackend) -> None:
         """is_valid returns False when getState raises AttributeError."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         accessible = MagicMock()
         accessible.getState.side_effect = AttributeError("getState")
@@ -1032,7 +1032,7 @@ class TestIsValid:
 
     def test_returns_false_for_os_error(self, backend: LinuxBackend) -> None:
         """is_valid returns False when getState raises OSError."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         accessible = MagicMock()
         accessible.getState.side_effect = OSError("Connection closed")
@@ -1046,7 +1046,7 @@ class TestIsValid:
 
     def test_returns_false_for_non_callable_get_state(self, backend: LinuxBackend) -> None:
         """is_valid returns False when element.getState is not callable."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         # element.getState exists but is not callable (e.g. an int)
         accessible = MagicMock(spec=[])
@@ -1063,7 +1063,7 @@ class TestIsValid:
 
     def test_disposed_does_not_call_get_state(self, backend: LinuxBackend) -> None:
         """A disposed backend returns False without probing the element."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         accessible = MagicMock()
         backend.dispose()
@@ -1154,7 +1154,7 @@ class TestFindElements:
 
     def test_matches_by_role(self, backend: LinuxBackend) -> None:
         """find_elements matches elements by normalized role."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         window = self._make_tree(
             [
@@ -1168,7 +1168,7 @@ class TestFindElements:
 
     def test_matches_by_name_substring(self, backend: LinuxBackend) -> None:
         """find_elements matches elements by case-insensitive name substring."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         window = self._make_tree(
             [
@@ -1182,7 +1182,7 @@ class TestFindElements:
 
     def test_matches_by_role_and_name(self, backend: LinuxBackend) -> None:
         """find_elements matches elements satisfying both role and name."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         window = self._make_tree(
             [
@@ -2054,7 +2054,7 @@ class TestFocusWindowAtSpiActivate:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
             ) as mock_xlib,
             pytest.raises(ActionNotSupportedError),
         ):
@@ -2074,7 +2074,7 @@ class TestFocusWindowAtSpiActivate:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError),
@@ -2094,7 +2094,7 @@ class TestFocusWindowAtSpiActivate:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError),
@@ -2115,7 +2115,7 @@ class TestFocusWindowAtSpiActivate:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError),
@@ -2135,7 +2135,7 @@ class TestFocusWindowXlibFallback:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
             ) as mock_xlib,
             pytest.raises(ActionNotSupportedError),
         ):
@@ -2157,7 +2157,7 @@ class TestFocusWindowXlibFallback:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
             ) as mock_xlib,
             pytest.raises(ActionNotSupportedError),
         ):
@@ -2174,7 +2174,7 @@ class TestFocusWindowXlibFallback:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
             ) as mock_xlib,
         ):
             backend.focus_window(fake_accessible)
@@ -2190,7 +2190,7 @@ class TestFocusWindowXlibFallback:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("No module named 'Xlib'"),
             ),
             pytest.raises(ActionNotSupportedError, match="python-xlib"),
@@ -2206,7 +2206,7 @@ class TestFocusWindowXlibFallback:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=RuntimeError("Display connection failed"),
             ),
             pytest.raises(ActionNotSupportedError, match="python-xlib"),
@@ -2222,7 +2222,7 @@ class TestFocusWindowXlibFallback:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
             ),
             pytest.raises(ActionNotSupportedError, match="python-xlib"),
         ):
@@ -2241,7 +2241,7 @@ class TestFocusWindowActionError:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError) as exc_info,
@@ -2308,7 +2308,7 @@ class TestPostActivationVerification:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
             ) as mock_xlib,
             pytest.raises(ActionNotSupportedError),
         ):
@@ -2764,7 +2764,7 @@ class TestFocusWindowDiagnosticMessage:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError) as exc_info,
@@ -2785,7 +2785,7 @@ class TestFocusWindowDiagnosticMessage:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError) as exc_info,
@@ -2806,7 +2806,7 @@ class TestFocusWindowDiagnosticMessage:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError) as exc_info,
@@ -2831,7 +2831,7 @@ class TestFocusWindowDiagnosticMessage:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError) as exc_info,
@@ -2854,7 +2854,7 @@ class TestFocusWindowDiagnosticMessage:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=RuntimeError("Display connection refused"),
             ),
             pytest.raises(ActionNotSupportedError) as exc_info,
@@ -2875,7 +2875,7 @@ class TestFocusWindowDiagnosticMessage:
         with (
             patch.dict("sys.modules", {"pyatspi": _FAKE_PYATSPI}),
             patch(
-                "guidewire.backends.linux.LinuxBackend._xlib_activate",
+                "pathlight_mcp.backends.linux.LinuxBackend._xlib_activate",
                 side_effect=ImportError("no xlib"),
             ),
             pytest.raises(ActionNotSupportedError) as exc_info,

@@ -1,25 +1,25 @@
-# Guidewire
+# Pathlight MCP
 
 **The zero-code desktop + web MCP server.** Connect any AI agent to native desktop applications and web browsers in 30 seconds — no configuration, no API keys required.
 
-[![PyPI Version](https://img.shields.io/pypi/v/guidewire.svg?label=pypi)](https://pypi.org/project/guidewire/)
+[![PyPI Version](https://img.shields.io/pypi/v/pathlight-mcp.svg?label=pypi)](https://pypi.org/project/pathlight-mcp/)
 [![CI](https://github.com/Mikenahh92/Guidewire/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Mikenahh92/Guidewire/actions/workflows/ci.yml)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/guidewire.svg?label=downloads)](https://pypi.org/project/guidewire/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/guidewire.svg)](https://pypi.org/project/guidewire/)
-[![License: MIT](https://img.shields.io/pypi/l/guidewire.svg)](LICENSE)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/pathlight-mcp.svg?label=downloads)](https://pypi.org/project/pathlight-mcp/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/pathlight-mcp.svg)](https://pypi.org/project/pathlight-mcp/)
+[![License: MIT](https://img.shields.io/pypi/l/pathlight-mcp.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-stdio-purple.svg)](https://modelcontextprotocol.io/)
 [![Platform: Windows / Linux / Web](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Web-lightgrey.svg)](#supported-platforms)
 [![Tests](https://img.shields.io/badge/tests-65%2B%20files-brightgreen.svg)](#testing)
 
-Guidewire turns any desktop application or web browser into a navigable accessibility tree that AI agents can see, click, type into, and control — through standard MCP tool calls. It works where Playwright cannot: native apps, system dialogs, legacy software, control panels, and any window that responds to OS accessibility APIs. It also connects to Chromium-based browsers via the Chrome DevTools Protocol for web accessibility automation.
+Pathlight MCP turns any desktop application or web browser into a navigable accessibility tree that AI agents can see, click, type into, and control — through standard MCP tool calls. It works where Playwright cannot: native apps, system dialogs, legacy software, control panels, and any window that responds to OS accessibility APIs. It also connects to Chromium-based browsers via the Chrome DevTools Protocol for web accessibility automation.
 
-> **New to MCP?** The [Model Context Protocol](https://modelcontextprotocol.io/) is the standard way AI agents interact with external tools. If your client supports MCP servers, it supports Guidewire.
+> **New to MCP?** The [Model Context Protocol](https://modelcontextprotocol.io/) is the standard way AI agents interact with external tools. If your client supports MCP servers, it supports Pathlight MCP.
 
 ---
 
 ## How Agents Connect
 
-Guidewire uses the MCP **stdio transport**, which means any MCP-compatible client can connect by pointing at the `guidewire` command. No API keys, no web server, no browser extension.
+Pathlight MCP uses the MCP **stdio transport**, which means any MCP-compatible client can connect by pointing at the `pathlight-mcp` command. No API keys, no web server, no browser extension.
 
 ### Claude Desktop
 
@@ -28,8 +28,8 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "guidewire": {
-      "command": "guidewire",
+    "pathlight-mcp": {
+      "command": "pathlight-mcp",
       "args": []
     }
   }
@@ -43,8 +43,8 @@ Add to `.cursor/mcp.json` in your project root:
 ```json
 {
   "mcpServers": {
-    "guidewire": {
-      "command": "guidewire",
+    "pathlight-mcp": {
+      "command": "pathlight-mcp",
       "args": []
     }
   }
@@ -58,8 +58,8 @@ Add to `.windsurf/mcp.json` in your project root:
 ```json
 {
   "mcpServers": {
-    "guidewire": {
-      "command": "guidewire",
+    "pathlight-mcp": {
+      "command": "pathlight-mcp",
       "args": []
     }
   }
@@ -74,8 +74,8 @@ Add to your VS Code MCP settings:
 {
   "mcp": {
     "servers": {
-      "guidewire": {
-        "command": "guidewire",
+      "pathlight-mcp": {
+        "command": "pathlight-mcp",
         "args": []
       }
     }
@@ -85,22 +85,22 @@ Add to your VS Code MCP settings:
 
 ### Any MCP Client
 
-Guidewire is a standard MCP stdio server. Point any MCP client at the `guidewire` command:
+Pathlight MCP is a standard MCP stdio server. Point any MCP client at the `pathlight-mcp` command:
 
 ```bash
-guidewire                 # auto-detect platform, start MCP server
-guidewire --backend mock  # use mock backend for testing (no desktop needed)
+pathlight-mcp                 # auto-detect platform, start MCP server
+pathlight-mcp --backend mock  # use mock backend for testing (no desktop needed)
 ```
 
 ### Install
 
-> **That's it.** `pip install guidewire` + one JSON config block above = done. No API keys, no browser, no extra setup.
+> **That's it.** `pip install pathlight-mcp` + one JSON config block above = done. No API keys, no browser, no extra setup.
 
 ```bash
-pip install guidewire
+pip install pathlight-mcp
 
 # With platform support (optional — auto-detected at runtime)
-pip install "guidewire[windows]"    # Windows (comtypes)
+pip install "pathlight-mcp[windows]"    # Windows (comtypes)
 # Linux X11 support (python-xlib) is included automatically on Linux
 ```
 
@@ -142,7 +142,7 @@ elements = await desktop.find(window_ref="w1", role="text_edit")
 # → [{"ref": "e3", "role": "text_edit", "name": "Text Editor"}]
 
 # Type into it — just like a human would
-await desktop.type_text(element_ref="e3", text="Hello from Guidewire!")
+await desktop.type_text(element_ref="e3", text="Hello from Pathlight MCP!")
 
 # Find and click a button by name
 buttons = await desktop.find(window_ref="w1", name="Save")
@@ -257,7 +257,7 @@ google-chrome --remote-debugging-port=9222
 ```
 
 ```python
-from guidewire.backends.web import WebBackend
+from pathlight_mcp.backends.web import WebBackend
 
 backend = WebBackend(host="localhost", port=9222)
 backend.connect()
@@ -282,7 +282,7 @@ Additional privacy controls automatically detect password fields, redact sensiti
 
 ## Configuration
 
-Guidewire auto-detects your platform at startup. One optional flag:
+Pathlight MCP auto-detects your platform at startup. One optional flag:
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -292,7 +292,7 @@ Guidewire auto-detects your platform at startup. One optional flag:
 
 ## Testing
 
-Guidewire has a comprehensive test suite covering unit, integration, and end-to-end scenarios:
+Pathlight MCP has a comprehensive test suite covering unit, integration, and end-to-end scenarios:
 
 | Category | Scope | Count |
 |----------|-------|-------|
@@ -306,7 +306,7 @@ Guidewire has a comprehensive test suite covering unit, integration, and end-to-
 pytest
 
 # Run with coverage
-pytest --cov=guidewire
+pytest --cov=pathlight-mcp
 
 # Run only unit tests (no desktop needed)
 pytest -k "not integration"

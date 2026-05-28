@@ -1,11 +1,11 @@
 name: Question
-description: Ask a question about using or understanding Guidewire
+description: Ask a question about using or understanding Pathlight MCP
 labels: ["question"]
 body:
   - type: markdown
     attributes:
       value: |
-        Have a question about Guidewire? We are happy to help!
+        Have a question about Pathlight MCP? We are happy to help!
 
   - type: dropdown
     id: topic
@@ -38,10 +38,10 @@ body:
         configuration, or error messages.
 
   - type: input
-    id: guidewire-version
+    id: pathlight-mcp-version
     attributes:
-      label: Guidewire Version
-      description: What version of Guidewire are you using?
+      label: Pathlight MCP Version
+      description: What version of Pathlight MCP are you using?
       placeholder: e.g. 0.3.0
 
   - type: dropdown

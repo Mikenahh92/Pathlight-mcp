@@ -20,11 +20,11 @@ from unittest.mock import patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
-from guidewire.errors import ActionNotSupportedError
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.errors import ActionNotSupportedError
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -284,7 +284,7 @@ class TestGetTextPrivacy:
         mcp: FastMCP,
     ) -> None:
         """Verify is_password_field is called as part of the handler pipeline."""
-        with patch("guidewire.tools.get_text.is_password_field", return_value=True):
+        with patch("pathlight_mcp.tools.get_text.is_password_field", return_value=True):
             result, _meta = await mcp.call_tool(
                 "desktop.get_text",
                 arguments={"element_ref": "e1"},

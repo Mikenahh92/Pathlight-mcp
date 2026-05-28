@@ -15,10 +15,10 @@ from unittest.mock import patch
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.errors import ActionNotSupportedError, BackendUnavailableError
-from guidewire.tools import register_all
-from guidewire.tools.press_key import _normalise_key_combo
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.errors import ActionNotSupportedError, BackendUnavailableError
+from pathlight_mcp.tools import register_all
+from pathlight_mcp.tools.press_key import _normalise_key_combo
 
 # -- Fixtures -----------------------------------------------------------------
 

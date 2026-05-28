@@ -6,7 +6,7 @@ parsing CDP responses and events, and validating the message protocol.
 
 import pytest
 
-from guidewire.cdp.protocol import (
+from pathlight_mcp.cdp.protocol import (
     CDPError,
     CDPEvent,
     CDPMessage,

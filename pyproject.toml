@@ -3,7 +3,7 @@ requires = ["setuptools>=80", "setuptools-scm>=8.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "guidewire"
+name = "pathlight-mcp"
 dynamic = ["version"]
 description = "Desktop Accessibility MCP — a Playwright-like MCP for non-browser desktop applications powered by OS accessibility APIs."
 readme = "README.md"
@@ -56,7 +56,7 @@ integration = [
 ]
 
 [project.scripts]
-guidewire = "guidewire.__main__:main"
+pathlight-mcp = "pathlight_mcp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -71,4 +71,4 @@ asyncio_mode = "auto"
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-omit = ["src/guidewire/__main__.py"]
+omit = ["src/pathlight_mcp/__main__.py"]

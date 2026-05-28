@@ -9,7 +9,7 @@ that uses XAML Islands and has a rich accessibility tree with a
 navigation pane, search bar, and scrollable content area.
 
 Uses the AgentClient replay_script mode to bypass the real Anthropic API.
-This test boots the Guidewire server with ``--backend auto`` and replays
+This test boots the Pathlight MCP server with ``--backend auto`` and replays
 a multi-turn agent interaction:
 
 1. ``desktop.list_windows`` — discover the Settings window
@@ -33,7 +33,7 @@ from tests.harness.assertions import (
     assert_tool_called,
     assert_tool_not_called,
 )
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 skip_not_windows = pytest.mark.skipif(
     sys.platform != "win32",
@@ -145,7 +145,7 @@ class TestWindowsAgentSettings:
 
     async def test_agent_searches_settings(self) -> None:
         """Agent replay should call list_windows, snapshot, find, type_text, get_text."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
@@ -173,7 +173,7 @@ class TestWindowsAgentSettings:
 
     async def test_type_text_arguments(self) -> None:
         """The type_text tool call should include the correct text argument."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
@@ -184,7 +184,7 @@ class TestWindowsAgentSettings:
 
     async def test_get_text_arguments(self) -> None:
         """The get_text tool call should reference the same element as type_text."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
@@ -194,7 +194,7 @@ class TestWindowsAgentSettings:
 
     async def test_total_tool_call_count(self) -> None:
         """Exactly 5 tool calls should be made across the full agent loop."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt("Open Settings and search for 'Display'.")
 
@@ -202,7 +202,7 @@ class TestWindowsAgentSettings:
 
     async def test_no_click_or_press_key_used(self) -> None:
         """Settings search workflow should not need click or press_key tools."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, replay_script=SETTINGS_AGENT_REPLAY, max_turns=6)
             result = await agent.send_prompt("Open Settings and search for 'Display'.")
 

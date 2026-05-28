@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from guidewire.cdp.events import EventBuffer
-from guidewire.cdp.protocol import CDPEvent
+from pathlight_mcp.cdp.events import EventBuffer
+from pathlight_mcp.cdp.protocol import CDPEvent
 
 
 def _evt(method: str, **params: Any) -> CDPEvent:

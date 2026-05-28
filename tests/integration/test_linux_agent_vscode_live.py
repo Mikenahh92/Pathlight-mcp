@@ -1,7 +1,7 @@
 """Linux agent live integration test — VS Code multi-tool exercise (GW-059).
 
 Live (non-replay) agent integration test that sends a real prompt via the
-Anthropic SDK AgentClient to an agent connected to the Guidewire MCP server.
+Anthropic SDK AgentClient to an agent connected to the Pathlight MCP server.
 The agent launches VS Code and performs a multi-step workflow exercising as
 many MCP tools as possible in a realistic end-to-end scenario.
 
@@ -36,7 +36,7 @@ import pytest
 
 from tests.harness.agent import AgentClient, AgentResult
 from tests.harness.assertions import assert_call_order, assert_tool_called
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 skip_not_linux = pytest.mark.skipif(
     sys.platform != "linux",
@@ -71,7 +71,7 @@ VSCODE_LIVE_PROMPT = (
     "Step 3: Call desktop.snapshot on the VS Code window to capture its accessibility tree.\n"
     "Step 4: Call desktop.find to locate a text editor or editable text area in the VS Code UI.\n"
     "Step 5: Call desktop.click on the text editor element to focus it.\n"
-    'Step 6: Call desktop.type_text with text="Hello from live Guidewire test!" '
+    'Step 6: Call desktop.type_text with text="Hello from live Pathlight MCP test!" '
     "to type into the editor.\n"
     "Step 7: Call desktop.get_text on the editor element to read back the text you just typed.\n"
     'Step 8: Call desktop.press_key with key="ctrl+a" to select all text.\n'
@@ -119,7 +119,7 @@ class TestLinuxAgentVSCodeLive:
     """GW-059: Live agent prompt test exercising VS Code with real Anthropic API.
 
     Sends a multi-step prompt to Claude via the Anthropic Messages API and
-    verifies the model autonomously calls Guidewire MCP tools to complete
+    verifies the model autonomously calls Pathlight MCP tools to complete
     the requested workflow against a real VS Code instance on Linux.
 
     Tests are resilient to LLM non-determinism:
@@ -131,7 +131,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_live_agent_launches_vscode_and_interacts(self) -> None:
         """Live model should launch VS Code, type text, read it back."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, max_turns=20)
             result = await agent.send_prompt(VSCODE_LIVE_PROMPT)
 
@@ -163,7 +163,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_live_agent_uses_launch_app_for_vscode(self) -> None:
         """The launch_app tool should be called with app='code'."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, max_turns=20)
             result = await agent.send_prompt(VSCODE_LIVE_PROMPT)
 
@@ -182,7 +182,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_live_agent_types_and_reads_text(self) -> None:
         """The model should type the requested text and read it back."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, max_turns=20)
             result = await agent.send_prompt(VSCODE_LIVE_PROMPT)
 
@@ -207,7 +207,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_live_agent_uses_press_key(self) -> None:
         """The model should use press_key for keyboard shortcuts (Ctrl+a, Delete, Alt+F4)."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, max_turns=20)
             result = await agent.send_prompt(VSCODE_LIVE_PROMPT)
 
@@ -220,7 +220,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_live_agent_snapshots_vscode_window(self) -> None:
         """The model should take at least one snapshot of the VS Code window."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, max_turns=20)
             result = await agent.send_prompt(VSCODE_LIVE_PROMPT)
 
@@ -234,7 +234,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_live_agent_produces_final_summary(self) -> None:
         """The model should produce a text summary describing what it did."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             agent = AgentClient(server, max_turns=20)
             result = await agent.send_prompt(VSCODE_LIVE_PROMPT)
 
@@ -246,7 +246,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_server_exposes_all_tools_on_linux(self) -> None:
         """Server should expose all 16 tools on the Linux backend."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             tools = await server.list_tools()
             names = {t.name for t in tools}
 
@@ -272,7 +272,7 @@ class TestLinuxAgentVSCodeLive:
 
     async def test_tool_schemas_valid_on_linux(self) -> None:
         """Each tool should have a valid JSON Schema input on Linux."""
-        async with GuidewireServerProcess(backend="auto") as server:
+        async with PathlightMCPServerProcess(backend="auto") as server:
             tools = await server.list_tools()
             for tool in tools:
                 schema = tool.inputSchema

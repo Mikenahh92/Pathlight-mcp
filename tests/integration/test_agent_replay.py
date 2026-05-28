@@ -8,7 +8,7 @@ import pytest
 
 from tests.harness.agent import AgentClient
 from tests.harness.assertions import assert_tool_called
-from tests.harness.server import GuidewireServerProcess
+from tests.harness.server import PathlightMCPServerProcess
 
 
 @pytest.mark.integration
@@ -37,7 +37,7 @@ class TestMockedPrompt:
             },
         ]
 
-        async with GuidewireServerProcess() as server:
+        async with PathlightMCPServerProcess() as server:
             agent = AgentClient(server, replay_script=replay)
             result = await agent.send_prompt("List windows")
             assert_tool_called(result, "desktop.list_windows", count=1)
@@ -59,7 +59,7 @@ class TestMockedPrompt:
                 },
             ]
 
-            async with GuidewireServerProcess() as server:
+            async with PathlightMCPServerProcess() as server:
                 agent = AgentClient(server, replay_script=replay, api_key="")
                 result = await agent.send_prompt("Hello")
                 assert result.stop_reason == "end_turn"
@@ -91,7 +91,7 @@ class TestMaxTurns:
             for i in range(20)  # More than max_turns
         ]
 
-        async with GuidewireServerProcess() as server:
+        async with PathlightMCPServerProcess() as server:
             agent = AgentClient(server, replay_script=infinite_replay, max_turns=3)
             result = await agent.send_prompt("Keep listing windows")
             assert result.stop_reason == "max_turns"
@@ -122,7 +122,7 @@ class TestMaxTurns:
         # Only 1 frame — after consuming it, the next iteration falls through
         # to the real API. Since we don't have a key, we test that the
         # replay itself works for the first turn.
-        async with GuidewireServerProcess() as server:
+        async with PathlightMCPServerProcess() as server:
             agent = AgentClient(server, replay_script=replay, max_turns=1)
             result = await agent.send_prompt("List windows")
             # With max_turns=1, we get at most 1 turn

@@ -7,7 +7,7 @@ Validates that:
 - BackendUnavailableError is raised (not swallowed).
 - Empty backend window lists produce an empty windows list.
 - Multiple windows receive sequential refs (w1, w2, ...).
-- The tool works through the full GuidewireServer pipeline with MockBackend.
+- The tool works through the full PathlightMCPServer pipeline with MockBackend.
 - Session-scoped ref_store accumulates refs across calls (TC-10).
 - Risk metadata is present on every response (TC-13).
 - Stale windows are skipped gracefully (TC-08/TC-09).
@@ -18,10 +18,10 @@ import json
 
 import pytest
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import ElementBounds
-from guidewire.errors import BackendUnavailableError
-from guidewire.server import GuidewireServer
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import ElementBounds
+from pathlight_mcp.errors import BackendUnavailableError
+from pathlight_mcp.server import PathlightMCPServer
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -43,8 +43,8 @@ def backend():
 
 @pytest.fixture()
 def server(backend):
-    """Return a GuidewireServer wired with the mock backend."""
-    srv = GuidewireServer(backend=backend)
+    """Return a PathlightMCPServer wired with the mock backend."""
+    srv = PathlightMCPServer(backend=backend)
     srv.register_tools()
     return srv
 
@@ -57,16 +57,16 @@ def empty_backend():
 
 @pytest.fixture()
 def empty_server(empty_backend):
-    """Return a GuidewireServer wired with an empty mock backend."""
-    srv = GuidewireServer(backend=empty_backend)
+    """Return a PathlightMCPServer wired with an empty mock backend."""
+    srv = PathlightMCPServer(backend=empty_backend)
     srv.register_tools()
     return srv
 
 
 @pytest.fixture()
 def stub_server():
-    """Return a GuidewireServer with no backend (stub mode)."""
-    srv = GuidewireServer()
+    """Return a PathlightMCPServer with no backend (stub mode)."""
+    srv = PathlightMCPServer()
     srv.register_tools()
     return srv
 
@@ -185,7 +185,7 @@ class TestListWindowsStubMode:
 
 
 class TestListWindowsServerIntegration:
-    """Tests for list_windows through the full GuidewireServer pipeline."""
+    """Tests for list_windows through the full PathlightMCPServer pipeline."""
 
     async def test_tool_discoverable_with_backend(self, server):
         """desktop.list_windows should be discoverable via list_tools."""
@@ -225,7 +225,7 @@ class TestListWindowsErrorHandling:
 
         failing_backend = MagicMock()
         failing_backend.list_windows.side_effect = BackendUnavailableError("Not available")
-        srv = GuidewireServer(backend=failing_backend)
+        srv = PathlightMCPServer(backend=failing_backend)
         srv.register_tools()
 
         with pytest.raises(ToolError, match="Not available"):
@@ -239,7 +239,7 @@ class TestListWindowsErrorHandling:
         backend.add_window(title="Bad", app="bad.exe")
         backend.add_window(title="Also Good", app="also.exe")
 
-        srv = GuidewireServer(backend=backend)
+        srv = PathlightMCPServer(backend=backend)
         srv.register_tools()
 
         # Patch get_window_info to fail for the second handle only
@@ -270,7 +270,7 @@ class TestListWindowsErrorHandling:
         backend.add_window(title="Stale1", app="s1.exe")
         backend.add_window(title="Stale2", app="s2.exe")
 
-        srv = GuidewireServer(backend=backend)
+        srv = PathlightMCPServer(backend=backend)
         srv.register_tools()
 
         # Patch get_window_info to always fail
@@ -291,7 +291,7 @@ class TestListWindowsRefStore:
     async def test_single_window_gets_w1(self):
         """A single window should get ref 'w1'."""
         backend = MockBackend().add_window(title="Solo", app="solo.exe")
-        srv = GuidewireServer(backend=backend)
+        srv = PathlightMCPServer(backend=backend)
         srv.register_tools()
 
         result, _meta = await srv.mcp.call_tool("desktop.list_windows", arguments={})
@@ -307,7 +307,7 @@ class TestListWindowsRefStore:
             .add_window(title="B", app="b.exe")
             .add_window(title="C", app="c.exe")
         )
-        srv = GuidewireServer(backend=backend)
+        srv = PathlightMCPServer(backend=backend)
         srv.register_tools()
 
         result, _meta = await srv.mcp.call_tool("desktop.list_windows", arguments={})
@@ -318,7 +318,7 @@ class TestListWindowsRefStore:
     async def test_session_scoped_ref_accumulation(self):
         """Session-scoped ref_store should accumulate refs across calls (TC-10)."""
         backend = MockBackend().add_window(title="Persistent", app="p.exe")
-        srv = GuidewireServer(backend=backend)
+        srv = PathlightMCPServer(backend=backend)
         srv.register_tools()
 
         # First call — should get w1
@@ -337,9 +337,9 @@ class TestListWindowsRefStore:
         assert data3["windows"][0]["ref"] == "w3"
 
     async def test_ref_store_accessible_on_server(self):
-        """GuidewireServer should expose the session-scoped ref_store."""
+        """PathlightMCPServer should expose the session-scoped ref_store."""
         backend = MockBackend().add_window(title="Test", app="t.exe")
-        srv = GuidewireServer(backend=backend)
+        srv = PathlightMCPServer(backend=backend)
         srv.register_tools()
 
         assert hasattr(srv, "ref_store")
@@ -411,7 +411,7 @@ class TestListWindowsBoundsOmission:
             "focused": False,
             "bounds": None,
         }
-        srv = GuidewireServer(backend=mock_backend)
+        srv = PathlightMCPServer(backend=mock_backend)
         srv.register_tools()
 
         result, _meta = await srv.mcp.call_tool("desktop.list_windows", arguments={})

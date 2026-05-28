@@ -20,10 +20,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from guidewire.backends.base import DesktopBackend
-from guidewire.backends.types import NativeHandle
-from guidewire.backends.windows import WindowsBackend
-from guidewire.errors import (
+from pathlight_mcp.backends.base import DesktopBackend
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.backends.windows import WindowsBackend
+from pathlight_mcp.errors import (
     BackendUnavailableError,
     StaleElementReferenceError,
     WindowNotFoundError,
@@ -52,11 +52,11 @@ class TestWindowsBackendStructure:
             # Reload the __init__ to pick up the conditional import
             import importlib
 
-            import guidewire.backends
+            import pathlight_mcp.backends
 
-            importlib.reload(guidewire.backends)
-            if guidewire.backends.WindowsBackend is not None:
-                assert guidewire.backends.WindowsBackend is WindowsBackend
+            importlib.reload(pathlight_mcp.backends)
+            if pathlight_mcp.backends.WindowsBackend is not None:
+                assert pathlight_mcp.backends.WindowsBackend is WindowsBackend
 
     def test_all_nine_abstract_methods_exist(self) -> None:
         """WindowsBackend must define all 9 abstract DesktopBackend methods."""
@@ -142,7 +142,7 @@ class TestPlatformGuard:
             pytest.raises(BackendUnavailableError) as exc_info,
         ):
             WindowsBackend()
-        assert "guidewire[windows]" in str(exc_info.value)
+        assert "pathlight_mcp[windows]" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +228,7 @@ class TestStubMethods:
 
     def test_get_window_info_returns_metadata(self, backend: WindowsBackend) -> None:
         """get_window_info returns title, app_name, focused, bounds from COM element."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         mock_element = MagicMock()
         # Set up property values: Name, ClassName, HasKeyboardFocus, BoundingRectangle, ProcessId
@@ -250,7 +250,7 @@ class TestStubMethods:
 
     def test_get_window_info_bounds_as_tuple(self, backend: WindowsBackend) -> None:
         """get_window_info handles BoundingRectangle returned as a tuple."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         mock_element = MagicMock()
         prop_values = {
@@ -268,7 +268,7 @@ class TestStubMethods:
 
     def test_get_window_info_null_bounds(self, backend: WindowsBackend) -> None:
         """get_window_info returns None for bounds when rect is None."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         mock_element = MagicMock()
         prop_values = {
@@ -310,7 +310,7 @@ class TestStubMethods:
             backend.focus_window(NativeHandle(0))
 
     def test_snapshot_no_longer_raises_not_implemented(self, backend: WindowsBackend) -> None:
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         # snapshot() is now implemented (GW-022); verify it no longer raises
         # NotImplementedError.  With the mock _uia, it will attempt to walk
@@ -322,7 +322,7 @@ class TestStubMethods:
             pytest.fail("snapshot() should no longer raise NotImplementedError")
 
     def test_find_elements_no_longer_raises_not_implemented(self, backend: WindowsBackend) -> None:
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         # find_elements() is now implemented (GW-022); verify it no longer raises
         # NotImplementedError.  With the mock _uia, it returns a list.
@@ -334,7 +334,7 @@ class TestStubMethods:
 
     def test_perform_action_disposed_raises(self, backend: WindowsBackend) -> None:
         """perform_action on a disposed backend raises StaleElementReferenceError."""
-        from guidewire.backends.types import DesktopAction, NativeHandle
+        from pathlight_mcp.backends.types import DesktopAction, NativeHandle
 
         backend.dispose()
         with pytest.raises(StaleElementReferenceError, match="disposed"):
@@ -342,7 +342,7 @@ class TestStubMethods:
 
     def test_get_element_info_disposed_raises(self, backend: WindowsBackend) -> None:
         """get_element_info on a disposed backend raises StaleElementReferenceError."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         backend.dispose()
         with pytest.raises(StaleElementReferenceError, match="disposed"):
@@ -350,7 +350,7 @@ class TestStubMethods:
 
     def test_is_valid_no_longer_raises_not_implemented(self, backend: WindowsBackend) -> None:
         """is_valid is implemented (GW-024) — must not raise NotImplementedError."""
-        from guidewire.backends.types import NativeHandle
+        from pathlight_mcp.backends.types import NativeHandle
 
         # COM element: property access succeeds → True
         mock_element = MagicMock()
@@ -428,7 +428,7 @@ class TestListWindowsP0:
 
     def test_tc_lw_005_control_type_constant_is_50032(self, backend: WindowsBackend) -> None:
         """TC-LW-005: CreatePropertyCondition must use control type 50032 (0xC370)."""
-        from guidewire.backends.windows import _UIA_WINDOW_CONTROL_TYPE_ID
+        from pathlight_mcp.backends.windows import _UIA_WINDOW_CONTROL_TYPE_ID
 
         assert _UIA_WINDOW_CONTROL_TYPE_ID == 50032, (
             "UIA Window control type must be 50032 (0xC370), not 50036 (TitleBar)"
@@ -449,7 +449,7 @@ class TestListWindowsP0:
 
     def test_tc_lw_006_tree_scope_children_used(self, backend: WindowsBackend) -> None:
         """TC-LW-006: FindAll must be called with TreeScope_Children (= 2)."""
-        from guidewire.backends.windows import _UIA_TREE_SCOPE_CHILDREN
+        from pathlight_mcp.backends.windows import _UIA_TREE_SCOPE_CHILDREN
 
         assert _UIA_TREE_SCOPE_CHILDREN == 2
 
@@ -500,7 +500,7 @@ class TestListWindowsP1:
         self, backend: WindowsBackend
     ) -> None:
         """CreatePropertyCondition first arg must be UIA_ControlTypePropertyId (30003)."""
-        from guidewire.backends.windows import _UIA_CONTROL_TYPE_PROPERTY_ID
+        from pathlight_mcp.backends.windows import _UIA_CONTROL_TYPE_PROPERTY_ID
 
         assert _UIA_CONTROL_TYPE_PROPERTY_ID == 30003
 
@@ -517,7 +517,7 @@ class TestListWindowsP1:
 
     def test_is_offscreen_property_uses_correct_constant(self, backend: WindowsBackend) -> None:
         """GetCurrentPropertyValue must be called with UIA_IsOffscreenPropertyId (30022)."""
-        from guidewire.backends.windows import _UIA_IS_OFFSCREEN_PROPERTY_ID
+        from pathlight_mcp.backends.windows import _UIA_IS_OFFSCREEN_PROPERTY_ID
 
         assert _UIA_IS_OFFSCREEN_PROPERTY_ID == 30022
 
@@ -567,7 +567,7 @@ class TestListWindowsP1:
 
     def test_module_constants_are_immutable_integers(self) -> None:
         """Module-level UIA constants must be plain integers (not expressions)."""
-        from guidewire.backends.windows import (
+        from pathlight_mcp.backends.windows import (
             _UIA_CONTROL_TYPE_PROPERTY_ID,
             _UIA_IS_OFFSCREEN_PROPERTY_ID,
             _UIA_TREE_SCOPE_CHILDREN,
@@ -646,7 +646,7 @@ class TestIsValid:
 
     def test_com_element_process_id_constant_used(self, backend: WindowsBackend) -> None:
         """is_valid must probe with UIA_ProcessIdPropertyId (30076)."""
-        from guidewire.backends.windows import _UIA_PROCESS_ID_PROPERTY_ID
+        from pathlight_mcp.backends.windows import _UIA_PROCESS_ID_PROPERTY_ID
 
         assert _UIA_PROCESS_ID_PROPERTY_ID == 30076
 
@@ -732,7 +732,7 @@ class TestIsValid:
 
     def test_process_id_constant_is_immutable_integer(self) -> None:
         """_UIA_PROCESS_ID_PROPERTY_ID must be a plain integer."""
-        from guidewire.backends.windows import _UIA_PROCESS_ID_PROPERTY_ID
+        from pathlight_mcp.backends.windows import _UIA_PROCESS_ID_PROPERTY_ID
 
         assert isinstance(_UIA_PROCESS_ID_PROPERTY_ID, int)
         assert _UIA_PROCESS_ID_PROPERTY_ID == 30076

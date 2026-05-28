@@ -9,12 +9,12 @@ TC-064: End-to-end snapshot → classify → redact pipeline
 
 import pytest
 
-from guidewire.backends import MockBackend
-from guidewire.errors import ElementNotFoundError, StaleElementReferenceError
-from guidewire.models import Bounds, ElementStates, NormalizedElement
-from guidewire.privacy import PrivacyConfig, redact_snapshot
-from guidewire.refs import ElementRefStore
-from guidewire.safety import classify
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.errors import ElementNotFoundError, StaleElementReferenceError
+from pathlight_mcp.models import Bounds, ElementStates, NormalizedElement
+from pathlight_mcp.privacy import PrivacyConfig, redact_snapshot
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.safety import classify
 
 # ---------------------------------------------------------------------------
 # TC-060: Refs + Models integration

@@ -2,7 +2,7 @@
 
 import json
 
-from guidewire.models import Bounds, DesktopAction, ElementStates, NormalizedElement
+from pathlight_mcp.models import Bounds, DesktopAction, ElementStates, NormalizedElement
 
 # ---------------------------------------------------------------------------
 # DesktopAction type

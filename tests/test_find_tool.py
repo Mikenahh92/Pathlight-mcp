@@ -17,10 +17,10 @@ import json
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.backends.types import NativeHandle
-from guidewire.refs import ElementRefStore
-from guidewire.tools import register_all
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.refs import ElementRefStore
+from pathlight_mcp.tools import register_all
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -387,7 +387,7 @@ class TestFindBackendErrors:
         ghost = NativeHandle("nonexistent-window")
         ref_store.store(ghost, prefix="w")
         mcp = FastMCP(name="test-find-error")
-        from guidewire.tools import register_all
+        from pathlight_mcp.tools import register_all
 
         register_all(mcp, backend=backend, ref_store=ref_store)
         result, _meta = await mcp.call_tool(
@@ -414,7 +414,7 @@ class TestFindBackendErrors:
         store.store(fresh_win, prefix="w")
         fresh.dispose()
         mcp = FastMCP(name="test-find-dispose")
-        from guidewire.tools import register_all
+        from pathlight_mcp.tools import register_all
 
         register_all(mcp, backend=fresh, ref_store=store)
         result, _meta = await mcp.call_tool(
@@ -436,8 +436,8 @@ class TestFindDisabledElement:
         """TC-FIND-019: Disabled element returns read_only risk."""
         # The default fixture has all elements enabled.  We test that when
         # classify() receives a disabled NormalizedElement, risk is read_only.
-        from guidewire.models import ElementStates, NormalizedElement
-        from guidewire.safety import classify
+        from pathlight_mcp.models import ElementStates, NormalizedElement
+        from pathlight_mcp.safety import classify
 
         element = NormalizedElement(
             ref="e_test",

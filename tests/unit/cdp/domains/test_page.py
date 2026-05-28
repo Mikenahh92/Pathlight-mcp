@@ -7,8 +7,8 @@ frame tree, layout metrics, screenshot, etc.
 from typing import Any
 from unittest.mock import MagicMock
 
-from guidewire.cdp.domains.page import PageDomain
-from guidewire.models import Bounds
+from pathlight_mcp.cdp.domains.page import PageDomain
+from pathlight_mcp.models import Bounds
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -142,7 +142,7 @@ class TestPageGetFrameTree:
         session = _make_session([response])
         domain = PageDomain(session)
 
-        from guidewire.cdp._types import FrameTree
+        from pathlight_mcp.cdp._types import FrameTree
 
         tree = domain.get_frame_tree()
         assert isinstance(tree, FrameTree)

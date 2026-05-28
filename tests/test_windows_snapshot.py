@@ -19,15 +19,15 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from guidewire.backends.types import NativeHandle
-from guidewire.backends.windows import (
+from pathlight_mcp.backends.types import NativeHandle
+from pathlight_mcp.backends.windows import (
     _UIA_VALUE_PATTERN_ID,
     WindowsBackend,
     _ComHandle,
     _control_type_id_to_name,
     _read_state,
 )
-from guidewire.errors import WindowNotFoundError
+from pathlight_mcp.errors import WindowNotFoundError
 
 # ---------------------------------------------------------------------------
 # Fixtures

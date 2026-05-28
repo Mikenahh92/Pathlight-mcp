@@ -12,10 +12,10 @@ from urllib.error import URLError
 
 import pytest
 
-from guidewire.cdp._types import CDPTarget, ConnectionState
-from guidewire.cdp.browser import CDPBrowser
-from guidewire.cdp.session import CDPSession
-from guidewire.errors import BackendUnavailableError, GuidewireError
+from pathlight_mcp.cdp._types import CDPTarget, ConnectionState
+from pathlight_mcp.cdp.browser import CDPBrowser
+from pathlight_mcp.cdp.session import CDPSession
+from pathlight_mcp.errors import BackendUnavailableError, PathlightMCPError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -70,7 +70,7 @@ def _create_connected_browser() -> tuple[CDPBrowser, FakeWebSocket]:
     fake_ws = FakeWebSocket()
     ws_mod = _fake_ws_module(fake_ws)
 
-    with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+    with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
         browser = CDPBrowser(host="localhost", port=9222)
         browser.connect()
 
@@ -161,7 +161,7 @@ class TestCDPBrowserLifecycle:
         ws_mod = MagicMock()
         ws_mod.create_connection.side_effect = OSError("refused")
 
-        with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
             browser = CDPBrowser(host="localhost", port=9222)
             with pytest.raises(BackendUnavailableError):
                 browser.connect()
@@ -172,7 +172,7 @@ class TestCDPBrowserLifecycle:
         fake_ws = FakeWebSocket()
         ws_mod = _fake_ws_module(fake_ws)
 
-        with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
             with CDPBrowser(host="localhost", port=9222) as browser:
                 assert browser.is_connected
             assert browser.state == ConnectionState.CLOSED
@@ -195,7 +195,7 @@ class TestCDPBrowserTargetDiscovery:
         browser, _ = _create_connected_browser()
         target_data = _make_target_json()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = target_data
             mock_urlopen.return_value = mock_response
@@ -211,7 +211,7 @@ class TestCDPBrowserTargetDiscovery:
     def test_list_targets_empty(self) -> None:
         browser, _ = _create_connected_browser()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = b"[]"
             mock_urlopen.return_value = mock_response
@@ -223,7 +223,7 @@ class TestCDPBrowserTargetDiscovery:
     def test_list_targets_http_failure(self) -> None:
         browser, _ = _create_connected_browser()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_urlopen.side_effect = URLError("connection refused")
 
             with pytest.raises(BackendUnavailableError, match="Failed to discover"):
@@ -233,7 +233,7 @@ class TestCDPBrowserTargetDiscovery:
         browser, _ = _create_connected_browser()
         target_data = _make_target_json()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = target_data
             mock_urlopen.return_value = mock_response
@@ -248,7 +248,7 @@ class TestCDPBrowserTargetDiscovery:
         browser, _ = _create_connected_browser()
         target_data = _make_target_json()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = target_data
             mock_urlopen.return_value = mock_response
@@ -260,7 +260,7 @@ class TestCDPBrowserTargetDiscovery:
     def test_list_targets_invalid_json(self) -> None:
         browser, _ = _create_connected_browser()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = b"not json"
             mock_urlopen.return_value = mock_response
@@ -271,7 +271,7 @@ class TestCDPBrowserTargetDiscovery:
     def test_get_target_found(self) -> None:
         browser, _ = _create_connected_browser()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = _make_target_json()
             mock_urlopen.return_value = mock_response
@@ -284,7 +284,7 @@ class TestCDPBrowserTargetDiscovery:
     def test_get_target_not_found(self) -> None:
         browser, _ = _create_connected_browser()
 
-        with patch("guidewire.cdp.browser.urlopen") as mock_urlopen:
+        with patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = _make_target_json()
             mock_urlopen.return_value = mock_response
@@ -360,14 +360,14 @@ class TestCDPBrowserSessionManagement:
     def test_detach_unknown_target_raises(self) -> None:
         browser, _ = _create_connected_browser()
 
-        with pytest.raises(GuidewireError, match="No active session"):
+        with pytest.raises(PathlightMCPError, match="No active session"):
             browser.detach("nonexistent")
 
     def test_attach_not_connected_raises(self) -> None:
         browser = CDPBrowser()
         target = _create_target()
 
-        with pytest.raises(GuidewireError, match="not open"):
+        with pytest.raises(PathlightMCPError, match="not open"):
             browser.attach(target)
 
     def test_multiple_sessions(self) -> None:
@@ -424,7 +424,7 @@ class TestCDPBrowserSendCommand:
     def test_send_command_not_connected_raises(self) -> None:
         browser = CDPBrowser()
 
-        with pytest.raises(GuidewireError, match="not open"):
+        with pytest.raises(PathlightMCPError, match="not open"):
             browser.send_command("Target.setDiscoverTargets")
 
 
@@ -444,7 +444,7 @@ class TestCDPBrowserReconnect:
         new_fake_ws = FakeWebSocket()
         new_ws_mod = _fake_ws_module(new_fake_ws)
 
-        with patch("guidewire.cdp.connection._import_websocket", return_value=new_ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=new_ws_mod):
             browser.reconnect()
 
         assert browser.is_connected
@@ -454,7 +454,7 @@ class TestCDPBrowserReconnect:
         fake_ws = FakeWebSocket()
         ws_mod = _fake_ws_module(fake_ws)
 
-        with patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
             browser = CDPBrowser(host="localhost", port=9222, ws_timeout=2.0)
             browser.connect()
 
@@ -493,7 +493,7 @@ class TestCDPBrowserReconnect:
                 }
             )
 
-        with patch("guidewire.cdp.connection._import_websocket", return_value=new_ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=new_ws_mod):
             # Start response enqueuer in background
             threading.Thread(target=_enqueue_after_command, daemon=True).start()
             browser.reconnect()
@@ -511,7 +511,7 @@ class TestCDPBrowserReconnect:
         ws_mod.create_connection.side_effect = OSError("refused")
 
         with (
-            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+            patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod),
             pytest.raises(BackendUnavailableError),
         ):
             browser.reconnect()
@@ -534,7 +534,7 @@ class TestCDPBrowserReconnect:
                 return fail_mod
             return success_mod
 
-        with patch("guidewire.cdp.connection._import_websocket", side_effect=_ws_factory):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", side_effect=_ws_factory):
             browser.reconnect(max_retries=1, backoff_delay=0.01)
 
         assert browser.is_connected
@@ -547,7 +547,7 @@ class TestCDPBrowserReconnect:
         ws_mod.create_connection.side_effect = OSError("refused")
 
         with (
-            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+            patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod),
             pytest.raises(BackendUnavailableError),
         ):
             browser.reconnect(max_retries=2, backoff_delay=0.01)
@@ -558,7 +558,7 @@ class TestCDPBrowserReconnect:
         new_fake_ws = FakeWebSocket()
         new_ws_mod = _fake_ws_module(new_fake_ws)
 
-        with patch("guidewire.cdp.connection._import_websocket", return_value=new_ws_mod):
+        with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=new_ws_mod):
             browser.reconnect(max_retries=3, backoff_delay=0.01)
 
         assert browser.is_connected
@@ -586,8 +586,8 @@ class TestWSUrlResolution:
         ws_mod = _fake_ws_module(fake_ws)
 
         with (
-            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
-            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+            patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen,
+            patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod),
         ):
             mock_response = MagicMock()
             mock_response.read.return_value = version_data
@@ -606,8 +606,8 @@ class TestWSUrlResolution:
         ws_mod = _fake_ws_module(fake_ws)
 
         with (
-            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
-            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+            patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen,
+            patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod),
         ):
             # /json/version returns an error
             mock_urlopen.side_effect = URLError("not found")
@@ -627,8 +627,8 @@ class TestWSUrlResolution:
         ws_mod = _fake_ws_module(fake_ws)
 
         with (
-            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
-            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+            patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen,
+            patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod),
         ):
             mock_response = MagicMock()
             mock_response.read.return_value = version_data
@@ -650,8 +650,8 @@ class TestWSUrlResolution:
         ws_mod = _fake_ws_module(fake_ws)
 
         with (
-            patch("guidewire.cdp.browser.urlopen") as mock_urlopen,
-            patch("guidewire.cdp.connection._import_websocket", return_value=ws_mod),
+            patch("pathlight_mcp.cdp.browser.urlopen") as mock_urlopen,
+            patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod),
         ):
             mock_response = MagicMock()
             mock_response.read.return_value = version_data

@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from guidewire.cdp.domains.runtime import RuntimeDomain
-from guidewire.errors import GuidewireError
+from pathlight_mcp.cdp.domains.runtime import RuntimeDomain
+from pathlight_mcp.errors import PathlightMCPError
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -58,7 +58,7 @@ class TestRuntimeEvaluate:
         session = _make_session([{}, response])
         domain = RuntimeDomain(session)
 
-        with pytest.raises(GuidewireError, match="SyntaxError"):
+        with pytest.raises(PathlightMCPError, match="SyntaxError"):
             domain.evaluate("invalid js!")
 
     def test_sends_correct_params(self) -> None:
@@ -172,7 +172,7 @@ class TestRuntimeCallFunctionOn:
         session = _make_session([response])
         domain = RuntimeDomain(session)
 
-        with pytest.raises(GuidewireError, match="TypeError"):
+        with pytest.raises(PathlightMCPError, match="TypeError"):
             domain.call_function_on("bad()", object_id="obj-1")
 
 

@@ -1,4 +1,4 @@
-"""Tests for guidewire.tools registry (GW-008).
+"""Tests for pathlight_mcp.tools registry (GW-008).
 
 Validates that:
 - All tool sub-modules exist and export a ``register`` function.
@@ -11,7 +11,7 @@ import importlib
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.tools import _TOOL_MODULES, register_all
+from pathlight_mcp.tools import _TOOL_MODULES, register_all
 
 EXPECTED_TOOL_NAMES = [
     "desktop.list_windows",
@@ -53,7 +53,7 @@ class TestToolModuleRegistry:
     @pytest.mark.parametrize("module_name", _TOOL_MODULES)
     def test_module_has_register_function(self, module_name):
         """Each tool module should export a callable ``register``."""
-        mod = importlib.import_module(module_name, package="guidewire.tools")
+        mod = importlib.import_module(module_name, package="pathlight_mcp.tools")
         assert callable(getattr(mod, "register", None)), (
             f"{module_name} is missing a 'register' function"
         )
@@ -77,7 +77,7 @@ class TestNoFutureAnnotations:
     @pytest.mark.parametrize("module_name", _TOOL_MODULES)
     def test_no_future_annotations_in_tool_module(self, module_name):
         """Tool modules must not contain ``from __future__ import annotations``."""
-        source = importlib.import_module(module_name, package="guidewire.tools")
+        source = importlib.import_module(module_name, package="pathlight_mcp.tools")
         filepath = source.__file__
         assert filepath is not None
         with open(filepath) as f:
@@ -88,7 +88,7 @@ class TestNoFutureAnnotations:
 
     def test_no_future_annotations_in_tools_init(self):
         """tools/__init__.py must not use ``from __future__ import annotations``."""
-        from guidewire.tools import __file__ as init_path
+        from pathlight_mcp.tools import __file__ as init_path
 
         with open(init_path) as f:
             content = f.read()

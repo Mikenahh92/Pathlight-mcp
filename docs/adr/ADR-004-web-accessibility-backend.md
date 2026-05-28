@@ -9,9 +9,9 @@
 
 ## Context
 
-Guidewire provides MCP-based desktop automation through OS accessibility APIs (UI Automation on Windows, AT-SPI2 on Linux). Users increasingly need to interact with **web applications** — not just native desktop apps. While Playwright and Puppeteer cover browser automation, they are standalone tools that cannot be driven through MCP tool calls within an existing agent workflow.
+Pathlight MCP provides MCP-based desktop automation through OS accessibility APIs (UI Automation on Windows, AT-SPI2 on Linux). Users increasingly need to interact with **web applications** — not just native desktop apps. While Playwright and Puppeteer cover browser automation, they are standalone tools that cannot be driven through MCP tool calls within an existing agent workflow.
 
-The question: how should Guidewire extend to support web browser accessibility?
+The question: how should Pathlight MCP extend to support web browser accessibility?
 
 ## Decision
 
@@ -32,7 +32,7 @@ We implement a **WebBackend** that connects to Chromium-based browsers via the *
 | **Puppeteer** | Mature, good CDP coverage | Node.js ecosystem; not native to Python |
 | **Raw CDP** | Direct access to `Accessibility` domain; minimal dependencies; works with any Chromium browser | Chrome/Edge/Brave only; lower-level API |
 
-**Rationale:** CDP provides direct access to the `Accessibility.getFullAXTree` and `Accessibility.queryAXTree` endpoints, which return the browser's own accessibility tree — the same tree that screen readers use. This maps naturally to Guidewire's `NormalizedElement` model without an intermediate translation layer. The only runtime dependency is `websocket-client`.
+**Rationale:** CDP provides direct access to the `Accessibility.getFullAXTree` and `Accessibility.queryAXTree` endpoints, which return the browser's own accessibility tree — the same tree that screen readers use. This maps naturally to Pathlight MCP's `NormalizedElement` model without an intermediate translation layer. The only runtime dependency is `websocket-client`.
 
 #### 2. Backend multiplexing via BackendRouter
 
@@ -81,7 +81,7 @@ Each layer has a single responsibility: transport, protocol, session management,
 ## Implementation Structure
 
 ```
-src/guidewire/
+src/pathlight_mcp/
 ├── cdp/                           # CDP transport and domain wrappers
 │   ├── _types.py                  # AXNode, CDPTarget, ConnectionState, etc.
 │   ├── _protocol.py               # Message framing helpers
@@ -121,7 +121,7 @@ src/guidewire/
 
 - **Chromium-only** — Firefox (Marionette) and Safari (no remote debugging) are not supported
 - **Requires browser launch flags** — the user must start the browser with `--remote-debugging-port`
-- **No built-in browser launch** — Guidewire does not manage the browser lifecycle; the user must start and stop the browser externally
+- **No built-in browser launch** — Pathlight MCP does not manage the browser lifecycle; the user must start and stop the browser externally
 - **Stale element references** — DOM mutations can invalidate cached AX nodes between snapshots; requires re-snapshot before action dispatch
 
 ### Risks

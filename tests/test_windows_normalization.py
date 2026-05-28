@@ -20,12 +20,12 @@ from typing import Any
 
 import pytest
 
-from guidewire.backends.normalize import normalize_element
-from guidewire.backends.windows import (
+from pathlight_mcp.backends.normalize import normalize_element
+from pathlight_mcp.backends.windows import (
     _UIA_CONTROL_TYPE_MAP,
     _control_type_id_to_name,
 )
-from guidewire.models.mappings import ROLE_MAP
+from pathlight_mcp.models.mappings import ROLE_MAP
 
 # ---------------------------------------------------------------------------
 # Section 1: ControlType ID → name → normalized role coverage

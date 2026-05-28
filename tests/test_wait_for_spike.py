@@ -17,8 +17,8 @@ import time
 import pytest
 from mcp.server.fastmcp import FastMCP
 
-from guidewire.backends import MockBackend
-from guidewire.refs import ElementRefStore
+from pathlight_mcp.backends import MockBackend
+from pathlight_mcp.refs import ElementRefStore
 
 # ---------------------------------------------------------------------------
 # Spike 1: Async handler support validation
@@ -194,7 +194,7 @@ class TestConditionDSLFeasibility:
         backend = MockBackend()
         backend.add_window(title="Test")
         w = backend.list_windows()[0]
-        from guidewire.backends.types import ElementState
+        from pathlight_mcp.backends.types import ElementState
 
         backend.add_element(
             role="button",
@@ -216,7 +216,7 @@ class TestConditionDSLFeasibility:
         backend.add_element(role="text", name="label", value="Hello World", parent=w)
         elem = backend.find_elements(w, role="text")[0]
 
-        from guidewire.backends.types import DesktopAction
+        from pathlight_mcp.backends.types import DesktopAction
 
         text = backend.perform_action(elem, DesktopAction.GET_TEXT)
         assert text == "Hello World"
@@ -242,7 +242,7 @@ class TestConditionDSLFeasibility:
         backend = MockBackend()
         backend.add_window(title="My App")
         w = backend.list_windows()[0]
-        from guidewire.backends.types import DesktopAction, ElementState
+        from pathlight_mcp.backends.types import DesktopAction, ElementState
 
         backend.add_element(
             role="button",
@@ -394,7 +394,7 @@ class TestPollingLoopIntegration:
 
         changer = asyncio.create_task(simulate_text_change())
 
-        from guidewire.backends.types import DesktopAction
+        from pathlight_mcp.backends.types import DesktopAction
 
         # Poll for text change
         timeout_ms = 500
@@ -439,7 +439,7 @@ class TestArchitectureDecision:
 
         No new abstract methods need to be added to DesktopBackend.
         """
-        from guidewire.backends.base import DesktopBackend
+        from pathlight_mcp.backends.base import DesktopBackend
 
         abstract_methods = set(DesktopBackend.__abstractmethods__)
         # The spike confirms no new methods are needed
@@ -502,7 +502,7 @@ class TestArchitectureDecision:
             "element_count": "find_elements",
             "window_title": "get_window_info",
         }
-        from guidewire.backends.base import DesktopBackend
+        from pathlight_mcp.backends.base import DesktopBackend
 
         for cond_type, method_name in condition_to_method.items():
             assert hasattr(DesktopBackend, method_name), (
