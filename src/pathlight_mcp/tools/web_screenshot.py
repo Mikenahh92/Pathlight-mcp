@@ -130,10 +130,7 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        f"mode must be one of {sorted(_VALID_MODES)}, "
-                        f"got '{mode}'"
-                    ),
+                    "message": (f"mode must be one of {sorted(_VALID_MODES)}, got '{mode}'"),
                     "hints": [],
                 }
             )
@@ -142,17 +139,12 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        f"format must be one of {sorted(_VALID_FORMATS)}, "
-                        f"got '{format}'"
-                    ),
+                    "message": (f"format must be one of {sorted(_VALID_FORMATS)}, got '{format}'"),
                     "hints": [],
                 }
             )
 
-        if quality is not None and (
-            not isinstance(quality, int) or quality < 0 or quality > 100
-        ):
+        if quality is not None and (not isinstance(quality, int) or quality < 0 or quality > 100):
             return json.dumps(
                 {
                     "error": "validation_error",
@@ -174,9 +166,7 @@ def register(
             return json.dumps(
                 {
                     "error": "validation_error",
-                    "message": (
-                        "element mode requires either selector or element_ref"
-                    ),
+                    "message": ("element mode requires either selector or element_ref"),
                     "hints": [],
                 }
             )

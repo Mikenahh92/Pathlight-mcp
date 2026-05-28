@@ -18,7 +18,7 @@ Tool-layer only — no ABC changes.
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
 

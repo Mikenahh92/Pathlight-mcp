@@ -268,9 +268,7 @@ class TestDOMDomainGetBoxModel:
     """Tests for get_box_model."""
 
     def test_returns_box_model(self) -> None:
-        response = {
-            "model": {"border": [0, 0, 100, 0, 100, 50, 0, 50]}
-        }
+        response = {"model": {"border": [0, 0, 100, 0, 100, 50, 0, 50]}}
         session = _make_session([response])
         domain = DOMDomain(session)
 

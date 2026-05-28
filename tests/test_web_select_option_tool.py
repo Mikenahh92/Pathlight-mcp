@@ -30,7 +30,6 @@ from pathlight_mcp.cdp._types import CDPTarget
 from pathlight_mcp.refs import ElementRefStore
 from pathlight_mcp.tools import register_all
 
-
 # -- Fixtures -----------------------------------------------------------------
 
 
@@ -147,7 +146,10 @@ class TestWebSelectOptionValidation:
         """web_select_option rejects both element_ref and selector."""
         tool = _get_tool(mcp_router)
         result_json = tool.fn(
-            window_ref="w1", element_ref="e1", selector="select", value="opt1",
+            window_ref="w1",
+            element_ref="e1",
+            selector="select",
+            value="opt1",
         )
         result = json.loads(result_json)
         assert result["error"] == "validation_error"
@@ -201,7 +203,9 @@ class TestWebSelectOptionErrors:
         assert "BackendRouter" in result["message"]
 
     def test_invalid_window_ref_error(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
     ) -> None:
         """web_select_option returns error for unknown window reference."""
         _setup_connected_router(mcp_router, ref_store)
@@ -212,7 +216,9 @@ class TestWebSelectOptionErrors:
         assert "not found" in result["message"].lower()
 
     def test_session_creation_failure(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
     ) -> None:
         """web_select_option returns error when session creation fails."""
         mock_web, window_ref = _setup_connected_router(mcp_router, ref_store)
@@ -225,7 +231,9 @@ class TestWebSelectOptionErrors:
         assert "Target not found" in result["message"]
 
     def test_element_not_found_by_selector(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
     ) -> None:
         """web_select_option returns error when selector finds no element."""
         mock_web, window_ref = _setup_connected_router(mcp_router, ref_store)
@@ -234,16 +242,16 @@ class TestWebSelectOptionErrors:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch(
-            "pathlight_mcp.cdp.domains.dom.DOMDomain"
-        ) as MockDOM, patch(
-            "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-        ) as MockRuntime:
-            mock_dom = MockDOM.return_value
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+        ):
+            mock_dom = mock_dom_cls.return_value
             mock_dom.get_document.return_value = MagicMock(node_id=1)
             mock_dom.query_selector.return_value = None
             result_json = tool.fn(
-                window_ref=window_ref, selector="#nonexistent", value="opt1",
+                window_ref=window_ref,
+                selector="#nonexistent",
+                value="opt1",
             )
 
         result = json.loads(result_json)

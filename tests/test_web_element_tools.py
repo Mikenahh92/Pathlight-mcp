@@ -134,9 +134,7 @@ def _make_dom_and_input_mocks():
         and get_box_model returns bounds at (10,20) with size 100x30.
     """
     mock_dom = MagicMock()
-    mock_dom.get_document.return_value = DOMNode(
-        node_id=1, node_name="#document"
-    )
+    mock_dom.get_document.return_value = DOMNode(node_id=1, node_name="#document")
     mock_dom.query_selector.return_value = 42
     mock_dom.query_selector_all.return_value = [42]  # single match by default
     mock_dom.get_box_model.return_value = BoxModel(
@@ -183,17 +181,13 @@ class TestWebTypeStub:
 
     def test_stub_returns_success(self, stub_mcp: FastMCP):
         tool = _get_tool(stub_mcp, "desktop.web_type")
-        result = json.loads(
-            tool.fn(window_ref="w1", text="hello", selector="#input")
-        )
+        result = json.loads(tool.fn(window_ref="w1", text="hello", selector="#input"))
         assert result["success"] is True
         assert result["text_length"] == 5
 
     def test_stub_includes_slowly(self, stub_mcp: FastMCP):
         tool = _get_tool(stub_mcp, "desktop.web_type")
-        result = json.loads(
-            tool.fn(window_ref="w1", text="hi", selector="#input", slowly=True)
-        )
+        result = json.loads(tool.fn(window_ref="w1", text="hi", selector="#input", slowly=True))
         assert result["slowly"] is True
 
 
@@ -234,25 +228,19 @@ class TestWebClickValidation:
 
     def test_invalid_click_count(self, mcp_router: FastMCP):
         tool = _get_tool(mcp_router, "desktop.web_click")
-        result = json.loads(
-            tool.fn(window_ref="w1", selector="#btn", click_count=5)
-        )
+        result = json.loads(tool.fn(window_ref="w1", selector="#btn", click_count=5))
         assert result["error"] == "validation_error"
         assert "click_count" in result["message"]
 
     def test_invalid_button(self, mcp_router: FastMCP):
         tool = _get_tool(mcp_router, "desktop.web_click")
-        result = json.loads(
-            tool.fn(window_ref="w1", selector="#btn", button="invalid")
-        )
+        result = json.loads(tool.fn(window_ref="w1", selector="#btn", button="invalid"))
         assert result["error"] == "validation_error"
         assert "button" in result["message"]
 
     def test_negative_timeout(self, mcp_router: FastMCP):
         tool = _get_tool(mcp_router, "desktop.web_click")
-        result = json.loads(
-            tool.fn(window_ref="w1", selector="#btn", timeout_ms=-1)
-        )
+        result = json.loads(tool.fn(window_ref="w1", selector="#btn", timeout_ms=-1))
         assert result["error"] == "validation_error"
 
 
@@ -264,9 +252,7 @@ class TestWebTypeValidation:
 
     def test_missing_window_ref(self, mcp_router: FastMCP):
         tool = _get_tool(mcp_router, "desktop.web_type")
-        result = json.loads(
-            tool.fn(window_ref="", text="hi", selector="#input")
-        )
+        result = json.loads(tool.fn(window_ref="", text="hi", selector="#input"))
         assert result["error"] == "validation_error"
 
     def test_missing_selector_and_ref(self, mcp_router: FastMCP):
@@ -276,9 +262,7 @@ class TestWebTypeValidation:
 
     def test_negative_timeout(self, mcp_router: FastMCP):
         tool = _get_tool(mcp_router, "desktop.web_type")
-        result = json.loads(
-            tool.fn(window_ref="w1", text="hi", selector="#input", timeout_ms=-1)
-        )
+        result = json.loads(tool.fn(window_ref="w1", text="hi", selector="#input", timeout_ms=-1))
         assert result["error"] == "validation_error"
 
 
@@ -315,9 +299,7 @@ class TestWebClickNoConnection:
         result = json.loads(tool.fn(window_ref="w1", selector="#btn"))
         assert result["error"] == "web_element_error"
 
-    def test_invalid_window_ref(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_invalid_window_ref(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         _setup_web_ref(mcp_router, ref_store)[0]
         tool = _get_tool(mcp_router, "desktop.web_click")
         result = json.loads(tool.fn(window_ref="w999", selector="#btn"))
@@ -331,9 +313,7 @@ class TestWebClickNoConnection:
 class TestWebClickSuccess:
     """web_click resolves selector and dispatches click."""
 
-    def test_click_by_selector(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_click_by_selector(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -341,17 +321,16 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
 
             tool = _get_tool(mcp_router, "desktop.web_click")
-            result = json.loads(
-                tool.fn(window_ref=window_ref, selector="#submit-btn")
-            )
+            result = json.loads(tool.fn(window_ref=window_ref, selector="#submit-btn"))
 
             assert result["success"] is True
             assert result["selector"] == "#submit-btn"
@@ -366,9 +345,7 @@ class TestWebClickSuccess:
                 "mouseReleased", 60.0, 35.0, button="left", click_count=1
             )
 
-    def test_click_double_click(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_click_double_click(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -376,9 +353,10 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
@@ -399,9 +377,7 @@ class TestWebClickSuccess:
                 "mousePressed", 60.0, 35.0, button="left", click_count=2
             )
 
-    def test_click_right_click(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_click_right_click(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -409,9 +385,10 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
@@ -435,9 +412,7 @@ class TestWebClickSuccess:
                 "mouseReleased", 60.0, 35.0, button="right", click_count=1
             )
 
-    def test_click_middle_click(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_click_middle_click(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -445,9 +420,10 @@ class TestWebClickSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
@@ -475,9 +451,7 @@ class TestWebClickSuccess:
 class TestWebTypeSuccess:
     """web_type resolves selector and inserts text."""
 
-    def test_type_by_selector(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_type_by_selector(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -485,9 +459,10 @@ class TestWebTypeSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
@@ -511,9 +486,7 @@ class TestWebTypeSuccess:
             # Verify focus was called on the element
             mock_dom.focus.assert_called_once_with(node_id=42)
 
-    def test_type_with_clear(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_type_with_clear(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -521,9 +494,10 @@ class TestWebTypeSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
@@ -546,9 +520,7 @@ class TestWebTypeSuccess:
             assert len(key_calls) >= 2  # keyDown + keyUp for Ctrl+A
             mock_inp.insert_text.assert_called_once_with("new value")
 
-    def test_type_slowly_mode(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_type_slowly_mode(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         """slowly=True dispatches per-character key events instead of insertText."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
@@ -557,9 +529,10 @@ class TestWebTypeSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
@@ -602,9 +575,7 @@ class TestWebTypeSuccess:
 class TestWebHoverSuccess:
     """web_hover resolves selector and dispatches mouseMoved."""
 
-    def test_hover_by_selector(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_hover_by_selector(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -612,9 +583,10 @@ class TestWebHoverSuccess:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom, mock_inp = _make_dom_and_input_mocks()
             mock_dom_cls.return_value = mock_dom
             mock_inp_cls.return_value = mock_inp
@@ -643,9 +615,7 @@ class TestWebHoverSuccess:
 class TestSelectorTimeout:
     """Selector resolution returns timeout error when element not found."""
 
-    def test_selector_timeout(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_selector_timeout(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -655,9 +625,7 @@ class TestSelectorTimeout:
 
         with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls:
             mock_dom = MagicMock()
-            mock_dom.get_document.return_value = DOMNode(
-                node_id=1, node_name="#document"
-            )
+            mock_dom.get_document.return_value = DOMNode(node_id=1, node_name="#document")
             mock_dom.query_selector.return_value = None  # No match
             mock_dom_cls.return_value = mock_dom
 
@@ -682,9 +650,7 @@ class TestSelectorTimeout:
 class TestAmbiguousSelector:
     """Selector resolution returns ambiguous error when multiple elements match."""
 
-    def test_ambiguous_selector(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_ambiguous_selector(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
         mock_session = MagicMock()
@@ -694,9 +660,7 @@ class TestAmbiguousSelector:
 
         with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls:
             mock_dom = MagicMock()
-            mock_dom.get_document.return_value = DOMNode(
-                node_id=1, node_name="#document"
-            )
+            mock_dom.get_document.return_value = DOMNode(node_id=1, node_name="#document")
             mock_dom.query_selector.return_value = 42  # First match
             mock_dom.query_selector_all.return_value = [42, 43, 44]  # 3 matches
             mock_dom.get_box_model.return_value = BoxModel(
@@ -734,9 +698,7 @@ class TestAmbiguousSelector:
 class TestElementRefResolution:
     """Element reference resolution path works for all three tools."""
 
-    def test_element_ref_not_found(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_element_ref_not_found(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         """web_click returns element_not_found for unknown element_ref."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
@@ -746,15 +708,11 @@ class TestElementRefResolution:
         web_mock._get_or_create_session.return_value = mock_session
 
         tool = _get_tool(mcp_router, "desktop.web_click")
-        result = json.loads(
-            tool.fn(window_ref=window_ref, element_ref="e999")
-        )
+        result = json.loads(tool.fn(window_ref=window_ref, element_ref="e999"))
         assert result["error"] == "element_not_found"
         assert "e999" in result["message"]
 
-    def test_element_ref_resolves_from_cache(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_element_ref_resolves_from_cache(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         """web_click resolves element_ref from bounds cache and dispatches click."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
@@ -778,9 +736,10 @@ class TestElementRefResolution:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom = MagicMock()
             mock_dom_cls.return_value = mock_dom
 
@@ -788,9 +747,7 @@ class TestElementRefResolution:
             mock_inp_cls.return_value = mock_inp
 
             tool = _get_tool(mcp_router, "desktop.web_click")
-            result = json.loads(
-                tool.fn(window_ref=window_ref, element_ref=el_ref)
-            )
+            result = json.loads(tool.fn(window_ref=window_ref, element_ref=el_ref))
 
             assert result["success"] is True
             # Click at center: (50 + 200/2, 100 + 40/2) = (150, 120)
@@ -826,9 +783,10 @@ class TestElementRefResolution:
         mock_session.target.id = "target-1"
         web_mock._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls, patch(
-            "pathlight_mcp.cdp.domains.input.InputDomain"
-        ) as mock_inp_cls:
+        with (
+            patch("pathlight_mcp.cdp.domains.dom.DOMDomain") as mock_dom_cls,
+            patch("pathlight_mcp.cdp.domains.input.InputDomain") as mock_inp_cls,
+        ):
             mock_dom = MagicMock()
             mock_dom_cls.return_value = mock_dom
 
@@ -836,9 +794,7 @@ class TestElementRefResolution:
             mock_inp_cls.return_value = mock_inp
 
             tool = _get_tool(mcp_router, "desktop.web_hover")
-            result = json.loads(
-                tool.fn(window_ref=window_ref, element_ref=el_ref)
-            )
+            result = json.loads(tool.fn(window_ref=window_ref, element_ref=el_ref))
 
             assert result["success"] is True
             # Hover at center: (20 + 80/2, 30 + 20/2) = (60, 40)
@@ -846,9 +802,7 @@ class TestElementRefResolution:
                 "mouseMoved", 60.0, 40.0, button="none"
             )
 
-    def test_element_ref_non_web_backend(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ):
+    def test_element_ref_non_web_backend(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         """web_click rejects element_ref that resolves to non-web backend."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
 
@@ -864,9 +818,7 @@ class TestElementRefResolution:
         web_mock._get_or_create_session.return_value = mock_session
 
         tool = _get_tool(mcp_router, "desktop.web_click")
-        result = json.loads(
-            tool.fn(window_ref=window_ref, element_ref=el_ref)
-        )
+        result = json.loads(tool.fn(window_ref=window_ref, element_ref=el_ref))
         assert result["error"] == "web_element_error"
         assert "not a web element" in result["message"]
 

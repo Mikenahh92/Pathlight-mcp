@@ -530,9 +530,11 @@ class TestExtractHwndFromComElement:
         mock_rect.bottom = 600
         mock_user32.GetWindowRect.return_value = None
 
-        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)), \
-             patch("ctypes.wintypes.RECT", return_value=mock_rect), \
-             patch("ctypes.byref", return_value=mock_rect):
+        with (
+            patch.object(ctypes, "windll", MagicMock(user32=mock_user32)),
+            patch("ctypes.wintypes.RECT", return_value=mock_rect),
+            patch("ctypes.byref", return_value=mock_rect),
+        ):
             backend.move_window(NativeHandle(mock_element), x=50, y=75)
 
         mock_user32.MoveWindow.assert_called_once_with(12345, 50, 75, 700, 400, True)
@@ -549,9 +551,11 @@ class TestExtractHwndFromComElement:
         mock_rect.bottom = 600
         mock_user32.GetWindowRect.return_value = None
 
-        with patch.object(ctypes, "windll", MagicMock(user32=mock_user32)), \
-             patch("ctypes.wintypes.RECT", return_value=mock_rect), \
-             patch("ctypes.byref", return_value=mock_rect):
+        with (
+            patch.object(ctypes, "windll", MagicMock(user32=mock_user32)),
+            patch("ctypes.wintypes.RECT", return_value=mock_rect),
+            patch("ctypes.byref", return_value=mock_rect),
+        ):
             backend.resize_window(NativeHandle(mock_element), width=1024, height=768)
 
         mock_user32.MoveWindow.assert_called_once_with(12345, 100, 200, 1024, 768, True)
@@ -578,9 +582,7 @@ class TestIsValidComElement:
         mock_element.__int__ = MagicMock(side_effect=ValueError("COM pointer"))
         return mock_element
 
-    def test_is_valid_returns_true_for_live_com_element(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_is_valid_returns_true_for_live_com_element(self, backend: WindowsBackend) -> None:
         """is_valid must return True for a valid COM element."""
         mock_element = self._make_com_element()
 
@@ -589,9 +591,7 @@ class TestIsValidComElement:
         assert result is True
         mock_element.GetCurrentPropertyValue.assert_called()
 
-    def test_is_valid_returns_false_for_dead_com_element(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_is_valid_returns_false_for_dead_com_element(self, backend: WindowsBackend) -> None:
         """is_valid must return False when COM property read raises."""
         mock_element = self._make_com_element()
         mock_element.GetCurrentPropertyValue.side_effect = OSError("COM error")
@@ -600,9 +600,7 @@ class TestIsValidComElement:
 
         assert result is False
 
-    def test_is_valid_returns_false_for_disposed_backend(
-        self, backend: WindowsBackend
-    ) -> None:
+    def test_is_valid_returns_false_for_disposed_backend(self, backend: WindowsBackend) -> None:
         """is_valid must return False when backend is disposed."""
         backend._disposed = True
         mock_element = self._make_com_element()

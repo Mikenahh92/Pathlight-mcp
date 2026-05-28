@@ -236,9 +236,7 @@ class TestAccessibilityDomainQueryAxTree:
         session = _make_session([{"nodes": []}])
         domain = AccessibilityDomain(session)
 
-        domain.query_ax_tree(
-            node_id=5, accessible_name="Search", role="button"
-        )
+        domain.query_ax_tree(node_id=5, accessible_name="Search", role="button")
 
         call_args = session.send_command.call_args
         params = call_args[0][1]

@@ -139,7 +139,9 @@ class TestWebEvaluateWired:
     """web_evaluate with a BackendRouter and active web connection."""
 
     def test_evaluates_expression(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate executes JS and returns the result."""
@@ -151,16 +153,14 @@ class TestWebEvaluateWired:
         mock_session.is_attached = True
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                mock_runtime = MockRuntime.return_value
-                mock_runtime.evaluate.return_value = 42
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime = mock_runtime_cls.return_value
+            mock_runtime.evaluate.return_value = 42
 
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="6 * 7"
-                )
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="6 * 7")
 
         result = json.loads(result_json)
         assert result["success"] is True
@@ -174,7 +174,9 @@ class TestWebEvaluateWired:
         )
 
     def test_returns_sensitive_risk_metadata(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate response includes SENSITIVE-tier risk metadata."""
@@ -184,21 +186,21 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = "hello"
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="'hello'"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = "hello"
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="'hello'")
 
         result = json.loads(result_json)
         assert result["risk"] == "sensitive"
         assert result["confirmation_required"] is True
 
     def test_custom_timeout(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate passes custom timeout to Runtime.evaluate."""
@@ -208,20 +210,20 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = None
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref,
-                    expression="document.title",
-                    timeout=10.0,
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = None
+            result_json = web_evaluate.fn(
+                window_ref=window_ref,
+                expression="document.title",
+                timeout=10.0,
+            )
 
         result = json.loads(result_json)
         assert result["success"] is True
-        MockRuntime.return_value.evaluate.assert_called_once_with(
+        mock_runtime_cls.return_value.evaluate.assert_called_once_with(
             "document.title",
             return_by_value=True,
             await_promise=False,
@@ -229,7 +231,9 @@ class TestWebEvaluateWired:
         )
 
     def test_timeout_zero_passes_none(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """When timeout is 0, None is passed to Runtime.evaluate."""
@@ -239,20 +243,20 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = None
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref,
-                    expression="1+1",
-                    timeout=0,
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = None
+            result_json = web_evaluate.fn(
+                window_ref=window_ref,
+                expression="1+1",
+                timeout=0,
+            )
 
         result = json.loads(result_json)
         assert result["success"] is True
-        MockRuntime.return_value.evaluate.assert_called_once_with(
+        mock_runtime_cls.return_value.evaluate.assert_called_once_with(
             "1+1",
             return_by_value=True,
             await_promise=False,
@@ -260,7 +264,9 @@ class TestWebEvaluateWired:
         )
 
     def test_await_promise(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate passes await_promise=True to Runtime.evaluate."""
@@ -270,20 +276,20 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = "resolved"
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref,
-                    expression="fetch('/api').then(r => r.json())",
-                    await_promise=True,
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = "resolved"
+            result_json = web_evaluate.fn(
+                window_ref=window_ref,
+                expression="fetch('/api').then(r => r.json())",
+                await_promise=True,
+            )
 
         result = json.loads(result_json)
         assert result["success"] is True
-        MockRuntime.return_value.evaluate.assert_called_once_with(
+        mock_runtime_cls.return_value.evaluate.assert_called_once_with(
             "fetch('/api').then(r => r.json())",
             return_by_value=True,
             await_promise=True,
@@ -291,7 +297,9 @@ class TestWebEvaluateWired:
         )
 
     def test_string_result_type(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """String results are classified as 'string' type."""
@@ -301,20 +309,20 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = "hello world"
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="'hello world'"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = "hello world"
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="'hello world'")
 
         result = json.loads(result_json)
         assert result["type"] == "string"
 
     def test_boolean_result_type(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """Boolean results are classified as 'boolean' type."""
@@ -324,20 +332,20 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = True
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="true"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = True
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="true")
 
         result = json.loads(result_json)
         assert result["type"] == "boolean"
 
     def test_null_result_type(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """None results are classified as 'undefined' type."""
@@ -347,20 +355,20 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = None
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="undefined"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = None
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="undefined")
 
         result = json.loads(result_json)
         assert result["type"] == "undefined"
 
     def test_object_result_type(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """Dict results are classified as 'object' type."""
@@ -370,20 +378,20 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = {"key": "value"}
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="({key: 'value'})"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = {"key": "value"}
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="({key: 'value'})")
 
         result = json.loads(result_json)
         assert result["type"] == "object"
 
     def test_array_result_type(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """List results are classified as 'array' type."""
@@ -393,14 +401,12 @@ class TestWebEvaluateWired:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = [1, 2, 3]
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="[1,2,3]"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = [1, 2, 3]
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="[1,2,3]")
 
         result = json.loads(result_json)
         assert result["type"] == "array"
@@ -413,7 +419,9 @@ class TestWebEvaluateSanitization:
     """Result sanitization via redact_web_content."""
 
     def test_sanitizes_string_result(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """String results containing sensitive patterns are redacted."""
@@ -423,18 +431,16 @@ class TestWebEvaluateSanitization:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.return_value = "password=test123"
             with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.return_value = "password=test123"
-                with patch(
-                    "pathlight_mcp.tools.web_evaluate.redact_web_content",
-                    side_effect=lambda t: "[REDACTED]" if "password" in t else t,
-                ):
-                    result_json = web_evaluate.fn(
-                        window_ref=window_ref, expression="document.cookie"
-                    )
+                "pathlight_mcp.tools.web_evaluate.redact_web_content",
+                side_effect=lambda t: "[REDACTED]" if "password" in t else t,
+            ):
+                result_json = web_evaluate.fn(window_ref=window_ref, expression="document.cookie")
 
         result = json.loads(result_json)
         assert result["success"] is True
@@ -467,7 +473,9 @@ class TestWebEvaluateSanitization:
         assert result[1] == "[REDACTED]"
 
     def test_sanitizes_error_message(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """Error messages from evaluation exceptions are sanitized."""
@@ -477,16 +485,14 @@ class TestWebEvaluateSanitization:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.side_effect = Exception(
-                    "Error: password=secret in context"
-                )
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="bad_code"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.side_effect = Exception(
+                "Error: password=secret in context"
+            )
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="bad_code")
 
         result = json.loads(result_json)
         assert result["error"] == "web_evaluate_error"
@@ -513,9 +519,7 @@ class TestWebEvaluateRateLimiting:
         mock_limiter.remaining = 0
 
         with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", mock_limiter):
-            result_json = web_evaluate.fn(
-                window_ref=window_ref, expression="1+1"
-            )
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="1+1")
 
         result = json.loads(result_json)
         assert result["error"] == "rate_limited"
@@ -533,11 +537,12 @@ class TestWebEvaluateRateLimiting:
         mock_limiter.is_allowed.return_value = False
         mock_limiter.remaining = 0
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", mock_limiter), patch(
-            "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-        ) as MockRuntime:
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", mock_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
             web_evaluate.fn(window_ref=window_ref, expression="1+1")
-            MockRuntime.return_value.evaluate.assert_not_called()
+            mock_runtime_cls.return_value.evaluate.assert_not_called()
 
 
 # -- Validation tests ---------------------------------------------------------
@@ -579,9 +584,7 @@ class TestWebEvaluateValidation:
     def test_validation_negative_timeout(self, mcp_router: FastMCP) -> None:
         """web_evaluate returns validation error for negative timeout."""
         web_evaluate = _get_web_evaluate_tool(mcp_router)
-        result_json = web_evaluate.fn(
-            window_ref="w1", expression="1+1", timeout=-1
-        )
+        result_json = web_evaluate.fn(window_ref="w1", expression="1+1", timeout=-1)
         result = json.loads(result_json)
         assert result["error"] == "validation_error"
         assert "timeout" in result["message"]
@@ -594,33 +597,35 @@ class TestWebEvaluateErrors:
     """Error handling for web_evaluate."""
 
     def test_no_web_connection_error(
-        self, mcp_router: FastMCP, unlimited_rate_limiter: MagicMock,
+        self,
+        mcp_router: FastMCP,
+        unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate returns error when no web backend is connected."""
         web_evaluate = _get_web_evaluate_tool(mcp_router)
         with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            result_json = web_evaluate.fn(
-                window_ref="w1", expression="1+1"
-            )
+            result_json = web_evaluate.fn(window_ref="w1", expression="1+1")
         result = json.loads(result_json)
         assert result["error"] == "web_evaluate_error"
         assert "web_connect" in result["message"]
 
     def test_no_router_error(
-        self, mcp_no_router: FastMCP, unlimited_rate_limiter: MagicMock,
+        self,
+        mcp_no_router: FastMCP,
+        unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate returns error when backend is not a BackendRouter."""
         web_evaluate = _get_web_evaluate_tool(mcp_no_router)
         with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            result_json = web_evaluate.fn(
-                window_ref="w1", expression="1+1"
-            )
+            result_json = web_evaluate.fn(window_ref="w1", expression="1+1")
         result = json.loads(result_json)
         assert result["error"] == "web_evaluate_error"
         assert "BackendRouter" in result["message"]
 
     def test_invalid_window_ref_error(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate returns error for unknown window reference."""
@@ -628,16 +633,17 @@ class TestWebEvaluateErrors:
         web_evaluate = _get_web_evaluate_tool(mcp_router)
 
         with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            result_json = web_evaluate.fn(
-                window_ref="w999", expression="1+1"
-            )
+            result_json = web_evaluate.fn(window_ref="w999", expression="1+1")
         result = json.loads(result_json)
         assert result["error"] == "web_evaluate_error"
         assert "not found" in result["message"].lower()
 
     def test_non_web_window_ref_error(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
-        native_backend: MockBackend, unlimited_rate_limiter: MagicMock,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
+        native_backend: MockBackend,
+        unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate returns error for native (non-web) window refs."""
         _setup_connected_router(mcp_router, ref_store)
@@ -649,15 +655,15 @@ class TestWebEvaluateErrors:
         native_ref = ref_store.store(native_handle, prefix="w")
 
         with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            result_json = web_evaluate.fn(
-                window_ref=native_ref, expression="1+1"
-            )
+            result_json = web_evaluate.fn(window_ref=native_ref, expression="1+1")
         result = json.loads(result_json)
         assert result["error"] == "web_evaluate_error"
         assert "not a web window" in result["message"]
 
     def test_session_creation_failure(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate returns error when session creation fails."""
@@ -667,15 +673,15 @@ class TestWebEvaluateErrors:
         mock_web._get_or_create_session.side_effect = Exception("Target not found")
 
         with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            result_json = web_evaluate.fn(
-                window_ref=window_ref, expression="1+1"
-            )
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="1+1")
         result = json.loads(result_json)
         assert result["error"] == "web_evaluate_error"
         assert "Target not found" in result["message"]
 
     def test_evaluation_failure(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         unlimited_rate_limiter: MagicMock,
     ) -> None:
         """web_evaluate returns error when JS evaluation fails."""
@@ -685,16 +691,14 @@ class TestWebEvaluateErrors:
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
-        with patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter):
-            with patch(
-                "pathlight_mcp.cdp.domains.runtime.RuntimeDomain"
-            ) as MockRuntime:
-                MockRuntime.return_value.evaluate.side_effect = Exception(
-                    "SyntaxError: Unexpected token"
-                )
-                result_json = web_evaluate.fn(
-                    window_ref=window_ref, expression="invalid js {"
-                )
+        with (
+            patch("pathlight_mcp.tools.web_evaluate._rate_limiter", unlimited_rate_limiter),
+            patch("pathlight_mcp.cdp.domains.runtime.RuntimeDomain") as mock_runtime_cls,
+        ):
+            mock_runtime_cls.return_value.evaluate.side_effect = Exception(
+                "SyntaxError: Unexpected token"
+            )
+            result_json = web_evaluate.fn(window_ref=window_ref, expression="invalid js {")
 
         result = json.loads(result_json)
         assert result["error"] == "web_evaluate_error"

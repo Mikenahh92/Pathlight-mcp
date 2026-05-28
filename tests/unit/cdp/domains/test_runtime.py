@@ -5,7 +5,7 @@ get_properties, enable/disable, and auto-enable before evaluate (GW-115).
 """
 
 from typing import Any
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -96,11 +96,13 @@ class TestRuntimeEvaluate:
 
     def test_does_not_re_enable_on_subsequent_calls(self) -> None:
         """evaluate() does not call Runtime.enable again after first call (GW-115)."""
-        session = _make_session([
-            {},  # Runtime.enable
-            {"result": {"type": "number", "value": 1}},  # evaluate 1
-            {"result": {"type": "number", "value": 2}},  # evaluate 2
-        ])
+        session = _make_session(
+            [
+                {},  # Runtime.enable
+                {"result": {"type": "number", "value": 1}},  # evaluate 1
+                {"result": {"type": "number", "value": 2}},  # evaluate 2
+            ]
+        )
         domain = RuntimeDomain(session)
 
         domain.evaluate("1")
@@ -114,10 +116,12 @@ class TestRuntimeEvaluate:
 
     def test_explicit_enable_prevents_auto_enable(self) -> None:
         """If enable() is called explicitly, evaluate() skips the auto-enable."""
-        session = _make_session([
-            {},  # explicit enable()
-            {"result": {"type": "number", "value": 42}},  # evaluate
-        ])
+        session = _make_session(
+            [
+                {},  # explicit enable()
+                {"result": {"type": "number", "value": 42}},  # evaluate
+            ]
+        )
         domain = RuntimeDomain(session)
 
         domain.enable()
@@ -236,17 +240,13 @@ class TestRuntimeEnableDisable:
         session = _make_session([{}])
         domain = RuntimeDomain(session)
         domain.enable()
-        session.send_command.assert_called_with(
-            "Runtime.enable", None, timeout=None
-        )
+        session.send_command.assert_called_with("Runtime.enable", None, timeout=None)
 
     def test_disable(self) -> None:
         session = _make_session([{}])
         domain = RuntimeDomain(session)
         domain.disable()
-        session.send_command.assert_called_with(
-            "Runtime.disable", None, timeout=None
-        )
+        session.send_command.assert_called_with("Runtime.disable", None, timeout=None)
 
     def test_enable_sets_enabled_flag(self) -> None:
         """enable() sets _enabled flag to True (GW-115)."""

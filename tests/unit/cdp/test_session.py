@@ -638,33 +638,28 @@ class TestIsStaleSessionError:
 
     def test_not_attached_message(self) -> None:
         from pathlight_mcp.cdp.protocol import CDPError
-        assert CDPSession._is_stale_session_error(
-            CDPError(-32000, "Not attached to target")
-        )
+
+        assert CDPSession._is_stale_session_error(CDPError(-32000, "Not attached to target"))
 
     def test_session_not_found_message(self) -> None:
         from pathlight_mcp.cdp.protocol import CDPError
-        assert CDPSession._is_stale_session_error(
-            CDPError(-32000, "Session not found")
-        )
+
+        assert CDPSession._is_stale_session_error(CDPError(-32000, "Session not found"))
 
     def test_session_is_closing_message(self) -> None:
         from pathlight_mcp.cdp.protocol import CDPError
-        assert CDPSession._is_stale_session_error(
-            CDPError(-32000, "Session is closing")
-        )
+
+        assert CDPSession._is_stale_session_error(CDPError(-32000, "Session is closing"))
 
     def test_target_closed_message(self) -> None:
         from pathlight_mcp.cdp.protocol import CDPError
-        assert CDPSession._is_stale_session_error(
-            CDPError(-32000, "Target closed")
-        )
+
+        assert CDPSession._is_stale_session_error(CDPError(-32000, "Target closed"))
 
     def test_cdp_error_code_32000(self) -> None:
         from pathlight_mcp.cdp.protocol import CDPError
-        assert CDPSession._is_stale_session_error(
-            CDPError(-32000, "Something went wrong")
-        )
+
+        assert CDPSession._is_stale_session_error(CDPError(-32000, "Something went wrong"))
 
     def test_pathlight_mcp_error_not_attached(self) -> None:
         assert CDPSession._is_stale_session_error(
@@ -673,14 +668,11 @@ class TestIsStaleSessionError:
 
     def test_non_stale_error_returns_false(self) -> None:
         from pathlight_mcp.cdp.protocol import CDPError
-        assert not CDPSession._is_stale_session_error(
-            CDPError(-32601, "Method not found")
-        )
+
+        assert not CDPSession._is_stale_session_error(CDPError(-32601, "Method not found"))
 
     def test_generic_exception_not_stale(self) -> None:
-        assert not CDPSession._is_stale_session_error(
-            ValueError("some random error")
-        )
+        assert not CDPSession._is_stale_session_error(ValueError("some random error"))
 
 
 # ---------------------------------------------------------------------------

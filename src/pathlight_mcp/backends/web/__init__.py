@@ -538,8 +538,7 @@ class WebBackend(DesktopBackend):
                 self._ax_cache = {n.node_id: n for n in ax_nodes}
             except Exception:
                 logger.warning(
-                    "find_elements: AX tree fetch failed for target %s, "
-                    "returning empty results",
+                    "find_elements: AX tree fetch failed for target %s, returning empty results",
                     target.id,
                     exc_info=True,
                 )

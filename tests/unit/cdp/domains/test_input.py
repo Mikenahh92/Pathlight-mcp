@@ -57,9 +57,7 @@ class TestInputDispatchMouseEvent:
         session = _make_session()
         domain = InputDomain(session)
 
-        domain.dispatch_mouse_event(
-            "mouseWheel", 0.0, 0.0, delta_x=0.0, delta_y=100.0
-        )
+        domain.dispatch_mouse_event("mouseWheel", 0.0, 0.0, delta_x=0.0, delta_y=100.0)
 
         params = session.send_command.call_args[0][1]
         assert params["type"] == "mouseWheel"

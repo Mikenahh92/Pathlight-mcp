@@ -558,9 +558,7 @@ class TestPerformActionSelect:
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.SELECT)
 
-        mock_element.GetCurrentPattern.assert_called_once_with(
-            _UIA_SELECTION_ITEM_PATTERN_ID
-        )
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_SELECTION_ITEM_PATTERN_ID)
         mock_pattern.Select.assert_called_once()
 
     def test_select_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
@@ -588,9 +586,7 @@ class TestPerformActionSelectItem:
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.SELECT_ITEM)
 
-        mock_element.GetCurrentPattern.assert_called_once_with(
-            _UIA_SELECTION_ITEM_PATTERN_ID
-        )
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_SELECTION_ITEM_PATTERN_ID)
         mock_pattern.Select.assert_called_once()
 
     def test_select_item_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
@@ -613,9 +609,7 @@ class TestPerformActionDeselectItem:
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.DESELECT_ITEM)
 
-        mock_element.GetCurrentPattern.assert_called_once_with(
-            _UIA_SELECTION_ITEM_PATTERN_ID
-        )
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_SELECTION_ITEM_PATTERN_ID)
         mock_pattern.RemoveFromSelection.assert_called_once()
 
     def test_deselect_item_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
@@ -638,9 +632,7 @@ class TestPerformActionAddToSelection:
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.ADD_TO_SELECTION)
 
-        mock_element.GetCurrentPattern.assert_called_once_with(
-            _UIA_SELECTION_ITEM_PATTERN_ID
-        )
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_SELECTION_ITEM_PATTERN_ID)
         mock_pattern.AddToSelection.assert_called_once()
 
     def test_add_to_selection_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
@@ -668,9 +660,7 @@ class TestPerformActionExpandCollapse:
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.EXPAND)
 
-        mock_element.GetCurrentPattern.assert_called_once_with(
-            _UIA_EXPAND_COLLAPSE_PATTERN_ID
-        )
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_EXPAND_COLLAPSE_PATTERN_ID)
         mock_pattern.Expand.assert_called_once()
 
     def test_collapse_calls_collapse(self, backend: WindowsBackend) -> None:
@@ -681,9 +671,7 @@ class TestPerformActionExpandCollapse:
 
         backend.perform_action(NativeHandle(mock_element), DesktopAction.COLLAPSE)
 
-        mock_element.GetCurrentPattern.assert_called_once_with(
-            _UIA_EXPAND_COLLAPSE_PATTERN_ID
-        )
+        mock_element.GetCurrentPattern.assert_called_once_with(_UIA_EXPAND_COLLAPSE_PATTERN_ID)
         mock_pattern.Collapse.assert_called_once()
 
     def test_expand_pattern_unavailable_raises(self, backend: WindowsBackend) -> None:
@@ -1585,7 +1573,10 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch(
+                "pathlight_mcp.backends.windows._get_sendinput_structs",
+                return_value={"INPUT": mock_input},
+            ),
         ):
             WindowsBackend._send_key_combo("ctrl+s")
 
@@ -1604,7 +1595,10 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch(
+                "pathlight_mcp.backends.windows._get_sendinput_structs",
+                return_value={"INPUT": mock_input},
+            ),
         ):
             WindowsBackend._send_key_combo("alt+tab")
 
@@ -1619,11 +1613,14 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch(
+                "pathlight_mcp.backends.windows._get_sendinput_structs",
+                return_value={"INPUT": mock_input},
+            ),
         ):
             WindowsBackend._send_key_combo("ctrl+shift+escape")
 
-        # Expected: press ctrl, press shift, press escape, release escape, release shift, release ctrl = 6
+        # Expected: press ctrl, shift, escape; release escape, shift, ctrl = 6
         assert mock_user32.SendInput.call_count == 6
 
     def test_empty_combo_returns_early(self) -> None:
@@ -1682,7 +1679,10 @@ class TestSendKeyCombo:
             patch("ctypes.windll.user32", mock_user32),
             patch("ctypes.sizeof", return_value=40),
             patch("ctypes.byref", side_effect=lambda x: x),
-            patch("pathlight_mcp.backends.windows._get_sendinput_structs", return_value={"INPUT": mock_input}),
+            patch(
+                "pathlight_mcp.backends.windows._get_sendinput_structs",
+                return_value={"INPUT": mock_input},
+            ),
         ):
             WindowsBackend._send_key_combo("ctrl+a")
 

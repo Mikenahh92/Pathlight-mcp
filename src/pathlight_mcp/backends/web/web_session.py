@@ -34,9 +34,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["WebSessionRegistry"]
 
 # Type alias for the cached domain tuple.
-_DomainTuple = tuple[
-    AccessibilityDomain, DOMDomain, InputDomain, PageDomain, TargetDomain
-]
+_DomainTuple = tuple[AccessibilityDomain, DOMDomain, InputDomain, PageDomain, TargetDomain]
 
 
 class WebSessionRegistry:
@@ -97,9 +95,7 @@ class WebSessionRegistry:
 
         target = self._browser.get_target(target_id)
         if target is None:
-            raise WindowNotFoundError(
-                f"No browser target found with id {target_id!r}"
-            )
+            raise WindowNotFoundError(f"No browser target found with id {target_id!r}")
 
         session = self._browser.attach(target)
         self._sessions[target_id] = session

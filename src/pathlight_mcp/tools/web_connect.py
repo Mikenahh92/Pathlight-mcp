@@ -188,28 +188,20 @@ def register(
         except Exception as connect_exc:
             # Connection failed — try auto-launch if enabled
             if auto_launch:
-                launched = _try_auto_launch(
-                    host, port, browser, connect_exc
-                )
+                launched = _try_auto_launch(host, port, browser, connect_exc)
                 if launched:
                     # Retry connection after auto-launch
                     try:
                         web_backend = WebBackend(host=host, port=port)
                         web_backend.connect()
                     except Exception as retry_exc:
-                        return _fallback_error(
-                            target_desc, retry_exc, auto_launch_enabled=True
-                        )
+                        return _fallback_error(target_desc, retry_exc, auto_launch_enabled=True)
                 else:
                     # Auto-launch itself failed — return fallback error
-                    return _fallback_error(
-                        target_desc, connect_exc, auto_launch_enabled=True
-                    )
+                    return _fallback_error(target_desc, connect_exc, auto_launch_enabled=True)
             else:
                 # Auto-launch disabled — return original error with fallback hint
-                return _fallback_error(
-                    target_desc, connect_exc, auto_launch_enabled=False
-                )
+                return _fallback_error(target_desc, connect_exc, auto_launch_enabled=False)
 
         # --- Register with the router ---
         router._web = web_backend

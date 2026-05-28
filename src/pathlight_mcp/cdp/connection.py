@@ -134,8 +134,7 @@ class CDPConnection:
         self._reconnect_backoff = reconnect_backoff
         self._state: ConnectionState = ConnectionState.DISCONNECTED
         self.events = (
-            event_buffer if event_buffer is not None
-            else EventBuffer(maxsize_per_method=1024)
+            event_buffer if event_buffer is not None else EventBuffer(maxsize_per_method=1024)
         )
 
         self._ws: Any = None  # websocket.WebSocket instance
@@ -245,17 +244,11 @@ class CDPConnection:
         if self._protocol is not None:
             self._protocol.cancel_pending()
 
-        if (
-            self._pinger_thread is not None
-            and self._pinger_thread.is_alive()
-        ):
+        if self._pinger_thread is not None and self._pinger_thread.is_alive():
             self._pinger_thread.join(timeout=5)
             self._pinger_thread = None
 
-        if (
-            self._receiver_thread is not None
-            and self._receiver_thread.is_alive()
-        ):
+        if self._receiver_thread is not None and self._receiver_thread.is_alive():
             self._receiver_thread.join(timeout=5)
             self._receiver_thread = None
 
@@ -294,7 +287,10 @@ class CDPConnection:
             BackendUnavailableError: If the connection is not open.
         """
         return self._send_command_with_reconnect(
-            method, params, session_id=session_id, timeout=timeout,
+            method,
+            params,
+            session_id=session_id,
+            timeout=timeout,
         )
 
     # -- Reconnect support (GW-127) -------------------------------------------
@@ -316,7 +312,10 @@ class CDPConnection:
 
         try:
             return self._protocol.send_command(
-                method, params, session_id=session_id, timeout=timeout,
+                method,
+                params,
+                session_id=session_id,
+                timeout=timeout,
             )
         except CDPError as exc:
             # Map CDP errors to Pathlight MCP errors
@@ -326,11 +325,16 @@ class CDPConnection:
             if self._should_retry_reconnect(_attempt, exc):
                 logger.info(
                     "Transport error on %s (attempt %d), triggering reconnect: %s",
-                    method, _attempt + 1, exc,
+                    method,
+                    _attempt + 1,
+                    exc,
                 )
                 self._auto_reconnect()
                 return self._send_command_with_reconnect(
-                    method, params, session_id=session_id, timeout=timeout,
+                    method,
+                    params,
+                    session_id=session_id,
+                    timeout=timeout,
                     _attempt=_attempt + 1,
                 )
             raise BackendUnavailableError(str(exc)) from exc
@@ -341,9 +345,7 @@ class CDPConnection:
             return False
         if self._max_reconnect_attempts <= 0:
             return False
-        if attempt >= self._max_reconnect_attempts:
-            return False
-        return True
+        return attempt < self._max_reconnect_attempts
 
     def _auto_reconnect(self) -> None:
         """Attempt to reconnect the WebSocket after a transport failure.
@@ -363,11 +365,7 @@ class CDPConnection:
 
             # Stop the pinger if running (unless we ARE the pinger — it
             # will exit naturally after this method returns)
-            if (
-                not is_pinger
-                and self._pinger_thread is not None
-                and self._pinger_thread.is_alive()
-            ):
+            if not is_pinger and self._pinger_thread is not None and self._pinger_thread.is_alive():
                 self._pinger_thread.join(timeout=3)
             self._pinger_thread = None
 
@@ -391,11 +389,13 @@ class CDPConnection:
             # Retry with backoff
             last_exc: Exception | None = None
             for attempt in range(self._max_reconnect_attempts):
-                delay = self._reconnect_backoff * (2 ** attempt)
+                delay = self._reconnect_backoff * (2**attempt)
                 if attempt > 0:
                     logger.info(
                         "Reconnect attempt %d/%d, waiting %.1fs",
-                        attempt + 1, self._max_reconnect_attempts, delay,
+                        attempt + 1,
+                        self._max_reconnect_attempts,
+                        delay,
                     )
                     time.sleep(delay)
 
@@ -431,13 +431,16 @@ class CDPConnection:
 
                     logger.info(
                         "CDP reconnected to %s after %d attempt(s)",
-                        self._url, attempt + 1,
+                        self._url,
+                        attempt + 1,
                     )
                     return
                 except Exception as exc:
                     last_exc = exc
                     logger.debug(
-                        "Reconnect attempt %d failed: %s", attempt + 1, exc,
+                        "Reconnect attempt %d failed: %s",
+                        attempt + 1,
+                        exc,
                     )
 
             # All attempts exhausted
@@ -552,13 +555,15 @@ class CDPConnection:
         """
         logger.warning(
             "Triggering auto-reconnect (dead peer): %s — url=%s",
-            reason, self._url,
+            reason,
+            self._url,
         )
         try:
             self._auto_reconnect()
         except Exception as exc:
             logger.error(
-                "Auto-reconnect failed after dead peer detection: %s", exc,
+                "Auto-reconnect failed after dead peer detection: %s",
+                exc,
             )
             # Cancel pending commands — they will get a BackendUnavailableError
             if self._protocol is not None:

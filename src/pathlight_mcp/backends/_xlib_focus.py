@@ -25,7 +25,6 @@ def _resolve_xlib_window(accessible: Any, display: Any) -> Any:
     Raises:
         RuntimeError: If the accessible cannot be mapped to an X window.
     """
-    from Xlib import X  # type: ignore[import-untyped]
 
     # --- Strategy 1: xwindow attribute ------------------------------------
     try:

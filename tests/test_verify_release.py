@@ -418,12 +418,8 @@ class TestCheckMetadata:
     def test_missing_python_classifier(self, config: vr.VerifyConfig) -> None:
         content = (config.project_root / "pyproject.toml").read_text(encoding="utf-8")
         # Remove the Python classifiers but keep the OS one
-        content = content.replace(
-            '"Programming Language :: Python :: 3",\n', ""
-        )
-        content = content.replace(
-            '"Programming Language :: Python :: 3.11",\n', ""
-        )
+        content = content.replace('"Programming Language :: Python :: 3",\n', "")
+        content = content.replace('"Programming Language :: Python :: 3.11",\n', "")
         (config.project_root / "pyproject.toml").write_text(content, encoding="utf-8")
         result = vr.check_metadata(config)
         assert result.passed is False
@@ -431,9 +427,7 @@ class TestCheckMetadata:
 
     def test_missing_os_classifier(self, config: vr.VerifyConfig) -> None:
         content = (config.project_root / "pyproject.toml").read_text(encoding="utf-8")
-        content = content.replace(
-            '"Operating System :: OS Independent",\n', ""
-        )
+        content = content.replace('"Operating System :: OS Independent",\n', "")
         (config.project_root / "pyproject.toml").write_text(content, encoding="utf-8")
         result = vr.check_metadata(config)
         assert result.passed is False

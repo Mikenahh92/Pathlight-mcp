@@ -188,7 +188,9 @@ class TestAutoLaunchEnabled:
             return mock_web_success
 
         with (
-            patch("pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect),
+            patch(
+                "pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect
+            ),
             patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=True),
         ):
             result = json.loads(tool.fn(auto_launch=True))
@@ -229,7 +231,9 @@ class TestAutoLaunchEnabled:
             return mock_web_success
 
         with (
-            patch("pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect),
+            patch(
+                "pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect
+            ),
             patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=True),
             patch("pathlight_mcp.tools.web_connect._get_resolver", return_value=mock_resolver),
         ):

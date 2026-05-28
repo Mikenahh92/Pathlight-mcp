@@ -605,7 +605,7 @@ class TestServerIntegration:
         assert button is not None, f"Button not found in tree: {snap['tree']}"
 
         # Click the button — should route to native backend
-        click_result, _ = await srv.mcp.call_tool(
+        _click_result, _ = await srv.mcp.call_tool(
             "desktop.click", arguments={"element_ref": button["ref"]}
         )
         assert len(native.action_log) > 0

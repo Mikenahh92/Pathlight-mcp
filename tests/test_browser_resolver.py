@@ -431,7 +431,9 @@ class TestWaitForReady:
     def test_ready_immediately(self, resolver: BrowserResolver) -> None:
         """Returns True when the endpoint responds immediately."""
         mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/abc"}'
+        mock_resp.read.return_value = (
+            b'{"webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/abc"}'
+        )
 
         with patch("urllib.request.urlopen", return_value=mock_resp):
             result = resolver.wait_for_ready()
@@ -440,7 +442,9 @@ class TestWaitForReady:
     def test_ready_after_polling(self, resolver: BrowserResolver) -> None:
         """Returns True after polling succeeds on the second attempt."""
         mock_resp = MagicMock()
-        mock_resp.read.return_value = b'{"webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/abc"}'
+        mock_resp.read.return_value = (
+            b'{"webSocketDebuggerUrl": "ws://localhost:9222/devtools/browser/abc"}'
+        )
         call_count = 0
 
         def urlopen_side_effect(*args: object, **kwargs: object) -> object:
@@ -489,18 +493,22 @@ class TestModuleConvenience:
         """resolve_browser returns a BrowserResolver instance."""
         # Reset module state
         import pathlight_mcp.cdp.browser_resolver as mod
+
         mod._module_resolver = None
 
         from pathlight_mcp.cdp.browser_resolver import resolve_browser
+
         r = resolve_browser()
         assert isinstance(r, BrowserResolver)
 
     def test_returns_same_instance(self) -> None:
         """resolve_browser returns the same instance on repeated calls."""
         import pathlight_mcp.cdp.browser_resolver as mod
+
         mod._module_resolver = None
 
         from pathlight_mcp.cdp.browser_resolver import resolve_browser
+
         r1 = resolve_browser()
         r2 = resolve_browser()
         assert r1 is r2

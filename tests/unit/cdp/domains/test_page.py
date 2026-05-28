@@ -34,17 +34,13 @@ class TestPageEnableDisable:
         session = _make_session()
         domain = PageDomain(session)
         domain.enable()
-        session.send_command.assert_called_with(
-            "Page.enable", None, timeout=None
-        )
+        session.send_command.assert_called_with("Page.enable", None, timeout=None)
 
     def test_disable(self) -> None:
         session = _make_session()
         domain = PageDomain(session)
         domain.disable()
-        session.send_command.assert_called_with(
-            "Page.disable", None, timeout=None
-        )
+        session.send_command.assert_called_with("Page.disable", None, timeout=None)
 
 
 # ---------------------------------------------------------------------------
@@ -218,17 +214,13 @@ class TestPageOtherMethods:
         session = _make_session()
         domain = PageDomain(session)
         domain.bring_to_front()
-        session.send_command.assert_called_with(
-            "Page.bringToFront", None, timeout=None
-        )
+        session.send_command.assert_called_with("Page.bringToFront", None, timeout=None)
 
     def test_close(self) -> None:
         session = _make_session()
         domain = PageDomain(session)
         domain.close()
-        session.send_command.assert_called_with(
-            "Page.close", None, timeout=None
-        )
+        session.send_command.assert_called_with("Page.close", None, timeout=None)
 
     def test_set_lifecycle_events_enabled(self) -> None:
         session = _make_session()

@@ -204,7 +204,11 @@ EXPECTED_TOOLS = [
         "description_pattern": "Select an option in a web dropdown",
         "required_params": ["window_ref"],
         "optional_params": [
-            "element_ref", "selector", "value", "label", "index",
+            "element_ref",
+            "selector",
+            "value",
+            "label",
+            "index",
         ],
     },
     {
@@ -242,8 +246,13 @@ EXPECTED_TOOLS = [
         "description_pattern": "screenshot",
         "required_params": ["window_ref"],
         "optional_params": [
-            "mode", "format", "quality", "selector", "element_ref",
-            "timeout_ms", "max_size_kb",
+            "mode",
+            "format",
+            "quality",
+            "selector",
+            "element_ref",
+            "timeout_ms",
+            "max_size_kb",
         ],
     },
 ]

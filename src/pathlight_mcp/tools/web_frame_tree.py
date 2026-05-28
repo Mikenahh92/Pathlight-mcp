@@ -97,9 +97,7 @@ def register(
             )
 
         # --- Resolve target ID ---
-        resolved_tid = _resolve_target_id(
-            web, window_ref, target_id, ref_store
-        )
+        resolved_tid = _resolve_target_id(web, window_ref, target_id, ref_store)
         if isinstance(resolved_tid, dict):
             # It's an error response
             return json.dumps(resolved_tid)

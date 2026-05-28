@@ -24,13 +24,11 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 
 from pathlight_mcp.backends import MockBackend
-from pathlight_mcp.backends.router import BackendRouter, TaggedHandle
+from pathlight_mcp.backends.router import BackendRouter
 from pathlight_mcp.backends.web import WebBackend
 from pathlight_mcp.cdp._types import CDPTarget
-from pathlight_mcp.errors import BackendUnavailableError
 from pathlight_mcp.refs import ElementRefStore
 from pathlight_mcp.tools import register_all
-
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -131,15 +129,13 @@ class TestWebListTabsStub:
 class TestWebListTabsWired:
     """web_list_tabs with a BackendRouter and active web connection."""
 
-    def test_lists_tabs(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_lists_tabs(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_list_tabs returns tab metadata."""
         pages = [
             CDPTarget(id="t1", type="page", title="Tab 1", url="https://one.com"),
             CDPTarget(id="t2", type="page", title="Tab 2", url="https://two.com"),
         ]
-        mock_web, _ = _setup_connected_router(mcp_router, ref_store, pages=pages)
+        _mock_web, _ = _setup_connected_router(mcp_router, ref_store, pages=pages)
 
         tools = mcp_router._tool_manager.list_tools()
         web_list_tabs = next(t for t in tools if t.name == "desktop.web_list_tabs")
@@ -160,9 +156,7 @@ class TestWebListTabsWired:
         assert result["error"] == "web_list_tabs_error"
         assert "web_connect" in result["message"]
 
-    def test_discovery_failure(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_discovery_failure(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_list_tabs returns error when target discovery fails."""
         mock_web, _ = _setup_connected_router(mcp_router, ref_store)
         mock_web._browser.list_targets.side_effect = Exception("Network error")
@@ -196,9 +190,7 @@ class TestWebTabActionStub:
 class TestWebTabActionWired:
     """web_tab_action with a BackendRouter and active web connection."""
 
-    def _setup_with_connection(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> MagicMock:
+    def _setup_with_connection(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> MagicMock:
         """Set up a connected router and return the mock_web."""
         mock_web, _ = _setup_connected_router(mcp_router, ref_store)
         return mock_web
@@ -207,9 +199,7 @@ class TestWebTabActionWired:
         tools = mcp_router._tool_manager.list_tools()
         return next(t for t in tools if t.name == "desktop.web_tab_action")
 
-    def test_invalid_action(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_invalid_action(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action returns validation error for invalid action."""
         self._setup_with_connection(mcp_router, ref_store)
         tool = self._get_tool(mcp_router)
@@ -226,9 +216,7 @@ class TestWebTabActionWired:
         result = json.loads(tool.fn(action="activate"))
         assert result["error"] == "validation_error"
 
-    def test_activate_tab(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_activate_tab(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action activate brings a tab to foreground."""
         mock_web = self._setup_with_connection(mcp_router, ref_store)
         mock_connection = MagicMock()
@@ -245,9 +233,7 @@ class TestWebTabActionWired:
             "Target.activateTarget", {"targetId": "target-1"}
         )
 
-    def test_close_tab(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_close_tab(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action close closes a tab."""
         mock_web = self._setup_with_connection(mcp_router, ref_store)
         mock_connection = MagicMock()
@@ -263,9 +249,7 @@ class TestWebTabActionWired:
             "Target.closeTarget", {"targetId": "target-1"}
         )
 
-    def test_new_tab(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_new_tab(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action new opens a new tab."""
         mock_web = self._setup_with_connection(mcp_router, ref_store)
         mock_connection = MagicMock()
@@ -280,9 +264,7 @@ class TestWebTabActionWired:
         assert result["target_id"] == "new-tab-1"
         assert result["url"] == "https://example.com"
 
-    def test_new_tab_default_url(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_new_tab_default_url(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action new uses about:blank when url not provided."""
         mock_web = self._setup_with_connection(mcp_router, ref_store)
         mock_connection = MagicMock()
@@ -295,28 +277,22 @@ class TestWebTabActionWired:
         assert result["success"] is True
         assert result["url"] == "about:blank"
 
-    def test_navigate_tab(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_navigate_tab(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action navigate navigates a tab to a URL."""
         mock_web = self._setup_with_connection(mcp_router, ref_store)
         mock_session = MagicMock()
         mock_web._get_or_create_session.return_value = mock_session
 
         tool = self._get_tool(mcp_router)
-        result = json.loads(
-            tool.fn(action="navigate", target_id="target-1", url="https://new.com")
-        )
+        result = json.loads(tool.fn(action="navigate", target_id="target-1", url="https://new.com"))
 
         assert result["success"] is True
         assert result["action"] == "navigate"
         assert result["url"] == "https://new.com"
 
-    def test_navigate_missing_url(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_navigate_missing_url(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action navigate requires url."""
-        mock_web = self._setup_with_connection(mcp_router, ref_store)
+        self._setup_with_connection(mcp_router, ref_store)
         tool = self._get_tool(mcp_router)
         result = json.loads(tool.fn(action="navigate", target_id="target-1"))
         assert result["error"] == "validation_error"
@@ -325,7 +301,7 @@ class TestWebTabActionWired:
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ) -> None:
         """web_tab_action navigate requires target_id."""
-        mock_web = self._setup_with_connection(mcp_router, ref_store)
+        self._setup_with_connection(mcp_router, ref_store)
         tool = self._get_tool(mcp_router)
         result = json.loads(tool.fn(action="navigate", url="https://example.com"))
         assert result["error"] == "validation_error"
@@ -336,9 +312,7 @@ class TestWebTabActionWired:
         result = json.loads(tool.fn(action="activate", target_id="t1"))
         assert result["error"] == "web_tab_action_error"
 
-    def test_no_browser_connection(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_no_browser_connection(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_tab_action returns error when browser connection is None."""
         mock_web = self._setup_with_connection(mcp_router, ref_store)
         mock_web._browser.connection = None
@@ -413,9 +387,7 @@ class TestWebFrameTreeWired:
         assert tree["children"][0]["id"] == "iframe-1"
         assert tree["children"][0]["is_main"] is False
 
-    def test_frame_tree_by_target_id(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_frame_tree_by_target_id(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_frame_tree returns nested tree by target_id."""
         mock_web, _ = self._setup_with_connection(mcp_router, ref_store)
 
@@ -450,9 +422,7 @@ class TestWebFrameTreeWired:
         result = json.loads(tool.fn(target_id="t1"))
         assert result["error"] == "web_frame_tree_error"
 
-    def test_session_failure(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_session_failure(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_frame_tree returns error when session creation fails."""
         mock_web, _ = self._setup_with_connection(mcp_router, ref_store)
         mock_web._get_or_create_session.side_effect = Exception("Session failed")
@@ -462,9 +432,7 @@ class TestWebFrameTreeWired:
         assert result["error"] == "web_frame_tree_error"
         assert "Session failed" in result["message"]
 
-    def test_nested_iframes(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    def test_nested_iframes(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_frame_tree correctly handles nested iframes."""
         mock_web, _ = self._setup_with_connection(mcp_router, ref_store)
 

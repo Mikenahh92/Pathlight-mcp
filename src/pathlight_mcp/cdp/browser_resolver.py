@@ -52,45 +52,25 @@ _LAUNCH_POLL_INTERVAL = 0.25
 # Windows install paths (ordered by discovery priority).
 _WINDOWS_PATHS: dict[str, list[str]] = {
     "edge": [
-        os.path.expandvars(
-            r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
-        ),
-        os.path.expandvars(
-            r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
-        ),
-        os.path.expandvars(
-            r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"
-        ),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"),
     ],
     "chrome": [
-        os.path.expandvars(
-            r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"
-        ),
-        os.path.expandvars(
-            r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
-        ),
-        os.path.expandvars(
-            r"%LocalAppData%\Google\Chrome\Application\chrome.exe"
-        ),
+        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
     ],
     "brave": [
-        os.path.expandvars(
-            r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"
-        ),
+        os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
         os.path.expandvars(
             r"%ProgramFiles(x86)%\BraveSoftware\Brave-Browser\Application\brave.exe"
         ),
-        os.path.expandvars(
-            r"%LocalAppData%\BraveSoftware\Brave-Browser\Application\brave.exe"
-        ),
+        os.path.expandvars(r"%LocalAppData%\BraveSoftware\Brave-Browser\Application\brave.exe"),
     ],
     "chromium": [
-        os.path.expandvars(
-            r"%LocalAppData%\Chromium\Application\chrome.exe"
-        ),
-        os.path.expandvars(
-            r"%ProgramFiles%\Chromium\Application\chrome.exe"
-        ),
+        os.path.expandvars(r"%LocalAppData%\Chromium\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Chromium\Application\chrome.exe"),
     ],
 }
 
@@ -203,9 +183,7 @@ class BrowserResolver:
         exe_path = self.resolve(browser)
         if exe_path is None:
             name = browser or "any browser"
-            raise FileNotFoundError(
-                f"Could not find a suitable browser executable for '{name}'"
-            )
+            raise FileNotFoundError(f"Could not find a suitable browser executable for '{name}'")
 
         cdp_port = port or self._port
         cmd = [
@@ -387,8 +365,7 @@ class BrowserResolver:
         """
         if name not in BROWSER_NAMES:
             raise ValueError(
-                f"Unknown browser '{name}'. "
-                f"Available options: {', '.join(BROWSER_NAMES)}"
+                f"Unknown browser '{name}'. Available options: {', '.join(BROWSER_NAMES)}"
             )
 
 

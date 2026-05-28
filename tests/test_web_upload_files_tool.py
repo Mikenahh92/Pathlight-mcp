@@ -30,7 +30,6 @@ from pathlight_mcp.cdp._types import CDPTarget
 from pathlight_mcp.refs import ElementRefStore
 from pathlight_mcp.tools import register_all
 
-
 # -- Fixtures -----------------------------------------------------------------
 
 
@@ -158,7 +157,9 @@ class TestWebUploadFilesValidation:
         """web_upload_files rejects both element_ref and selector."""
         tool = _get_tool(mcp_router)
         result_json = tool.fn(
-            window_ref="w1", element_ref="e1", selector="input",
+            window_ref="w1",
+            element_ref="e1",
+            selector="input",
             file_paths=["/tmp/a.txt"],
         )
         result = json.loads(result_json)
@@ -176,7 +177,9 @@ class TestWebUploadFilesErrors:
         """web_upload_files returns error when no web backend is connected."""
         tool = _get_tool(mcp_router)
         result_json = tool.fn(
-            window_ref="w1", selector="input", file_paths=["/tmp/a.txt"],
+            window_ref="w1",
+            selector="input",
+            file_paths=["/tmp/a.txt"],
         )
         result = json.loads(result_json)
         assert result["error"] == "web_upload_files_error"
@@ -186,27 +189,35 @@ class TestWebUploadFilesErrors:
         """web_upload_files returns error when backend is not a BackendRouter."""
         tool = _get_tool(mcp_no_router)
         result_json = tool.fn(
-            window_ref="w1", selector="input", file_paths=["/tmp/a.txt"],
+            window_ref="w1",
+            selector="input",
+            file_paths=["/tmp/a.txt"],
         )
         result = json.loads(result_json)
         assert result["error"] == "web_upload_files_error"
         assert "BackendRouter" in result["message"]
 
     def test_invalid_window_ref_error(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
     ) -> None:
         """web_upload_files returns error for unknown window reference."""
         _setup_connected_router(mcp_router, ref_store)
         tool = _get_tool(mcp_router)
         result_json = tool.fn(
-            window_ref="w999", selector="input", file_paths=["/tmp/a.txt"],
+            window_ref="w999",
+            selector="input",
+            file_paths=["/tmp/a.txt"],
         )
         result = json.loads(result_json)
         assert result["error"] == "web_upload_files_error"
         assert "not found" in result["message"].lower()
 
     def test_session_creation_failure(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
     ) -> None:
         """web_upload_files returns error when session creation fails."""
         mock_web, window_ref = _setup_connected_router(mcp_router, ref_store)
@@ -214,7 +225,9 @@ class TestWebUploadFilesErrors:
 
         mock_web._get_or_create_session.side_effect = Exception("Target not found")
         result_json = tool.fn(
-            window_ref=window_ref, selector="input", file_paths=["/tmp/a.txt"],
+            window_ref=window_ref,
+            selector="input",
+            file_paths=["/tmp/a.txt"],
         )
         result = json.loads(result_json)
         assert result["error"] == "web_upload_files_error"
@@ -238,7 +251,8 @@ class TestWebUploadFilesSafety:
         from pathlight_mcp.safety import classify_system_action
 
         result = classify_system_action(
-            "web_upload_files", target="/tmp/file.txt",
+            "web_upload_files",
+            target="/tmp/file.txt",
         )
         assert result.risk_level == "SENSITIVE"
         assert result.confirmation_required is True

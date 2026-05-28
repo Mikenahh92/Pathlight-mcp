@@ -24,13 +24,12 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 
 from pathlight_mcp.backends import MockBackend
-from pathlight_mcp.backends.router import BackendRouter, TaggedHandle
+from pathlight_mcp.backends.router import BackendRouter
 from pathlight_mcp.backends.web import WebBackend
 from pathlight_mcp.cdp._types import CDPTarget
 from pathlight_mcp.errors import BackendUnavailableError
 from pathlight_mcp.refs import ElementRefStore
 from pathlight_mcp.tools import register_all
-
 
 # -- Fixtures -----------------------------------------------------------------
 
@@ -138,9 +137,7 @@ class TestWebConnectWired:
         assert page["url"] == "https://example.com"
         assert page["ref"].startswith("w")
 
-    def test_returns_sensitive_risk_metadata(
-        self, mcp_router: FastMCP
-    ) -> None:
+    def test_returns_sensitive_risk_metadata(self, mcp_router: FastMCP) -> None:
         """web_connect response includes SENSITIVE-tier risk metadata."""
         tools = mcp_router._tool_manager.list_tools()
         web_connect = next(t for t in tools if t.name == "desktop.web_connect")
@@ -205,9 +202,7 @@ class TestWebConnectWired:
         assert "Connection refused" in result["message"]
         assert len(result["hints"]) > 0
 
-    def test_no_router_error(
-        self, mcp_no_router: FastMCP
-    ) -> None:
+    def test_no_router_error(self, mcp_no_router: FastMCP) -> None:
         """web_connect returns error when backend is not a BackendRouter."""
         tools = mcp_no_router._tool_manager.list_tools()
         web_connect = next(t for t in tools if t.name == "desktop.web_connect")
@@ -225,17 +220,19 @@ class TestWebConnectWired:
         web_connect = next(t for t in tools if t.name == "desktop.web_connect")
 
         # Pre-configure the router with a web backend
-        mock_web = _make_mock_web_backend()
-        router = None
+        _mock_web = _make_mock_web_backend()
+        _router = None
         # Find the router from the backend
         for _ in range(1):
             # Access the closure to get the backend
             pass
 
         # Use the tool with the existing web backend already set
-        mock_web2 = _make_mock_web_backend([
-            CDPTarget(id="t1", type="page", title="Existing Page", url="https://existing.com"),
-        ])
+        mock_web2 = _make_mock_web_backend(
+            [
+                CDPTarget(id="t1", type="page", title="Existing Page", url="https://existing.com"),
+            ]
+        )
         with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web2):
             # First connect
             result1_json = web_connect.fn(host="localhost", port=9222)
@@ -312,9 +309,7 @@ class TestWebNavigateWired:
         assert result["success"] is True
         return mock_web, result["pages"][0]["ref"]
 
-    async def test_navigates_to_url(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore
-    ) -> None:
+    async def test_navigates_to_url(self, mcp_router: FastMCP, ref_store: ElementRefStore) -> None:
         """web_navigate navigates a page to a URL and returns success."""
         mock_web, window_ref = self._setup_connected_router(mcp_router, ref_store)
 
@@ -399,9 +394,7 @@ class TestWebNavigateWired:
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = await web_navigate.fn(
-            window_ref="w1", url="https://example.com", timeout=-1
-        )
+        result_json = await web_navigate.fn(window_ref="w1", url="https://example.com", timeout=-1)
         result = json.loads(result_json)
         assert result["error"] == "validation_error"
 
@@ -411,9 +404,7 @@ class TestWebNavigateWired:
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
         # Router has no web backend
-        result_json = await web_navigate.fn(
-            window_ref="w1", url="https://example.com"
-        )
+        result_json = await web_navigate.fn(window_ref="w1", url="https://example.com")
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
         assert "web_connect" in result["message"]
@@ -423,25 +414,25 @@ class TestWebNavigateWired:
     ) -> None:
         """web_navigate returns error for unknown window reference."""
         # Set up a connected web backend
-        mock_web, _ = self._setup_connected_router(mcp_router, ref_store)
+        _mock_web, _ = self._setup_connected_router(mcp_router, ref_store)
 
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = await web_navigate.fn(
-            window_ref="w999", url="https://example.com"
-        )
+        result_json = await web_navigate.fn(window_ref="w999", url="https://example.com")
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
         assert "not found" in result["message"].lower()
 
     async def test_non_web_window_ref_error(
-        self, mcp_router: FastMCP, ref_store: ElementRefStore,
+        self,
+        mcp_router: FastMCP,
+        ref_store: ElementRefStore,
         native_backend: MockBackend,
     ) -> None:
         """web_navigate returns error for native (non-web) window refs."""
         # First connect a web backend so we pass the "no web" check
-        mock_web, _ = self._setup_connected_router(mcp_router, ref_store)
+        _mock_web, _ = self._setup_connected_router(mcp_router, ref_store)
 
         # Store a native window ref (not tagged as "web")
         from pathlight_mcp.backends.types import NativeHandle
@@ -452,9 +443,7 @@ class TestWebNavigateWired:
         tools = mcp_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = await web_navigate.fn(
-            window_ref=native_ref, url="https://example.com"
-        )
+        result_json = await web_navigate.fn(window_ref=native_ref, url="https://example.com")
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
         assert "not a web window" in result["message"]
@@ -464,9 +453,7 @@ class TestWebNavigateWired:
         tools = mcp_no_router._tool_manager.list_tools()
         web_navigate = next(t for t in tools if t.name == "desktop.web_navigate")
 
-        result_json = await web_navigate.fn(
-            window_ref="w1", url="https://example.com"
-        )
+        result_json = await web_navigate.fn(window_ref="w1", url="https://example.com")
         result = json.loads(result_json)
         assert result["error"] == "web_navigate_error"
 

@@ -69,6 +69,7 @@ class TestCDPProtocolSendCommand:
         # Simulate response arriving in a background thread
         def respond() -> None:
             import time
+
             time.sleep(0.05)
             proto._handle_response(CDPResponse(id=1, result={"value": True}))
 
@@ -84,6 +85,7 @@ class TestCDPProtocolSendCommand:
 
         def respond() -> None:
             import time
+
             time.sleep(0.05)
             proto._handle_response(
                 CDPResponse(id=1, error={"code": -32000, "message": "Not found"})
@@ -141,6 +143,7 @@ class TestCDPProtocolDispatch:
         t.start()
 
         import time
+
         time.sleep(0.05)
 
         proto.dispatch({"id": 1, "result": {"ok": True}})
@@ -181,6 +184,7 @@ class TestCDPProtocolCancelPending:
         t.start()
 
         import time
+
         time.sleep(0.05)
 
         proto.cancel_pending()

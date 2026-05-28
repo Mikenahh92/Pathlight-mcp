@@ -192,8 +192,7 @@ def register(
                 {
                     "error": "web_evaluate_error",
                     "message": (
-                        f"Could not resolve window reference '{window_ref}' "
-                        "to a CDP target"
+                        f"Could not resolve window reference '{window_ref}' to a CDP target"
                     ),
                     "hints": hints_for("web_evaluate_error"),
                 }

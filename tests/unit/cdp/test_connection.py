@@ -151,9 +151,12 @@ class TestCDPConnectionInit:
 
     def test_custom_keepalive_params(self) -> None:
         conn = CDPConnection(
-            host="localhost", port=9222,
-            ping_interval=15.0, pong_timeout=5.0,
-            max_reconnect_attempts=5, reconnect_backoff=2.0,
+            host="localhost",
+            port=9222,
+            ping_interval=15.0,
+            pong_timeout=5.0,
+            max_reconnect_attempts=5,
+            reconnect_backoff=2.0,
         )
         assert conn._ping_interval == 15.0
         assert conn._pong_timeout == 5.0
@@ -199,8 +202,9 @@ class TestCDPConnectionLifecycle:
         fake_ws = FakeWebSocket()
         ws_mod = _fake_ws_module(fake_ws)
         with patch("pathlight_mcp.cdp.connection._import_websocket", return_value=ws_mod):
-            with CDPConnection(url="ws://localhost:9222/test", ping_interval=0,
-                               max_reconnect_attempts=0) as conn:
+            with CDPConnection(
+                url="ws://localhost:9222/test", ping_interval=0, max_reconnect_attempts=0
+            ) as conn:
                 assert conn.state == ConnectionState.CONNECTED
             assert conn.state == ConnectionState.CLOSED
 
@@ -409,9 +413,7 @@ class TestImportGuard:
 
     def test_missing_websocket_raises_backend_unavailable(self) -> None:
         with patch("pathlight_mcp.cdp.connection._import_websocket") as mock_import:
-            mock_import.side_effect = BackendUnavailableError(
-                "websocket-client is required"
-            )
+            mock_import.side_effect = BackendUnavailableError("websocket-client is required")
             conn = CDPConnection(host="localhost", port=9222)
             with pytest.raises(BackendUnavailableError):
                 conn.connect()
@@ -573,9 +575,7 @@ class TestDeadPeerDetection:
                 while call_count < 2 and time.monotonic() < deadline:
                     time.sleep(0.05)
 
-                assert call_count >= 2, (
-                    f"Expected reconnect after receiver exit, got {call_count}"
-                )
+                assert call_count >= 2, f"Expected reconnect after receiver exit, got {call_count}"
             finally:
                 conn.close()
 
@@ -621,9 +621,7 @@ class TestDeadPeerDetection:
                 while call_count < 2 and time.monotonic() < deadline:
                     time.sleep(0.05)
 
-                assert call_count >= 2, (
-                    f"Expected reconnect after ping failure, got {call_count}"
-                )
+                assert call_count >= 2, f"Expected reconnect after ping failure, got {call_count}"
             finally:
                 conn.close()
 
@@ -721,7 +719,7 @@ class TestAutoReconnect:
                 # Kill the ws so send_command triggers reconnect, but reconnect fails
                 fake_ws.close()
 
-                with pytest.raises(BackendUnavailableError, match="not open|reconnect|Failed"):
+                with pytest.raises(BackendUnavailableError, match=r"not open|reconnect|Failed"):
                     conn.send_command("Page.enable", timeout=10.0)
             finally:
                 conn.close()

@@ -104,7 +104,9 @@ class CDPProtocol:
         """
         cmd_id = self._next_command_id()
         message = CDPMessage(
-            id=cmd_id, method=method, params=params or {},
+            id=cmd_id,
+            method=method,
+            params=params or {},
             session_id=session_id,
         )
         future: Future[dict[str, Any]] = Future()
@@ -121,8 +123,7 @@ class CDPProtocol:
             with self._pending_lock:
                 self._pending.pop(cmd_id, None)
             raise TimeoutError(
-                f"CDP command {method} (id={cmd_id}) timed out "
-                f"after {effective_timeout}s"
+                f"CDP command {method} (id={cmd_id}) timed out after {effective_timeout}s"
             ) from None
 
     def dispatch(self, data: dict[str, Any]) -> None:
@@ -179,9 +180,7 @@ class CDPProtocol:
             else:
                 future.set_result(response.result or {})
         else:
-            logger.debug(
-                "Received response for unknown command id=%d", response.id
-            )
+            logger.debug("Received response for unknown command id=%d", response.id)
 
     def _handle_event(self, event: CDPEvent) -> None:
         """Buffer a CDP event."""

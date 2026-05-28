@@ -23,7 +23,7 @@ import ctypes
 import logging
 import sys
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from pathlight_mcp.backends.base import DesktopBackend
 from pathlight_mcp.backends.normalize import (
@@ -125,6 +125,7 @@ def _get_sendinput_structs() -> dict[str, type]:
         "HARDWAREINPUT": HARDWAREINPUT,
     }
     return _sendinput_structs
+
 
 # -- UIA constants (architecture §5: module-level) ----------------------------
 
@@ -353,23 +354,17 @@ class WindowsBackend(DesktopBackend):
             # App name — CurrentClassName as a stable identifier
             app_name = ""
             with contextlib.suppress(Exception):
-                app_name = (
-                    element.GetCurrentPropertyValue(_UIA_CLASS_NAME_PROPERTY_ID) or ""
-                )
+                app_name = element.GetCurrentPropertyValue(_UIA_CLASS_NAME_PROPERTY_ID) or ""
 
             # Focused — CurrentHasKeyboardFocus
             focused = False
             with contextlib.suppress(Exception):
-                focused = bool(
-                    element.GetCurrentPropertyValue(_UIA_HAS_KEYBOARD_FOCUS_PROPERTY_ID)
-                )
+                focused = bool(element.GetCurrentPropertyValue(_UIA_HAS_KEYBOARD_FOCUS_PROPERTY_ID))
 
             # Bounds — CurrentBoundingRectangle (tagRECT: left, top, width, height)
             bounds: dict[str, int] | None = None
             with contextlib.suppress(Exception):
-                rect = element.GetCurrentPropertyValue(
-                    _UIA_BOUNDING_RECTANGLE_PROPERTY_ID
-                )
+                rect = element.GetCurrentPropertyValue(_UIA_BOUNDING_RECTANGLE_PROPERTY_ID)
                 if rect is not None:
                     # comtypes returns a tagRECT with left/top/right/bottom
                     # or sometimes a tuple depending on the COM variant
@@ -377,12 +372,8 @@ class WindowsBackend(DesktopBackend):
                         bounds = {
                             "x": int(rect.left),
                             "y": int(rect.top),
-                            "width": int(rect.right - rect.left)
-                            if rect.right is not None
-                            else 0,
-                            "height": int(rect.bottom - rect.top)
-                            if rect.bottom is not None
-                            else 0,
+                            "width": int(rect.right - rect.left) if rect.right is not None else 0,
+                            "height": int(rect.bottom - rect.top) if rect.bottom is not None else 0,
                         }
                     elif isinstance(rect, (tuple, list)) and len(rect) >= 4:
                         bounds = {
@@ -401,9 +392,7 @@ class WindowsBackend(DesktopBackend):
         except (WindowNotFoundError, BackendUnavailableError):
             raise
         except Exception as exc:
-            raise WindowNotFoundError(
-                f"Failed to read window info: {exc}"
-            ) from exc
+            raise WindowNotFoundError(f"Failed to read window info: {exc}") from exc
 
     # -- Private helpers (section 4.2-4.4) -----------------------------------
 
@@ -1015,9 +1004,7 @@ class WindowsBackend(DesktopBackend):
             cached = self._element_cache.get(element)
             if cached is not None:
                 return cached
-            raise ElementNotFoundError(
-                f"Element reference '{element}' not found in backend cache"
-            )
+            raise ElementNotFoundError(f"Element reference '{element}' not found in backend cache")
         # If the ref store resolved to a _ComHandle wrapper (e.g. from
         # find_elements via the find tool), extract the raw COM element.
         if isinstance(element, _ComHandle):
@@ -1186,9 +1173,7 @@ class WindowsBackend(DesktopBackend):
         try:
             self._click_at_coordinates(*center)
         except Exception as exc:
-            raise ActionNotSupportedError(
-                f"Coordinate-based click failed: {exc}"
-            ) from exc
+            raise ActionNotSupportedError(f"Coordinate-based click failed: {exc}") from exc
 
     def _action_type(self, element: Any, **kwargs: Any) -> None:
         """Type text into an element with progressive fallback.
@@ -1241,12 +1226,11 @@ class WindowsBackend(DesktopBackend):
             self._click_at_coordinates(*center)
             # Small delay to let the focus settle after the click
             import time
+
             time.sleep(0.05)
             self._send_text(str(text))
         except Exception as exc:
-            raise ActionNotSupportedError(
-                f"Coordinate-based type failed: {exc}"
-            ) from exc
+            raise ActionNotSupportedError(f"Coordinate-based type failed: {exc}") from exc
 
     def _action_press_key(self, element: Any, **kwargs: Any) -> None:
         """Press a key or key combo while an element has focus.
@@ -1577,19 +1561,19 @@ class WindowsBackend(DesktopBackend):
 
     # -- Virtual-key code maps ------------------------------------------------
 
-    _MODIFIER_VK: dict[str, int] = {
-        "ctrl": 0x11,       # VK_CONTROL
+    _MODIFIER_VK: ClassVar[dict[str, int]] = {
+        "ctrl": 0x11,  # VK_CONTROL
         "control": 0x11,
-        "alt": 0x12,        # VK_MENU
-        "shift": 0x10,      # VK_SHIFT
-        "super": 0x5B,      # VK_LWIN
+        "alt": 0x12,  # VK_MENU
+        "shift": 0x10,  # VK_SHIFT
+        "super": 0x5B,  # VK_LWIN
         "cmd": 0x5B,
         "command": 0x5B,
         "win": 0x5B,
         "meta": 0x5B,
     }
 
-    _KEY_VK: dict[str, int] = {
+    _KEY_VK: ClassVar[dict[str, int]] = {
         "enter": 0x0D,
         "return": 0x0D,
         "tab": 0x09,

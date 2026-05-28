@@ -50,9 +50,7 @@ class EventBuffer:
         """
         with self._lock:
             if event.method not in self._buffers:
-                self._buffers[event.method] = deque(
-                    maxlen=self.maxsize_per_method or None
-                )
+                self._buffers[event.method] = deque(maxlen=self.maxsize_per_method or None)
             self._buffers[event.method].append(event)
 
     def get_all(self) -> list[CDPEvent]:
@@ -119,9 +117,7 @@ class EventBuffer:
         with self._lock:
             if self.maxsize_per_method == 0:
                 return False
-            return any(
-                len(dq) >= self.maxsize_per_method for dq in self._buffers.values()
-            )
+            return any(len(dq) >= self.maxsize_per_method for dq in self._buffers.values())
 
     @property
     def methods(self) -> list[str]:

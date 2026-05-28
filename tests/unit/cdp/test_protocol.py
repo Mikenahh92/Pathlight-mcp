@@ -48,7 +48,8 @@ class TestCDPMessage:
 
     def test_to_dict_with_session_id(self) -> None:
         msg = CDPMessage(
-            id=4, method="Page.navigate",
+            id=4,
+            method="Page.navigate",
             params={"url": "https://example.com"},
             session_id="sess-abc",
         )

@@ -481,18 +481,17 @@ def check_metadata(config: VerifyConfig) -> CheckResult:
         bracket_end = classifiers_body.find("]")
         if bracket_end != -1:
             classifiers_body = classifiers_body[: bracket_end + 1]
-        has_python_classifier = re.search(
-            r"Programming Language :: Python :: \d", classifiers_body
-        )
-        has_os_classifier = re.search(
-            r"Operating System ::", classifiers_body
-        )
+        has_python_classifier = re.search(r"Programming Language :: Python :: \d", classifiers_body)
+        has_os_classifier = re.search(r"Operating System ::", classifiers_body)
         if not has_python_classifier:
-            issues.append("classifiers (no Python version classifier, e.g. "
-            "'Programming Language :: Python :: 3')")
+            issues.append(
+                "classifiers (no Python version classifier, e.g. "
+                "'Programming Language :: Python :: 3')"
+            )
         if not has_os_classifier:
-            issues.append("classifiers (no OS classifier, e.g. "
-            "'Operating System :: OS Independent')")
+            issues.append(
+                "classifiers (no OS classifier, e.g. 'Operating System :: OS Independent')"
+            )
 
     if issues:
         return CheckResult(

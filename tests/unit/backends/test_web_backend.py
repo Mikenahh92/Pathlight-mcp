@@ -389,9 +389,11 @@ class TestSnapshot:
             node_id=1,
             node_name="#document",
             children=(
-                DOMNode(node_id=2, node_name="HTML", children=(
-                    DOMNode(node_id=3, node_name="BODY", children=()),
-                )),
+                DOMNode(
+                    node_id=2,
+                    node_name="HTML",
+                    children=(DOMNode(node_id=3, node_name="BODY", children=()),),
+                ),
             ),
         )
         dom_mock = connected_backend._domains[target.id][1]
@@ -1601,9 +1603,7 @@ class TestDoubleClick:
             ),
         }
 
-        connected_backend.perform_action(
-            NativeHandle("btn1"), DesktopAction.CLICK, click_count=2
-        )
+        connected_backend.perform_action(NativeHandle("btn1"), DesktopAction.CLICK, click_count=2)
         calls = inp_mock.dispatch_mouse_event.call_args_list
         assert len(calls) == 2
         assert calls[0][1]["click_count"] == 2
@@ -1904,7 +1904,9 @@ class TestMultiFrameSnapshot:
 
         iframe_acc_mock = MagicMock()
         iframe_acc_mock.get_full_ax_tree.return_value = [
-            _make_ax_node(node_id="iframe-root", role="webArea", name="Iframe Content", child_ids=("btn-ifr",)),
+            _make_ax_node(
+                node_id="iframe-root", role="webArea", name="Iframe Content", child_ids=("btn-ifr",)
+            ),
             _make_ax_node(node_id="btn-ifr", role="button", name="Iframe Button"),
         ]
 
@@ -1994,7 +1996,9 @@ class TestMultiFrameSnapshot:
         assert result["role"] == "window"
         assert result["name"] == "Main Page"
 
-    def test_snapshot_get_frame_tree_failure_graceful(self, connected_backend, mock_browser) -> None:
+    def test_snapshot_get_frame_tree_failure_graceful(
+        self, connected_backend, mock_browser
+    ) -> None:
         """Snapshot continues when Page.getFrameTree fails."""
         ax_nodes = [
             _make_ax_node(node_id="root", role="webArea", name="Page"),
@@ -2087,7 +2091,11 @@ class TestVirtualizedScrollRetry:
                         properties={"setsize": 100},
                     )
                     connected_backend._ax_cache["vlist"] = updated_container
-                    return [connected_backend._ax_cache[cid] for cid in updated_container.child_ids if cid in connected_backend._ax_cache]
+                    return [
+                        connected_backend._ax_cache[cid]
+                        for cid in updated_container.child_ids
+                        if cid in connected_backend._ax_cache
+                    ]
                 return children
             return original_find(parent_id)
 
@@ -2194,7 +2202,11 @@ class TestSnapshotTimeout:
         page_mock = MagicMock()
         tgt_mock = MagicMock()
         connected_backend._domains[target.id] = (
-            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+            acc_mock,
+            dom_mock,
+            inp_mock,
+            page_mock,
+            tgt_mock,
         )
         return target
 
@@ -2258,7 +2270,11 @@ class TestDOMFallbackSnapshot:
         page_mock = MagicMock()
         tgt_mock = MagicMock()
         connected_backend._domains[target.id] = (
-            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+            acc_mock,
+            dom_mock,
+            inp_mock,
+            page_mock,
+            tgt_mock,
         )
         return target
 
@@ -2284,9 +2300,7 @@ class TestDOMFallbackSnapshot:
                         DOMNode(
                             node_id=3,
                             node_name="BODY",
-                            children=(
-                                DOMNode(node_id=4, node_name="BUTTON", node_value="Click"),
-                            ),
+                            children=(DOMNode(node_id=4, node_name="BUTTON", node_value="Click"),),
                         ),
                     ),
                 ),
@@ -2344,8 +2358,7 @@ class TestDOMFallbackSnapshot:
 
         # Build a DOM tree with many children
         children = tuple(
-            DOMNode(node_id=i, node_name="DIV", node_value=f"Item {i}")
-            for i in range(10, 20)
+            DOMNode(node_id=i, node_name="DIV", node_value=f"Item {i}") for i in range(10, 20)
         )
         doc_node = DOMNode(
             node_id=1,
@@ -2380,13 +2393,25 @@ class TestDOMFallbackSnapshot:
             node_id=1,
             node_name="#document",
             children=(
-                DOMNode(node_id=2, node_name="DIV", children=(
-                    DOMNode(node_id=3, node_name="DIV", children=(
-                        DOMNode(node_id=4, node_name="DIV", children=(
-                            DOMNode(node_id=5, node_name="SPAN", node_value="Deep"),
-                        )),
-                    )),
-                )),
+                DOMNode(
+                    node_id=2,
+                    node_name="DIV",
+                    children=(
+                        DOMNode(
+                            node_id=3,
+                            node_name="DIV",
+                            children=(
+                                DOMNode(
+                                    node_id=4,
+                                    node_name="DIV",
+                                    children=(
+                                        DOMNode(node_id=5, node_name="SPAN", node_value="Deep"),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
             ),
         )
         dom_mock = connected_backend._domains[target.id][1]
@@ -2413,16 +2438,22 @@ class TestDOMFallbackSnapshot:
             node_id=1,
             node_name="#document",
             children=(
-                DOMNode(node_id=2, node_name="BODY", children=(
-                    DOMNode(node_id=10, node_name="A"),
-                    DOMNode(node_id=11, node_name="BUTTON"),
-                    DOMNode(node_id=12, node_name="INPUT"),
-                    DOMNode(node_id=13, node_name="UL", children=(
-                        DOMNode(node_id=14, node_name="LI"),
-                    )),
-                    DOMNode(node_id=15, node_name="IMG"),
-                    DOMNode(node_id=16, node_name="UNKNOWN_TAG"),
-                )),
+                DOMNode(
+                    node_id=2,
+                    node_name="BODY",
+                    children=(
+                        DOMNode(node_id=10, node_name="A"),
+                        DOMNode(node_id=11, node_name="BUTTON"),
+                        DOMNode(node_id=12, node_name="INPUT"),
+                        DOMNode(
+                            node_id=13,
+                            node_name="UL",
+                            children=(DOMNode(node_id=14, node_name="LI"),),
+                        ),
+                        DOMNode(node_id=15, node_name="IMG"),
+                        DOMNode(node_id=16, node_name="UNKNOWN_TAG"),
+                    ),
+                ),
             ),
         )
         dom_mock = connected_backend._domains[target.id][1]
@@ -2431,13 +2462,13 @@ class TestDOMFallbackSnapshot:
         result = connected_backend.snapshot(NativeHandle(target))
         body = result["children"][0]
         children = body["children"]
-        assert children[0]["role"] == "link"       # A → link
-        assert children[1]["role"] == "button"     # BUTTON → button
+        assert children[0]["role"] == "link"  # A → link
+        assert children[1]["role"] == "button"  # BUTTON → button
         assert children[2]["role"] == "text_input"  # INPUT → text_input
         ul = children[3]
-        assert ul["role"] == "list"                # UL → list
+        assert ul["role"] == "list"  # UL → list
         assert ul["children"][0]["role"] == "listitem"  # LI → listitem
-        assert children[4]["role"] == "image"      # IMG → image
+        assert children[4]["role"] == "image"  # IMG → image
         assert children[5]["role"] == "unknown_tag"  # Unknown → tag name (generic fallback)
 
 
@@ -2473,12 +2504,18 @@ class TestSessionDetachmentAfterTimeout:
         page_mock = MagicMock()
         tgt_mock = MagicMock()
         connected_backend._domains[target.id] = (
-            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+            acc_mock,
+            dom_mock,
+            inp_mock,
+            page_mock,
+            tgt_mock,
         )
         return target
 
     def test_snapshot_marks_session_detached_on_timeout(
-        self, connected_backend, mock_browser,
+        self,
+        connected_backend,
+        mock_browser,
     ) -> None:
         """snapshot() calls session.mark_detached() when AX tree times out."""
         from pathlight_mcp.cdp._types import DOMNode
@@ -2492,7 +2529,9 @@ class TestSessionDetachmentAfterTimeout:
         # Configure DOM fallback
         dom_mock = connected_backend._domains[target.id][1]
         dom_mock.get_document.return_value = DOMNode(
-            node_id=1, node_name="#document", children=(),
+            node_id=1,
+            node_name="#document",
+            children=(),
         )
 
         connected_backend.snapshot(NativeHandle(target))
@@ -2502,7 +2541,9 @@ class TestSessionDetachmentAfterTimeout:
         session.mark_detached.assert_called_once()
 
     def test_snapshot_marks_session_detached_on_error(
-        self, connected_backend, mock_browser,
+        self,
+        connected_backend,
+        mock_browser,
     ) -> None:
         """snapshot() calls session.mark_detached() when AX tree raises generic error."""
         from pathlight_mcp.cdp._types import DOMNode
@@ -2514,7 +2555,9 @@ class TestSessionDetachmentAfterTimeout:
 
         dom_mock = connected_backend._domains[target.id][1]
         dom_mock.get_document.return_value = DOMNode(
-            node_id=1, node_name="#document", children=(),
+            node_id=1,
+            node_name="#document",
+            children=(),
         )
 
         connected_backend.snapshot(NativeHandle(target))
@@ -2546,12 +2589,18 @@ class TestFindElementsTimeout:
         page_mock = MagicMock()
         tgt_mock = MagicMock()
         connected_backend._domains[target.id] = (
-            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+            acc_mock,
+            dom_mock,
+            inp_mock,
+            page_mock,
+            tgt_mock,
         )
         return target
 
     def test_find_elements_returns_empty_on_timeout(
-        self, connected_backend, mock_browser,
+        self,
+        connected_backend,
+        mock_browser,
     ) -> None:
         """find_elements() returns [] and marks session detached on timeout."""
         target = self._setup(connected_backend, mock_browser)
@@ -2561,7 +2610,8 @@ class TestFindElementsTimeout:
         acc_mock.get_full_ax_tree.side_effect = TimeoutError("AX tree timed out")
 
         result = connected_backend.find_elements(
-            NativeHandle(target), role="button",
+            NativeHandle(target),
+            role="button",
         )
         assert result == []
 
@@ -2570,7 +2620,9 @@ class TestFindElementsTimeout:
         session.mark_detached.assert_called_once()
 
     def test_find_elements_returns_empty_on_error(
-        self, connected_backend, mock_browser,
+        self,
+        connected_backend,
+        mock_browser,
     ) -> None:
         """find_elements() returns [] on generic AX tree error."""
         target = self._setup(connected_backend, mock_browser)
@@ -2579,7 +2631,8 @@ class TestFindElementsTimeout:
         acc_mock.get_full_ax_tree.side_effect = RuntimeError("CDP error")
 
         result = connected_backend.find_elements(
-            NativeHandle(target), role="button",
+            NativeHandle(target),
+            role="button",
         )
         assert result == []
 
@@ -2608,12 +2661,18 @@ class TestIframeAxTimeout:
         page_mock = MagicMock()
         tgt_mock = MagicMock()
         connected_backend._domains[target.id] = (
-            acc_mock, dom_mock, inp_mock, page_mock, tgt_mock,
+            acc_mock,
+            dom_mock,
+            inp_mock,
+            page_mock,
+            tgt_mock,
         )
         return target
 
     def test_iframe_ax_timeout_skips_frame(
-        self, connected_backend, mock_browser,
+        self,
+        connected_backend,
+        mock_browser,
     ) -> None:
         """Iframe AX tree timeout is caught and the frame is skipped."""
         target = self._setup(connected_backend, mock_browser)
@@ -2641,7 +2700,8 @@ class TestIframeAxTimeout:
         iframe_session.target = MagicMock()
         iframe_session.send_command.return_value = {}
         mock_browser.attach.side_effect = [
-            connected_backend._sessions[target.id], iframe_session,
+            connected_backend._sessions[target.id],
+            iframe_session,
         ]
 
         # Patch AccessibilityDomain to control the iframe instance
@@ -2660,5 +2720,3 @@ class TestIframeAxTimeout:
 
         # Should still succeed (main frame only, iframe skipped)
         assert result["role"] == "unknown" or result.get("children") is not None
-
-

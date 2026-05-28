@@ -245,10 +245,7 @@ class TestEventBufferThreadSafety:
             for i in range(events_per_thread):
                 buf.put(_evt(f"t{thread_id}-e{i}"))
 
-        threads = [
-            threading.Thread(target=writer, args=(tid,))
-            for tid in range(num_threads)
-        ]
+        threads = [threading.Thread(target=writer, args=(tid,)) for tid in range(num_threads)]
         for t in threads:
             t.start()
         for t in threads:

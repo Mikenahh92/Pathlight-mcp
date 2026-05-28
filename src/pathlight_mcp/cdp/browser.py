@@ -187,10 +187,7 @@ class CDPBrowser:
         self._closed = True
 
         # Stop the event listener thread
-        if (
-            self._event_thread is not None
-            and self._event_thread.is_alive()
-        ):
+        if self._event_thread is not None and self._event_thread.is_alive():
             self._event_thread.join(timeout=5)
             self._event_thread = None
 

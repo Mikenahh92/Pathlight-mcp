@@ -126,9 +126,7 @@ class TestCDPDomainSend:
         mock_session.send_command.return_value = {"ok": True}
         domain = _SampleDomain(mock_session)
         result = domain._send("Test.cmd", {"key": "val"}, timeout=5.0)
-        mock_session.send_command.assert_called_once_with(
-            "Test.cmd", {"key": "val"}, timeout=5.0
-        )
+        mock_session.send_command.assert_called_once_with("Test.cmd", {"key": "val"}, timeout=5.0)
         assert result == {"ok": True}
 
 
