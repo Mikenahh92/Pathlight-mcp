@@ -16,8 +16,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-import anthropic
-
 __all__ = ["AgentClient", "ToolCallRecord"]
 
 
@@ -98,7 +96,7 @@ class AgentClient:
         self._replay_script = replay_script
         self._replay_index = 0
         self._loop_threshold = loop_threshold
-        self._anthropic_client: anthropic.AsyncAnthropic | None = None
+        self._anthropic_client: Any = None
         self._mcp_tools: list[dict[str, Any]] = []
         self._tool_handlers: dict[str, Any] = {}
 
@@ -106,6 +104,8 @@ class AgentClient:
         """Initialize the Anthropic client and load MCP tool schemas."""
         if self._anthropic_client is not None:
             return
+
+        import anthropic
 
         kwargs: dict[str, Any] = {"api_key": self._api_key}
         if self._base_url:
