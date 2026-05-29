@@ -20,7 +20,6 @@ Validates that:
 - Both tools return READ_ONLY risk classification
 """
 
-import asyncio
 import base64
 import json
 from unittest.mock import MagicMock
@@ -127,187 +126,159 @@ def _make_mock_session() -> MagicMock:
 class TestWebWaitForStub:
     """web_wait_for returns stub responses without a backend."""
 
-    def test_stub_returns_success(self, stub_mcp: FastMCP):
+    async def test_stub_returns_success(self, stub_mcp: FastMCP):
         tool = _get_tool(stub_mcp, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "page_loaded"},
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "page_loaded"},
             )
         )
         assert result["success"] is True
         assert result["elapsed_ms"] == 0
         assert result["polls"] == 0
 
-    def test_stub_includes_condition(self, stub_mcp: FastMCP):
+    async def test_stub_includes_condition(self, stub_mcp: FastMCP):
         tool = _get_tool(stub_mcp, "desktop.web_wait_for")
         cond = {"type": "selector_appears", "selector": "#btn"}
-        result = json.loads(
-            asyncio.get_event_loop().run_until_complete(tool.fn(window_ref="w1", condition=cond))
-        )
+        result = json.loads(await tool.fn(window_ref="w1", condition=cond))
         assert result["condition"] == cond
 
 
 class TestWebWaitForValidation:
     """web_wait_for validates input parameters."""
 
-    def test_empty_window_ref(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_empty_window_ref(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="",
-                    condition={"type": "page_loaded"},
-                )
+            await tool.fn(
+                window_ref="",
+                condition={"type": "page_loaded"},
             )
         )
         assert result["error"] == "validation_error"
         assert "window_ref" in result["message"]
 
-    def test_missing_condition_type(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_missing_condition_type(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
-        result = json.loads(
-            asyncio.get_event_loop().run_until_complete(tool.fn(window_ref="w1", condition={}))
-        )
+        result = json.loads(await tool.fn(window_ref="w1", condition={}))
         assert result["error"] == "validation_error"
         assert "type" in result["message"]
 
-    def test_unknown_condition_type(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_unknown_condition_type(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(window_ref="w1", condition={"type": "invalid_type"})
-            )
+            await tool.fn(window_ref="w1", condition={"type": "invalid_type"})
         )
         assert result["error"] == "validation_error"
         assert "Unknown condition type" in result["message"]
 
-    def test_selector_condition_without_selector(
+    async def test_selector_condition_without_selector(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "selector_appears"},
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "selector_appears"},
             )
         )
         assert result["error"] == "validation_error"
         assert "selector" in result["message"]
 
-    def test_text_present_without_text(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_text_present_without_text(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "text_present"},
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "text_present"},
             )
         )
         assert result["error"] == "validation_error"
         assert "text" in result["message"]
 
-    def test_url_contains_without_url(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_url_contains_without_url(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "url_contains"},
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "url_contains"},
             )
         )
         assert result["error"] == "validation_error"
         assert "url" in result["message"]
 
-    def test_duration_without_duration_ms(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_duration_without_duration_ms(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "duration"},
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "duration"},
             )
         )
         assert result["error"] == "validation_error"
         assert "duration_ms" in result["message"]
 
-    def test_negative_timeout_ms(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_negative_timeout_ms(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "page_loaded"},
-                    timeout_ms=-1,
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "page_loaded"},
+                timeout_ms=-1,
             )
         )
         assert result["error"] == "validation_error"
 
-    def test_excessive_timeout_ms(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_excessive_timeout_ms(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "page_loaded"},
-                    timeout_ms=120000,
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "page_loaded"},
+                timeout_ms=120000,
             )
         )
         assert result["error"] == "validation_error"
         assert "60000" in result["message"]
 
-    def test_poll_interval_too_small(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_poll_interval_too_small(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "page_loaded"},
-                    poll_interval_ms=10,
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "page_loaded"},
+                poll_interval_ms=10,
             )
         )
         assert result["error"] == "validation_error"
 
-    def test_poll_interval_too_large(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_poll_interval_too_large(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "page_loaded"},
-                    poll_interval_ms=10000,
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "page_loaded"},
+                poll_interval_ms=10000,
             )
         )
         assert result["error"] == "validation_error"
 
-    def test_condition_not_dict(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_condition_not_dict(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(window_ref="w1", condition="not a dict")
-            )
+            await tool.fn(window_ref="w1", condition="not a dict")
         )
         assert result["error"] == "validation_error"
 
-    def test_empty_selector_string(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_empty_selector_string(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "selector_appears", "selector": "  "},
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "selector_appears", "selector": "  "},
             )
         )
         assert result["error"] == "validation_error"
@@ -316,27 +287,23 @@ class TestWebWaitForValidation:
 class TestWebWaitForWebErrors:
     """web_wait_for handles web session errors."""
 
-    def test_invalid_window_ref(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_invalid_window_ref(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w999",
-                    condition={"type": "page_loaded"},
-                )
+            await tool.fn(
+                window_ref="w999",
+                condition={"type": "page_loaded"},
             )
         )
         assert "error" in result
 
-    def test_no_web_connection(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_no_web_connection(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         """BackendRouter without web backend returns error."""
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref="w1",
-                    condition={"type": "page_loaded"},
-                )
+            await tool.fn(
+                window_ref="w1",
+                condition={"type": "page_loaded"},
             )
         )
         assert "error" in result
@@ -345,7 +312,7 @@ class TestWebWaitForWebErrors:
 class TestWebWaitForConditionEvaluation:
     """web_wait_for evaluates conditions against the page via CDP."""
 
-    def test_page_loaded_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_page_loaded_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -360,13 +327,11 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=1000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=1000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
@@ -374,7 +339,7 @@ class TestWebWaitForConditionEvaluation:
         assert result["polls"] >= 1
         assert result["risk"] == "read_only"
 
-    def test_selector_appears_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_selector_appears_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -390,18 +355,18 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "selector_appears", "selector": "#btn"},
-                    timeout_ms=1000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "selector_appears", "selector": "#btn"},
+                timeout_ms=1000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
 
-    def test_selector_disappears_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_selector_disappears_success(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -417,21 +382,19 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={
-                        "type": "selector_disappears",
-                        "selector": ".loading",
-                    },
-                    timeout_ms=1000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={
+                    "type": "selector_disappears",
+                    "selector": ".loading",
+                },
+                timeout_ms=1000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
 
-    def test_text_present_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_text_present_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -445,21 +408,19 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={
-                        "type": "text_present",
-                        "text": "Hello World",
-                    },
-                    timeout_ms=1000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={
+                    "type": "text_present",
+                    "text": "Hello World",
+                },
+                timeout_ms=1000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
 
-    def test_url_contains_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_url_contains_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -473,21 +434,19 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={
-                        "type": "url_contains",
-                        "url": "/dashboard",
-                    },
-                    timeout_ms=1000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={
+                    "type": "url_contains",
+                    "url": "/dashboard",
+                },
+                timeout_ms=1000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
 
-    def test_element_visible_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_element_visible_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -501,21 +460,19 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={
-                        "type": "element_visible",
-                        "selector": "#content",
-                    },
-                    timeout_ms=1000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={
+                    "type": "element_visible",
+                    "selector": "#content",
+                },
+                timeout_ms=1000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
 
-    def test_network_idle_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_network_idle_success(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -529,37 +486,33 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "network_idle"},
-                    timeout_ms=1000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "network_idle"},
+                timeout_ms=1000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
 
-    def test_duration_condition(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_duration_condition(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "duration", "duration_ms": 50},
-                    timeout_ms=5000,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "duration", "duration_ms": 50},
+                timeout_ms=5000,
             )
         )
         assert result["success"] is True
         assert result["polls"] == 1
         assert result["elapsed_ms"] >= 40  # Should have waited ~50ms
 
-    def test_timeout_expires(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_timeout_expires(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
         web_mock._get_or_create_session.return_value = session
@@ -574,20 +527,18 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=200,
-                    poll_interval_ms=50,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=200,
+                poll_interval_ms=50,
             )
         )
         assert result["success"] is False
         assert result["polls"] >= 1
         assert "not met" in result["message"].lower()
 
-    def test_cdp_error_keeps_polling(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_cdp_error_keeps_polling(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         """CDP errors during evaluation should not stop polling."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
@@ -607,34 +558,32 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=2000,
-                    poll_interval_ms=50,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=2000,
+                poll_interval_ms=50,
             )
         )
         assert result["success"] is True
         assert call_count[0] >= 3
 
-    def test_session_creation_fails(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_session_creation_fails(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         web_mock._get_or_create_session.side_effect = Exception("no session")
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
             )
         )
         assert "error" in result
 
-    def test_read_only_risk_classification(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_read_only_risk_classification(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
         """web_wait_for returns READ_ONLY risk level."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
@@ -649,12 +598,10 @@ class TestWebWaitForConditionEvaluation:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=1000,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=1000,
             )
         )
         assert result["risk"] == "read_only"
@@ -676,7 +623,7 @@ class TestWebWaitForAllConditionTypes:
             {"type": "duration", "duration_ms": 100},
         ],
     )
-    def test_condition_type_accepted(
+    async def test_condition_type_accepted(
         self,
         mcp_router: FastMCP,
         ref_store: ElementRefStore,
@@ -700,13 +647,11 @@ class TestWebWaitForAllConditionTypes:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition=condition,
-                    timeout_ms=500,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition=condition,
+                timeout_ms=500,
+                poll_interval_ms=100,
             )
         )
         # Should not be a validation error about the condition type
@@ -977,7 +922,7 @@ class TestWebScreenshotWebErrors:
 class TestWebWaitForStaleSessionRecovery:
     """web_wait_for detects stale sessions and recreates them (GW-128)."""
 
-    def test_stale_session_recreated_and_polling_continues(
+    async def test_stale_session_recreated_and_polling_continues(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ):
         """When the session raises a stale error, polling should recreate it and continue."""
@@ -1006,19 +951,17 @@ class TestWebWaitForStaleSessionRecovery:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=2000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=2000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
         assert web_mock._get_or_create_session.call_count == 2
 
-    def test_stale_session_exhausted_returns_error(
+    async def test_stale_session_exhausted_returns_error(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ):
         """When stale session retries are exhausted, an error is returned."""
@@ -1036,13 +979,11 @@ class TestWebWaitForStaleSessionRecovery:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=500,
-                    poll_interval_ms=50,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=500,
+                poll_interval_ms=50,
             )
         )
         assert result["error"] == "web_wait_for_error"
@@ -1050,7 +991,9 @@ class TestWebWaitForStaleSessionRecovery:
             "re-attach" in result["message"].lower() or "invalidated" in result["message"].lower()
         )
 
-    def test_non_stale_error_keeps_polling(self, mcp_router: FastMCP, ref_store: ElementRefStore):
+    async def test_non_stale_error_keeps_polling(
+        self, mcp_router: FastMCP, ref_store: ElementRefStore
+    ):
         """Non-stale CDP errors should still be treated as transient (keep polling)."""
         window_ref, web_mock = _setup_web_ref(mcp_router, ref_store)
         session = _make_mock_session()
@@ -1070,20 +1013,18 @@ class TestWebWaitForStaleSessionRecovery:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=2000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=2000,
+                poll_interval_ms=100,
             )
         )
         assert result["success"] is True
         # Session should NOT have been recreated for non-stale errors
         assert web_mock._get_or_create_session.call_count == 1
 
-    def test_session_recreation_failure_returns_error(
+    async def test_session_recreation_failure_returns_error(
         self, mcp_router: FastMCP, ref_store: ElementRefStore
     ):
         """If session recreation fails, an error should be returned."""
@@ -1103,13 +1044,11 @@ class TestWebWaitForStaleSessionRecovery:
 
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
         result = json.loads(
-            asyncio.get_event_loop().run_until_complete(
-                tool.fn(
-                    window_ref=window_ref,
-                    condition={"type": "page_loaded"},
-                    timeout_ms=2000,
-                    poll_interval_ms=100,
-                )
+            await tool.fn(
+                window_ref=window_ref,
+                condition={"type": "page_loaded"},
+                timeout_ms=2000,
+                poll_interval_ms=100,
             )
         )
         assert result["error"] == "web_wait_for_error"
