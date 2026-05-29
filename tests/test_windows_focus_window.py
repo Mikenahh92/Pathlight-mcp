@@ -25,6 +25,7 @@ Test cases:
 """
 
 import ctypes
+import os
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -34,7 +35,10 @@ from pathlight_mcp.backends.types import NativeHandle
 from pathlight_mcp.backends.windows import WindowsBackend
 from pathlight_mcp.errors import WindowNotFoundError
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
+pytestmark = pytest.mark.skipif(
+    sys.platform != "win32" or bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")),
+    reason="requires Windows desktop (not available in headless CI)",
+)
 
 # ---------------------------------------------------------------------------
 # Shared fixture

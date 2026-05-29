@@ -14,6 +14,7 @@ All tests mock the COM layer (comtypes / IUIAutomation) since they run on
 any platform.
 """
 
+import os
 import sys
 from typing import Any
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -30,7 +31,10 @@ from pathlight_mcp.backends.windows import (
 )
 from pathlight_mcp.errors import WindowNotFoundError
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
+pytestmark = pytest.mark.skipif(
+    sys.platform != "win32" or bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")),
+    reason="requires Windows desktop (not available in headless CI)",
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures

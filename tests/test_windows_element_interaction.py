@@ -19,6 +19,7 @@ Validates:
 - Module-level UIA constants are correct integers
 """
 
+import os
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -54,7 +55,10 @@ from pathlight_mcp.errors import (
     StaleElementReferenceError,
 )
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
+pytestmark = pytest.mark.skipif(
+    sys.platform != "win32" or bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")),
+    reason="requires Windows desktop (not available in headless CI)",
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures

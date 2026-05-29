@@ -16,6 +16,7 @@ Focus-window tests live in ``test_windows_focus_window.py`` (architecture §3.2)
 """
 
 import inspect
+import os
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -30,7 +31,10 @@ from pathlight_mcp.errors import (
     WindowNotFoundError,
 )
 
-pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
+pytestmark = pytest.mark.skipif(
+    sys.platform != "win32" or bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS")),
+    reason="requires Windows desktop (not available in headless CI)",
+)
 
 # ---------------------------------------------------------------------------
 # Structural tests (run on any platform)
