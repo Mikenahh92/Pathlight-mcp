@@ -16,6 +16,7 @@ Validates:
   normalization pipeline without loss of structural fidelity.
 """
 
+import sys
 from typing import Any
 
 import pytest
@@ -26,6 +27,8 @@ from pathlight_mcp.backends.windows import (
     _control_type_id_to_name,
 )
 from pathlight_mcp.models.mappings import ROLE_MAP
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
 
 # ---------------------------------------------------------------------------
 # Section 1: ControlType ID → name → normalized role coverage

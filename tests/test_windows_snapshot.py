@@ -14,6 +14,7 @@ All tests mock the COM layer (comtypes / IUIAutomation) since they run on
 any platform.
 """
 
+import sys
 from typing import Any
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -28,6 +29,8 @@ from pathlight_mcp.backends.windows import (
     _read_state,
 )
 from pathlight_mcp.errors import WindowNotFoundError
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
 
 # ---------------------------------------------------------------------------
 # Fixtures

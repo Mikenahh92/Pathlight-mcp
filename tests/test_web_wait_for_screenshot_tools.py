@@ -167,9 +167,7 @@ class TestWebWaitForValidation:
 
     async def test_unknown_condition_type(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
-        result = json.loads(
-            await tool.fn(window_ref="w1", condition={"type": "invalid_type"})
-        )
+        result = json.loads(await tool.fn(window_ref="w1", condition={"type": "invalid_type"}))
         assert result["error"] == "validation_error"
         assert "Unknown condition type" in result["message"]
 
@@ -268,9 +266,7 @@ class TestWebWaitForValidation:
 
     async def test_condition_not_dict(self, mcp_router: FastMCP, ref_store: ElementRefStore):
         tool = _get_tool(mcp_router, "desktop.web_wait_for")
-        result = json.loads(
-            await tool.fn(window_ref="w1", condition="not a dict")
-        )
+        result = json.loads(await tool.fn(window_ref="w1", condition="not a dict"))
         assert result["error"] == "validation_error"
 
     async def test_empty_selector_string(self, mcp_router: FastMCP, ref_store: ElementRefStore):

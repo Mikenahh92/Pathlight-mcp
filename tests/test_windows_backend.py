@@ -16,6 +16,7 @@ Focus-window tests live in ``test_windows_focus_window.py`` (architecture §3.2)
 """
 
 import inspect
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,6 +29,8 @@ from pathlight_mcp.errors import (
     StaleElementReferenceError,
     WindowNotFoundError,
 )
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
 
 # ---------------------------------------------------------------------------
 # Structural tests (run on any platform)

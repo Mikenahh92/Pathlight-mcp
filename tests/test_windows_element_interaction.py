@@ -19,6 +19,7 @@ Validates:
 - Module-level UIA constants are correct integers
 """
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -52,6 +53,8 @@ from pathlight_mcp.errors import (
     ElementNotFoundError,
     StaleElementReferenceError,
 )
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -25,6 +25,7 @@ Test cases:
 """
 
 import ctypes
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,6 +33,8 @@ import pytest
 from pathlight_mcp.backends.types import NativeHandle
 from pathlight_mcp.backends.windows import WindowsBackend
 from pathlight_mcp.errors import WindowNotFoundError
+
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="requires Windows")
 
 # ---------------------------------------------------------------------------
 # Shared fixture
