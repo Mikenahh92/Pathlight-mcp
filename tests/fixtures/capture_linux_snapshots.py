@@ -72,7 +72,7 @@ def _get_pathlight_mcp_version() -> str:
     try:
         from importlib.metadata import version
 
-        return version("pathlight_mcp")
+        return version("pathlight-mcp")
     except Exception:
         return "unknown"
 

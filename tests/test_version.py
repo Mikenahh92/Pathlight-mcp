@@ -8,7 +8,7 @@ import packaging.version
 def _get_version() -> str:
     """Return the package version, with fallback for uninstalled development."""
     try:
-        return version("pathlight_mcp")
+        return version("pathlight-mcp")
     except PackageNotFoundError:
         return "0.0.0"
 
