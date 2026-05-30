@@ -1,15 +1,19 @@
-"""Tests for web_connect auto-launch, browser parameter integration (GW-114),
-and internal page filtering (GW-115).
+"""Tests for web_connect connect-only behavior (GW-141) and internal page
+filtering (GW-115).
+
+After removing auto-launch (GW-141), web_connect only connects to already-
+running browsers. When no browser is found, it returns a structured error
+with instructions to start one via desktop.launch_app.
 
 Covers:
-- browser parameter validation (valid names accepted, invalid rejected)
-- auto_launch=False disables auto-launch and returns error on failure
-- auto_launch=True triggers auto-launch on connection failure
-- Desktop automation fallback hint in error messages
-- Auto-launched browser process tracking
-- Browser override parameter passed through to BrowserResolver
+- Connection failure returns structured error with launch_app instructions
+- Error message references --remote-debugging-port
+- Direct connection still works when a browser is running
+- Stub mode (no backend) returns plain message
+- Input validation unchanged
+- Already-connected state returns existing pages
+- No-router error unchanged
 - Internal browser pages filtered from target discovery (GW-115)
-- Existing tests still pass (no regression)
 """
 
 import json
@@ -42,7 +46,7 @@ def ref_store() -> ElementRefStore:
 @pytest.fixture()
 def mcp_router(native_backend: MockBackend, ref_store: ElementRefStore) -> FastMCP:
     router = BackendRouter(native=native_backend)
-    mcp = FastMCP(name="test-auto-launch")
+    mcp = FastMCP(name="test-web-connect")
     register_all(mcp, backend=router, ref_store=ref_store)
     return mcp
 
@@ -67,225 +71,110 @@ def _make_mock_web_backend(pages=None):
     return web
 
 
-# -- Browser parameter validation --
+# -- Connection failure returns structured error --
 
 
-class TestBrowserParameterValidation:
-    """web_connect validates the browser parameter."""
+class TestNoBrowserError:
+    """When no browser is found, return structured error with instructions."""
 
-    def test_valid_browser_names_accepted(self, mcp_router: FastMCP) -> None:
-        """Valid browser names are accepted (no validation error)."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        # Connection will fail but browser name should not cause validation error
-        with patch("pathlight_mcp.tools.web_connect.WebBackend") as mock_wb:
-            mock_instance = MagicMock(spec=WebBackend)
-            mock_instance.connect.side_effect = BackendUnavailableError("fail")
-            mock_wb.return_value = mock_instance
-
-            with patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=False):
-                result = json.loads(tool.fn(browser="chrome"))
-                assert result["error"] != "validation_error"
-
-    def test_invalid_browser_name_returns_error(self, mcp_router: FastMCP) -> None:
-        """Invalid browser name returns a validation error with available options."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        result = json.loads(tool.fn(browser="firefox"))
-        assert result["error"] == "validation_error"
-        assert "firefox" in result["message"]
-        assert "edge" in result["message"] or "chrome" in result["message"]
-
-    def test_invalid_browser_name_lists_options(self, mcp_router: FastMCP) -> None:
-        """Error for invalid browser lists all available options."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        result = json.loads(tool.fn(browser="safari"))
-        assert result["error"] == "validation_error"
-        for name in ("edge", "chrome", "brave", "chromium"):
-            assert name in result["message"]
-
-    def test_browser_parameter_case_insensitive(self, mcp_router: FastMCP) -> None:
-        """Browser parameter is case-insensitive — 'Chrome' is accepted."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        mock_web = MagicMock(spec=WebBackend)
-        mock_web.connect.side_effect = BackendUnavailableError("fail")
-
-        with (
-            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
-            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=False),
-        ):
-            result = json.loads(tool.fn(browser="Chrome"))
-            # No validation error — case-insensitive match accepted
-            assert result["error"] != "validation_error"
-
-    def test_browser_null_is_valid(self, mcp_router: FastMCP) -> None:
-        """browser=None (default) skips validation and uses discovery."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        mock_web = _make_mock_web_backend()
-        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
-            result = json.loads(tool.fn())
-            assert result["success"] is True
-
-
-# -- auto_launch=False disables auto-launch --
-
-
-class TestAutoLaunchDisabled:
-    """auto_launch=False preserves the original connect-only behavior."""
-
-    def test_auto_launch_false_returns_error_on_failure(self, mcp_router: FastMCP) -> None:
-        """When auto_launch=False and connection fails, returns error without auto-launching."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        mock_web = MagicMock(spec=WebBackend)
-        mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
-
-        with (
-            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
-            patch("pathlight_mcp.tools.web_connect._try_auto_launch") as mock_launch,
-        ):
-            result = json.loads(tool.fn(auto_launch=False))
-            assert result["error"] == "web_connect_error"
-            mock_launch.assert_not_called()
-
-    def test_auto_launch_false_includes_fallback_hint(self, mcp_router: FastMCP) -> None:
-        """Error message includes desktop automation fallback hint when auto_launch=False."""
+    def test_error_on_connection_failure(self, mcp_router: FastMCP) -> None:
+        """Connection failure returns web_connect_error."""
         tool = _get_web_connect_tool(mcp_router)
 
         mock_web = MagicMock(spec=WebBackend)
         mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
 
         with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
-            result = json.loads(tool.fn(auto_launch=False))
+            result = json.loads(tool.fn())
             assert result["error"] == "web_connect_error"
-            assert any("auto_launch" in h or "desktop automation" in h for h in result["hints"])
+            assert "No browser found" in result["message"]
 
-
-# -- auto_launch=True triggers auto-launch on failure --
-
-
-class TestAutoLaunchEnabled:
-    """auto_launch=True triggers auto-launch when connection fails."""
-
-    def test_auto_launch_attempted_on_connection_failure(self, mcp_router: FastMCP) -> None:
-        """Auto-launch is attempted when the initial connection fails."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        mock_web_fail = MagicMock(spec=WebBackend)
-        mock_web_fail.connect.side_effect = BackendUnavailableError("Connection refused")
-
-        mock_web_success = _make_mock_web_backend()
-
-        call_count = [0]
-
-        def web_backend_side_effect(*args: object, **kwargs: object) -> MagicMock:
-            call_count[0] += 1
-            if call_count[0] == 1:
-                return mock_web_fail
-            return mock_web_success
-
-        with (
-            patch(
-                "pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect
-            ),
-            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=True),
-        ):
-            result = json.loads(tool.fn(auto_launch=True))
-            assert result["success"] is True
-
-    def test_auto_launch_failure_returns_fallback_error(self, mcp_router: FastMCP) -> None:
-        """When auto-launch fails, returns error with desktop automation fallback."""
+    def test_error_includes_launch_app_instruction(self, mcp_router: FastMCP) -> None:
+        """Error message instructs to use desktop.launch_app."""
         tool = _get_web_connect_tool(mcp_router)
 
         mock_web = MagicMock(spec=WebBackend)
         mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
 
-        with (
-            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
-            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=False),
-        ):
-            result = json.loads(tool.fn(auto_launch=True))
-            assert result["error"] == "web_connect_error"
-            assert any("desktop automation" in h or "Auto-launch" in h for h in result["hints"])
-
-    def test_auto_launched_flag_in_response(self, mcp_router: FastMCP) -> None:
-        """Response includes auto_launched=True when a browser was auto-launched."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        mock_web_fail = MagicMock(spec=WebBackend)
-        mock_web_fail.connect.side_effect = BackendUnavailableError("fail")
-
-        mock_web_success = _make_mock_web_backend()
-        mock_resolver = MagicMock()
-        mock_resolver.spawned_process = MagicMock()  # Non-None = browser was launched
-
-        call_count = [0]
-
-        def web_backend_side_effect(*args: object, **kwargs: object) -> MagicMock:
-            call_count[0] += 1
-            if call_count[0] == 1:
-                return mock_web_fail
-            return mock_web_success
-
-        with (
-            patch(
-                "pathlight_mcp.tools.web_connect.WebBackend", side_effect=web_backend_side_effect
-            ),
-            patch("pathlight_mcp.tools.web_connect._try_auto_launch", return_value=True),
-            patch("pathlight_mcp.tools.web_connect._get_resolver", return_value=mock_resolver),
-        ):
-            result = json.loads(tool.fn(auto_launch=True))
-            assert result["success"] is True
-            assert result.get("auto_launched") is True
-
-    def test_no_auto_launched_flag_when_not_launched(self, mcp_router: FastMCP) -> None:
-        """Response does NOT include auto_launched when no browser was launched."""
-        tool = _get_web_connect_tool(mcp_router)
-
-        mock_web = _make_mock_web_backend()
-
-        with (
-            patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web),
-        ):
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
             result = json.loads(tool.fn())
-            assert result["success"] is True
-            assert "auto_launched" not in result
+            assert "desktop.launch_app" in result["message"]
 
-    def test_browser_override_passed_to_auto_launch(self, mcp_router: FastMCP) -> None:
-        """The browser parameter is passed through to the auto-launch function."""
+    def test_error_includes_remote_debugging_port(self, mcp_router: FastMCP) -> None:
+        """Error message mentions --remote-debugging-port."""
         tool = _get_web_connect_tool(mcp_router)
 
         mock_web = MagicMock(spec=WebBackend)
-        mock_web.connect.side_effect = BackendUnavailableError("fail")
+        mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
 
-        with (
-            patch(
-                "pathlight_mcp.tools.web_connect.WebBackend",
-                return_value=mock_web,
-            ),
-            patch(
-                "pathlight_mcp.tools.web_connect._try_auto_launch",
-                return_value=False,
-            ) as mock_launch,
-        ):
-            tool.fn(browser="edge", auto_launch=True)
-            # Check that "edge" was passed to _try_auto_launch
-            mock_launch.assert_called_once()
-            call_args = mock_launch.call_args
-            assert call_args[0][2] == "edge"  # third positional arg is browser
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
+            result = json.loads(tool.fn())
+            assert "--remote-debugging-port" in result["message"]
+
+    def test_error_includes_port_from_params(self, mcp_router: FastMCP) -> None:
+        """Error message includes the port number from the request."""
+        tool = _get_web_connect_tool(mcp_router)
+
+        mock_web = MagicMock(spec=WebBackend)
+        mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
+
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
+            result = json.loads(tool.fn(port=9333))
+            assert "9333" in result["message"]
+
+    def test_error_includes_hints(self, mcp_router: FastMCP) -> None:
+        """Error includes hints from the hint registry."""
+        tool = _get_web_connect_tool(mcp_router)
+
+        mock_web = MagicMock(spec=WebBackend)
+        mock_web.connect.side_effect = BackendUnavailableError("Connection refused")
+
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
+            result = json.loads(tool.fn())
+            assert "hints" in result
+            assert isinstance(result["hints"], list)
+            # At least one hint should reference launch_app
+            assert any("launch_app" in h for h in result["hints"])
 
 
-# -- Regression: existing tests still pass --
+# -- No auto_launch parameter --
+
+
+class TestNoAutoLaunchParam:
+    """web_connect does not accept auto_launch or browser parameters."""
+
+    def test_no_auto_launch_param(self, mcp_router: FastMCP) -> None:
+        """Tool does not accept auto_launch parameter."""
+        tool = _get_web_connect_tool(mcp_router)
+        import inspect
+
+        sig = inspect.signature(tool.fn)
+        assert "auto_launch" not in sig.parameters
+        assert "browser" not in sig.parameters
+
+    def test_no_auto_launch_in_docstring(self, mcp_router: FastMCP) -> None:
+        """Docstring does not mention auto_launch."""
+        tool = _get_web_connect_tool(mcp_router)
+        assert "auto_launch" not in (tool.description or "")
+
+    def test_no_browser_resolver_import(self) -> None:
+        """Module does not import BrowserResolver."""
+        import pathlight_mcp.tools.web_connect as wc_module
+
+        assert not hasattr(wc_module, "BrowserResolver")
+        assert not hasattr(wc_module, "_resolver")
+        assert not hasattr(wc_module, "_get_resolver")
+        assert not hasattr(wc_module, "_try_auto_launch")
+
+
+# -- Existing behavior preserved --
 
 
 class TestExistingBehaviorPreserved:
-    """Existing web_connect behavior is not broken by auto-launch changes."""
+    """Existing web_connect behavior is not broken by removing auto-launch."""
 
     def test_direct_connect_still_works(self, mcp_router: FastMCP) -> None:
-        """Direct connection (no auto-launch needed) still works."""
+        """Direct connection still works."""
         tool = _get_web_connect_tool(mcp_router)
 
         mock_web = _make_mock_web_backend()
@@ -345,6 +234,16 @@ class TestExistingBehaviorPreserved:
         result = json.loads(tool.fn(host="localhost", port=9222))
         assert result["error"] == "web_connect_error"
         assert "BackendRouter" in result["message"]
+
+    def test_no_auto_launched_flag_in_response(self, mcp_router: FastMCP) -> None:
+        """Response never includes auto_launched flag."""
+        tool = _get_web_connect_tool(mcp_router)
+
+        mock_web = _make_mock_web_backend()
+        with patch("pathlight_mcp.tools.web_connect.WebBackend", return_value=mock_web):
+            result = json.loads(tool.fn())
+            assert result["success"] is True
+            assert "auto_launched" not in result
 
 
 # -- Internal page filtering tests (GW-115) --

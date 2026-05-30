@@ -10,11 +10,10 @@ connects it, and registers it with the
 tool calls (snapshot, find, click, type_text, etc.) route transparently
 to the web backend.
 
-Auto-launch (GW-114): when no browser is reachable on the configured CDP
-port, the tool can automatically spawn one with
-``--remote-debugging-port`` using the :class:`~pathlight_mcp.cdp.browser_resolver.BrowserResolver`.
-Pass ``browser="chrome"`` to override the default discovery order, or
-``auto_launch=False`` to disable auto-launch entirely.
+Connect-only — the tool does **not** auto-launch a browser.  When no
+browser is reachable on the configured CDP port, it returns a structured
+error with instructions to start one via ``desktop.launch_app`` with
+``--remote-debugging-port``.
 
 Safety classification: SENSITIVE — establishing a browser connection
 requires explicit user opt-in (``SYSTEM_ACTION_RISK_MAP`` in
@@ -33,7 +32,6 @@ from mcp.server.fastmcp import FastMCP
 
 from pathlight_mcp.backends.router import BackendRouter
 from pathlight_mcp.backends.web import WebBackend
-from pathlight_mcp.cdp.browser_resolver import BROWSER_NAMES, BrowserResolver
 from pathlight_mcp.hints import hints_for
 from pathlight_mcp.safety import classify_system_action
 
@@ -46,18 +44,6 @@ logger = logging.getLogger(__name__)
 # Default CDP connection parameters.
 _DEFAULT_HOST = "localhost"
 _DEFAULT_PORT = 9222
-
-# Module-level resolver — shared across tool calls so the discovery cache
-# and spawned process tracking persist for the server lifetime.
-_resolver: BrowserResolver | None = None
-
-
-def _get_resolver(port: int = _DEFAULT_PORT) -> BrowserResolver:
-    """Return the shared :class:`BrowserResolver`, creating it on first use."""
-    global _resolver
-    if _resolver is None:
-        _resolver = BrowserResolver(port=port)
-    return _resolver
 
 
 # ---------------------------------------------------------------------------
@@ -82,26 +68,18 @@ def register(
     def web_connect(
         host: str = _DEFAULT_HOST,
         port: int = _DEFAULT_PORT,
-        browser: str | None = None,
-        auto_launch: bool = True,
     ) -> str:
         """Connect to a browser's CDP debug port and discover page targets.
 
-        If no browser is reachable on ``host:port`` and ``auto_launch`` is
-        ``True`` (default), a Chromium-based browser is automatically
-        launched with ``--remote-debugging-port`` and the connection is
-        retried.
+        The tool connects **only** to an already-running browser.  When no
+        browser is reachable, it returns a structured error with
+        instructions to start one via ``desktop.launch_app`` with
+        ``--remote-debugging-port``.
 
         Args:
             host: Hostname or IP of the browser debug target
                 (default ``"localhost"``).
             port: Debug port number (default ``9222``).
-            browser: Override the browser to launch (``"edge"``,
-                ``"chrome"``, ``"brave"``, ``"chromium"``).  Ignored when
-                a browser is already running on ``host:port``.
-            auto_launch: When ``True`` (default), automatically launch a
-                browser if no debug-enabled browser is found.  Set to
-                ``False`` to preserve the original connect-only behavior.
 
         Returns:
             A JSON object with ``success``, ``pages``, ``risk``,
@@ -129,20 +107,6 @@ def register(
                     "hints": [],
                 }
             )
-
-        if browser is not None:
-            browser_lower = browser.lower()
-            if browser_lower not in BROWSER_NAMES:
-                return json.dumps(
-                    {
-                        "error": "validation_error",
-                        "message": (
-                            f"Unknown browser '{browser}'. "
-                            f"Available options: {', '.join(BROWSER_NAMES)}"
-                        ),
-                        "hints": [],
-                    }
-                )
 
         # --- Safety metadata ---
         target_desc = f"{host}:{port}"
@@ -186,22 +150,7 @@ def register(
         try:
             web_backend.connect()
         except Exception as connect_exc:
-            # Connection failed — try auto-launch if enabled
-            if auto_launch:
-                launched = _try_auto_launch(host, port, browser, connect_exc)
-                if launched:
-                    # Retry connection after auto-launch
-                    try:
-                        web_backend = WebBackend(host=host, port=port)
-                        web_backend.connect()
-                    except Exception as retry_exc:
-                        return _fallback_error(target_desc, retry_exc, auto_launch_enabled=True)
-                else:
-                    # Auto-launch itself failed — return fallback error
-                    return _fallback_error(target_desc, connect_exc, auto_launch_enabled=True)
-            else:
-                # Auto-launch disabled — return original error with fallback hint
-                return _fallback_error(target_desc, connect_exc, auto_launch_enabled=False)
+            return _connection_error(target_desc, connect_exc)
 
         # --- Register with the router ---
         router._web = web_backend
@@ -235,11 +184,6 @@ def register(
             "target_summary": f"web connect {target_desc}",
         }
 
-        # Include auto-launch info if we launched a browser
-        resolver = _get_resolver(port)
-        if resolver.spawned_process is not None:
-            result["auto_launched"] = True
-
         return json.dumps(result)
 
 
@@ -270,83 +214,35 @@ def _require_router(
     )
 
 
-def _try_auto_launch(
-    host: str,
-    port: int,
-    browser: str | None,
-    original_exc: Exception,
-) -> bool:
-    """Attempt to auto-launch a browser and wait for readiness.
-
-    Args:
-        host: CDP hostname.
-        port: CDP port.
-        browser: Optional browser name override.
-        original_exc: The exception that triggered auto-launch.
-
-    Returns:
-        ``True`` if a browser was launched and is ready, ``False`` otherwise.
-    """
-    resolver = _get_resolver(port)
-
-    try:
-        resolver.launch(browser, port=port)
-    except (FileNotFoundError, RuntimeError, OSError) as launch_exc:
-        logger.info(
-            "Auto-launch failed (no browser found or launch error): %s",
-            launch_exc,
-        )
-        return False
-
-    logger.info("Browser auto-launched, waiting for CDP endpoint on %s:%s", host, port)
-    ready = resolver.wait_for_ready(host=host, port=port)
-
-    if not ready:
-        logger.warning("Auto-launched browser did not become ready in time")
-        resolver.cleanup()
-        return False
-
-    logger.info("Auto-launched browser is ready on %s:%s", host, port)
-    return True
-
-
-def _fallback_error(
+def _connection_error(
     target_desc: str,
     exc: Exception,
-    *,
-    auto_launch_enabled: bool,
 ) -> str:
-    """Build a structured error response with desktop automation fallback hint.
+    """Build a structured error response when no browser is reachable.
+
+    The error includes agent-actionable instructions to start a browser
+    via ``desktop.launch_app`` with ``--remote-debugging-port``.
 
     Args:
         target_desc: ``host:port`` string.
         exc: The exception that caused the failure.
-        auto_launch_enabled: Whether auto-launch was attempted.
 
     Returns:
         JSON error string.
     """
     hints = hints_for("web_connect_error")
 
-    if auto_launch_enabled:
-        hints.append(
-            "Auto-launch was attempted but failed — the desktop automation "
-            "fallback may work: use launch_app to start a browser, then "
-            "snapshot + find to interact with it via the native accessibility "
-            "backend instead of CDP."
-        )
-    else:
-        hints.append(
-            "auto_launch is disabled — either launch a browser manually with "
-            "--remote-debugging-port, or use the desktop automation fallback: "
-            "launch_app + snapshot + find to interact with the browser via "
-            "the native accessibility backend."
-        )
-
+    port_part = target_desc.split(":")[-1]
     return json.dumps(
         {
             "error": "web_connect_error",
-            "message": f"Failed to connect to browser at {target_desc}: {exc}",
+            "message": (
+                f"No browser found at {target_desc}. "
+                f"Start one first: use desktop.launch_app to launch a "
+                f"Chromium-based browser with "
+                f"--remote-debugging-port={port_part}, "
+                f"then retry web_connect. Original error: {exc}"
+            ),
             "hints": hints,
         }
     )
@@ -359,8 +255,8 @@ def _discover_pages(
     """Discover browser page targets and return window refs.
 
     Filters out internal browser pages (e.g. ``chrome://newtab``,
-    ``edge://newtab``, ``about:blank``) that are created by
-    auto-launched browsers but are not useful for web automation.
+    ``edge://newtab``, ``about:blank``) that are not useful for
+    web automation.
 
     Args:
         web_backend: Connected :class:`WebBackend` instance.
@@ -407,9 +303,9 @@ def _is_internal_page(url: str) -> bool:
     """Check if a URL is an internal browser page that should be filtered.
 
     Internal pages like ``chrome://newtab``, ``edge://newtab``,
-    ``about:blank``, and ``about:newtab`` are created by auto-launched
-    browsers but cannot be meaningfully interacted with via CDP
-    ``Runtime.evaluate`` and should be excluded from target discovery.
+    ``about:blank``, and ``about:newtab`` cannot be meaningfully
+    interacted with via CDP ``Runtime.evaluate`` and should be excluded
+    from target discovery.
 
     Args:
         url: The page URL to check.

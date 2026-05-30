@@ -47,12 +47,12 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Verify the application is installed and in your PATH",
     ],
     "web_connect_error": [
+        "No browser was found — use desktop.launch_app to start a Chromium-based browser "
+        "with --remote-debugging-port=9222, then retry web_connect",
         "Ensure the browser is running with --remote-debugging-port=<port>",
         "Verify the host and port are correct and accessible",
         "Check that no firewall is blocking the debug port",
         "Try connecting to localhost:9222 if using default Chrome debug settings",
-        "If auto_launch is disabled, set auto_launch=True or launch a browser manually",
-        "Use web_connect(browser='chrome') to override the default browser discovery order",
         "If CDP is unavailable, use desktop automation fallback: launch_app + snapshot + find",
     ],
     "web_navigate_error": [

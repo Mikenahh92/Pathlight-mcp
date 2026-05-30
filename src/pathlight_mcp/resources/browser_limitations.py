@@ -20,29 +20,21 @@ _BROWSER_LIMITATIONS = """\
 - The debug port must be accessible from the machine running Pathlight MCP.
   Firewall rules or sandbox environments may block it.
 
-## Auto-Launch (GW-114)
+## Starting a Browser
 
-- When no browser is detected on the configured CDP port, ``web_connect`` can
-  **automatically launch** a Chromium-based browser with
-  ``--remote-debugging-port`` — no manual setup required.
-- **Default discovery order** (first match wins):
-  - Windows: Edge → Chrome → Brave → Chromium
-  - Linux: Chromium → Chrome → Brave
-- Override discovery: ``web_connect(browser="chrome")`` uses the named browser
-  without scanning.  Accepted values: ``"edge"``, ``"chrome"``, ``"brave"``,
-  ``"chromium"``.
-- The auto-launched browser process is tracked and **cleaned up** when the MCP
-  server shuts down.
-- Disable auto-launch: ``web_connect(auto_launch=False)`` preserves the original
-  connect-only behavior (returns an error if no browser is running).
-- **Desktop fallback**: When CDP fails entirely (e.g. headless environment,
-  browser launch blocked), the error message suggests using desktop automation
-  tools (``launch_app`` + ``snapshot`` + ``find``) as an alternative.
+- ``web_connect`` connects **only** to an already-running browser — it does
+  not auto-launch one.
+- To start a browser, use ``desktop.launch_app`` to launch a Chromium-based
+  browser with ``--remote-debugging-port=9222``, then call ``web_connect``.
+- Example: ``desktop.launch_app(app="msedge", arguments="--remote-debugging-port=9222")``
+- **Desktop fallback**: When CDP is unavailable (e.g. headless environment),
+  use desktop automation tools (``launch_app`` + ``snapshot`` + ``find``)
+  as an alternative.
 
 ## Web Connect (desktop.web_connect)
 
-- Connects to a browser's CDP debug port.  When ``auto_launch=True`` (default),
-  it also auto-launches a browser if none is detected.
+- Connects to a browser's CDP debug port.  The browser must already be running
+  with ``--remote-debugging-port`` enabled.
 - Default host/port is ``localhost:9222`` (Chrome's default debug port).
 - Only **one** active web session at a time. Calling ``web_connect`` again
   replaces the previous session.
@@ -92,15 +84,13 @@ _BROWSER_LIMITATIONS = """\
 
 ## Recommended Workflow
 
-1. Call ``desktop.web_connect`` — this auto-launches a browser if needed, or
-   connects to an already-running debug-enabled browser
-2. Call ``desktop.snapshot`` to discover tab/page references
-3. Use ``desktop.web_navigate`` to go to target URLs
-4. Use ``desktop.web_evaluate`` for targeted data extraction
-5. Call ``desktop.snapshot`` periodically to refresh element references
-
-If auto-launch is disabled or fails, manually launch a browser with
-``--remote-debugging-port=9222`` and retry ``web_connect``.
+1. Start a Chromium-based browser with ``--remote-debugging-port=9222``
+   (use ``desktop.launch_app`` or launch manually)
+2. Call ``desktop.web_connect`` to connect to the running browser
+3. Call ``desktop.snapshot`` to discover tab/page references
+4. Use ``desktop.web_navigate`` to go to target URLs
+5. Use ``desktop.web_evaluate`` for targeted data extraction
+6. Call ``desktop.snapshot`` periodically to refresh element references
 """
 
 __all__ = ["register"]
