@@ -11,7 +11,7 @@ concurrency:
 
 permissions:
   contents: write
-  id-token: write  # OIDC trusted publishing + SLSA provenance
+  id-token: write  # OIDC trusted publishing
 
 jobs:
   # ── 1. Security scan ─────────────────────────────────────────────────
@@ -81,8 +81,6 @@ jobs:
     name: Build distribution
     needs: ci-gate
     runs-on: ubuntu-latest
-    outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -94,36 +92,16 @@ jobs:
         run: pip install build
       - name: Build sdist and wheel
         run: python -m build
-      - name: Generate subject hash for SLSA provenance
-        id: hash
-        run: |
-          set -euo pipefail
-          cd dist
-          hashes=$(sha256sum * | base64 -w0)
-          echo "hashes=$hashes" >> "$GITHUB_OUTPUT"
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
-  # ── 4. SLSA provenance ───────────────────────────────────────────────
-  provenance:
-    name: Generate SLSA provenance
-    needs: build
-    permissions:
-      contents: write
-      id-token: write  # required for SLSA signing
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
-    with:
-      base64-subjects: "${{ needs.build.outputs.hashes }}"
-      upload-assets: true
-      compile-generator: true
-
-  # ── 5. Publish to PyPI (OIDC trusted publishing) ──────────────────────
+  # ── 4. Publish to PyPI (OIDC trusted publishing) ──────────────────────
   publish-pypi:
     name: Publish to PyPI
-    needs: [build, provenance]
+    needs: [build]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -139,7 +117,7 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  # ── 6. Post-publish verification ──────────────────────────────────────
+  # ── 5. Post-publish verification ──────────────────────────────────────
   verify-pypi:
     name: Verify PyPI install
     needs: publish-pypi
@@ -190,7 +168,7 @@ jobs:
           python -c "import pathlight_mcp; print(f'pathlight-mcp {pathlight_mcp.__version__} installed from PyPI')"
           python -c "from pathlight_mcp.backends import MockBackend; print('Backend import OK')"
 
-  # ── 7. Changelog and GitHub Release ──────────────────────────────────
+  # ── 6. Changelog and GitHub Release ──────────────────────────────────
   release:
     name: Update changelog and release
     needs: verify-pypi
