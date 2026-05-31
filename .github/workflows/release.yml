@@ -54,7 +54,7 @@ jobs:
           WAIT_SECONDS=30
           for i in $(seq 1 $MAX_ATTEMPTS); do
             STATUS=$(gh api \
-              "repos/{owner}/{repo}/actions/runs?head_sha=$COMMIT_SHA&status=completed&per_page=5" \
+              "repos/${{ github.repository }}/actions/runs?head_sha=$COMMIT_SHA&status=completed&per_page=5" \
               --jq '.workflow_runs[] | select(.name == "CI") | .conclusion' \
               | head -1)
 
