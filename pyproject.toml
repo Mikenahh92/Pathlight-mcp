@@ -25,7 +25,6 @@ classifiers = [
     "Topic :: Desktop Environment",
     "Topic :: Software Development :: Testing",
     "Topic :: Accessibility",
-    "Framework :: MCP",
     "Typing :: Typed",
 ]
 
