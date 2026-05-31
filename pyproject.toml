@@ -24,7 +24,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Desktop Environment",
     "Topic :: Software Development :: Testing",
-    "Topic :: Accessibility",
     "Typing :: Typed",
 ]
 
