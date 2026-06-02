@@ -1134,6 +1134,9 @@ class TestSystemActionType:
             "web_frame_tree",
             "web_wait_for",
             "web_screenshot",
+            "ocr_extract",
+            "click_xy",
+            "mouse_move",
         }
         assert args == expected
 
@@ -1141,7 +1144,7 @@ class TestSystemActionType:
         import typing
 
         args = typing.get_args(SystemAction)
-        assert len(args) == 26
+        assert len(args) == 29
 
 
 # ---------------------------------------------------------------------------
@@ -1224,7 +1227,6 @@ class TestInteractionSystemActions:
 
     INTERACTION_ACTIONS: ClassVar[list[SystemAction]] = [
         "clipboard_read",
-        "screenshot",
         "window_focus",
     ]
 
@@ -1250,6 +1252,7 @@ class TestReadOnlySystemActions:
     READ_ONLY_ACTIONS: ClassVar[list[SystemAction]] = [
         "window_list",
         "system_info",
+        "screenshot",
     ]
 
     @pytest.mark.parametrize("action", READ_ONLY_ACTIONS)
@@ -1365,7 +1368,7 @@ class TestSystemActionRiskMapCompleteness:
             assert action in SYSTEM_ACTION_RISK_MAP, f"{action} missing from SYSTEM_ACTION_RISK_MAP"
 
     def test_entry_count(self) -> None:
-        assert len(SYSTEM_ACTION_RISK_MAP) == 26
+        assert len(SYSTEM_ACTION_RISK_MAP) == 29
 
     def test_values_are_valid_risk_levels(self) -> None:
         for value in SYSTEM_ACTION_RISK_MAP.values():
@@ -1373,7 +1376,7 @@ class TestSystemActionRiskMapCompleteness:
 
     def test_sensitive_count(self) -> None:
         sensitive = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "SENSITIVE"]
-        assert len(sensitive) == 11
+        assert len(sensitive) == 12
 
     def test_interaction_count(self) -> None:
         interaction = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "INTERACTION"]
@@ -1381,7 +1384,7 @@ class TestSystemActionRiskMapCompleteness:
 
     def test_read_only_count(self) -> None:
         read_only = [a for a, v in SYSTEM_ACTION_RISK_MAP.items() if v == "READ_ONLY"]
-        assert len(read_only) == 6
+        assert len(read_only) == 8
 
 
 # ---------------------------------------------------------------------------
@@ -1448,7 +1451,7 @@ class TestSpecificSystemActionRiskLevels:
             ("app_close", "SENSITIVE"),
             ("clipboard_read", "INTERACTION"),
             ("clipboard_write", "SENSITIVE"),
-            ("screenshot", "INTERACTION"),
+            ("screenshot", "READ_ONLY"),
             ("window_list", "READ_ONLY"),
             ("window_focus", "INTERACTION"),
             ("window_close", "SENSITIVE"),
@@ -1669,3 +1672,69 @@ class TestWebSystemActions:
     def test_web_evaluate_target_in_reason(self) -> None:
         result = classify_system_action("web_evaluate", target="document.cookie")
         assert "document.cookie" in result.reason
+
+
+# ===========================================================================
+# GW-152: Visual SystemAction classification tests
+# ===========================================================================
+
+
+class TestVisualSystemActions:
+    """Visual system actions (ocr_extract, click_xy, mouse_move) have
+    correct risk levels.  screenshot is reused for desktop screenshots.
+
+    Risk mapping (GW-152):
+        screenshot   → READ_ONLY  (reused, not a new literal)
+        ocr_extract  → READ_ONLY
+        click_xy     → SENSITIVE
+        mouse_move   → INTERACTION
+    """
+
+    @pytest.mark.parametrize(
+        ("action", "expected_level"),
+        [
+            ("ocr_extract", "READ_ONLY"),
+            ("click_xy", "SENSITIVE"),
+            ("mouse_move", "INTERACTION"),
+        ],
+    )
+    def test_visual_action_risk_level(
+        self, action: str, expected_level: RiskLevel
+    ) -> None:
+        result = classify_system_action(action)  # type: ignore[arg-type]
+        assert result.risk_level == expected_level
+
+    def test_ocr_extract_no_confirmation(self) -> None:
+        result = classify_system_action("ocr_extract")
+        assert result.confirmation_required is False
+
+    def test_click_xy_requires_confirmation(self) -> None:
+        result = classify_system_action("click_xy")
+        assert result.confirmation_required is True
+
+    def test_mouse_move_no_confirmation(self) -> None:
+        result = classify_system_action("mouse_move")
+        assert result.confirmation_required is False
+
+    @pytest.mark.parametrize(
+        "action",
+        ["ocr_extract", "click_xy", "mouse_move"],
+    )
+    def test_visual_action_confidence(self, action: str) -> None:
+        result = classify_system_action(action)  # type: ignore[arg-type]
+        assert result.confidence == pytest.approx(1.0)
+
+    def test_ocr_extract_in_risk_map(self) -> None:
+        assert SYSTEM_ACTION_RISK_MAP["ocr_extract"] == "READ_ONLY"
+
+    def test_click_xy_in_risk_map(self) -> None:
+        assert SYSTEM_ACTION_RISK_MAP["click_xy"] == "SENSITIVE"
+
+    def test_mouse_move_in_risk_map(self) -> None:
+        assert SYSTEM_ACTION_RISK_MAP["mouse_move"] == "INTERACTION"
+
+    def test_visual_action_target_in_reason(self) -> None:
+        result = classify_system_action(
+            "click_xy", target="x=100,y=200"
+        )
+        assert "x=100,y=200" in result.reason

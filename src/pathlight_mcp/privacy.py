@@ -36,6 +36,7 @@ __all__ = [
     "redact_element",
     "redact_snapshot",
     "redact_web_content",
+    "should_allow_screenshot",
 ]
 
 
@@ -478,3 +479,34 @@ def redact_web_content(
         result_lines.append(line)
 
     return "\n".join(result_lines)
+
+
+# ---------------------------------------------------------------------------
+# Screenshot privacy gate (GW-152)
+# ---------------------------------------------------------------------------
+
+
+def should_allow_screenshot(
+    *,
+    app_name: str | None = None,
+    config: PrivacyConfig | None = None,
+) -> bool:
+    """Check whether a screenshot capture should be permitted.
+
+    The privacy gate denies screenshots when the application name matches
+    an entry on the denylist (case-insensitive).
+
+    Args:
+        app_name: Application name (e.g. ``"notepad.exe"``).
+        config: Privacy configuration. When ``None``, defaults to a fresh
+            :class:`PrivacyConfig`.
+
+    Returns:
+        ``True`` when the screenshot is permitted, ``False`` otherwise.
+    """
+    if config is None:
+        config = PrivacyConfig()
+
+    denylist_lower = {a.lower() for a in config.denylist_apps}
+
+    return not (app_name and app_name.lower() in denylist_lower)

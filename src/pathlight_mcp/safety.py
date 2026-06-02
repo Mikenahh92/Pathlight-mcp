@@ -267,6 +267,9 @@ SystemAction = Literal[
     "web_frame_tree",
     "web_wait_for",
     "web_screenshot",
+    "ocr_extract",
+    "click_xy",
+    "mouse_move",
 ]
 
 # ---------------------------------------------------------------------------
@@ -278,7 +281,7 @@ SYSTEM_ACTION_RISK_MAP: dict[SystemAction, RiskLevel] = {
     "app_close": "SENSITIVE",
     "clipboard_read": "INTERACTION",
     "clipboard_write": "SENSITIVE",
-    "screenshot": "INTERACTION",
+    "screenshot": "READ_ONLY",
     "window_list": "READ_ONLY",
     "window_focus": "INTERACTION",
     "window_close": "SENSITIVE",
@@ -300,6 +303,9 @@ SYSTEM_ACTION_RISK_MAP: dict[SystemAction, RiskLevel] = {
     "web_frame_tree": "READ_ONLY",
     "web_wait_for": "READ_ONLY",
     "web_screenshot": "READ_ONLY",
+    "ocr_extract": "READ_ONLY",
+    "click_xy": "SENSITIVE",
+    "mouse_move": "INTERACTION",
 }
 
 

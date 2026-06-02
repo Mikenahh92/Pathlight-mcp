@@ -32,6 +32,7 @@ dependencies = [
     "comtypes>=1.4; sys_platform == 'win32'",
     "python-xlib; sys_platform == 'linux'",
     "websocket-client>=1.6",
+    "mss>=9.0",
 ]
 
 [project.urls]
@@ -48,9 +49,13 @@ dev = [
     "pytest-cov>=5.0",
     "ruff>=0.4",
     "packaging>=24.0",
+    "pathlight-mcp[visual]",
 ]
 integration = [
     "anthropic>=0.40.0",
+]
+visual = [
+    "rapidocr-onnxruntime>=1.2",
 ]
 
 [project.scripts]

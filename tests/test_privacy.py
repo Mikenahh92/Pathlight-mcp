@@ -21,6 +21,7 @@ from pathlight_mcp.privacy import (
     redact_element,
     redact_snapshot,
     redact_web_content,
+    should_allow_screenshot,
 )
 
 # ---------------------------------------------------------------------------
@@ -128,7 +129,7 @@ def sample_snapshot() -> NormalizedElement:
 
 
 class TestExports:
-    """Verify module exports exactly 6 public names (F6)."""
+    """Verify module exports exactly 7 public names (F6)."""
 
     def test_all_exports(self) -> None:
         import pathlight_mcp.privacy as mod
@@ -140,6 +141,7 @@ class TestExports:
             "redact_element",
             "redact_snapshot",
             "redact_web_content",
+            "should_allow_screenshot",
         ]
 
     def test_privacy_config_importable(self) -> None:
@@ -1236,3 +1238,115 @@ class TestRedactWebContent:
     def test_whitespace_around_separator(self) -> None:
         result = redact_web_content("api.key = sk-123")
         assert result == "[REDACTED]"
+
+
+# ===========================================================================
+# GW-152: should_allow_screenshot tests
+# ===========================================================================
+
+
+class TestShouldAllowScreenshot:
+    """Verify screenshot privacy gate (GW-152).
+
+    The gate denies screenshots when the application name matches a
+    denylist entry (case-insensitive).  Returns ``bool`` — no reason string.
+
+    Screenshots are allowed when:
+    - Default config (empty denylist)
+    - No matching denylist entry
+    """
+
+    # -- Default config: empty denylist, everything allowed --
+
+    def test_default_config_allows(self) -> None:
+        assert should_allow_screenshot() is True
+
+    def test_default_config_allows_any_app(self) -> None:
+        assert should_allow_screenshot(app_name="any.exe") is True
+
+    # -- Denylist matching --
+
+    def test_denylisted_app_denied(self) -> None:
+        config = PrivacyConfig(denylist_apps=frozenset({"keepass.exe"}))
+        assert should_allow_screenshot(
+            app_name="keepass.exe", config=config
+        ) is False
+
+    def test_non_denylisted_app_allowed(self) -> None:
+        config = PrivacyConfig(denylist_apps=frozenset({"keepass.exe"}))
+        assert should_allow_screenshot(
+            app_name="notepad.exe", config=config
+        ) is True
+
+    # -- Case insensitivity --
+
+    def test_case_insensitive_app_match(self) -> None:
+        config = PrivacyConfig(denylist_apps=frozenset({"keepass.exe"}))
+        assert should_allow_screenshot(
+            app_name="KeepAss.exe", config=config
+        ) is False
+
+    # -- None/empty inputs --
+
+    def test_none_app(self) -> None:
+        config = PrivacyConfig(denylist_apps=frozenset({"keepass.exe"}))
+        assert should_allow_screenshot(
+            app_name=None, config=config
+        ) is True
+
+    def test_empty_string_app(self) -> None:
+        config = PrivacyConfig(denylist_apps=frozenset({"keepass.exe"}))
+        assert should_allow_screenshot(
+            app_name="", config=config
+        ) is True
+
+    # -- None config uses default --
+
+    def test_none_config(self) -> None:
+        assert should_allow_screenshot(
+            app_name="anything", config=None
+        ) is True
+
+    # -- Multiple denylisted apps --
+
+    def test_multiple_denylisted_apps(self) -> None:
+        config = PrivacyConfig(
+            denylist_apps=frozenset({"keepass.exe", "bitwarden.exe"})
+        )
+        assert should_allow_screenshot(app_name="keepass.exe", config=config) is False
+        assert should_allow_screenshot(app_name="bitwarden.exe", config=config) is False
+        assert should_allow_screenshot(app_name="notepad.exe", config=config) is True
+
+    # -- Keyword-only arguments --
+
+    def test_keyword_only(self) -> None:
+        """should_allow_screenshot takes only keyword arguments."""
+        import inspect
+
+        sig = inspect.signature(should_allow_screenshot)
+        for param in sig.parameters.values():
+            assert param.kind in (
+                inspect.Parameter.KEYWORD_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ), f"Parameter {param.name} should be keyword-only or positional"
+
+    # -- Return type is bool, not tuple --
+
+    def test_returns_bool(self) -> None:
+        result = should_allow_screenshot()
+        assert isinstance(result, bool)
+
+    def test_returns_bool_when_denied(self) -> None:
+        config = PrivacyConfig(denylist_apps=frozenset({"evil.exe"}))
+        result = should_allow_screenshot(app_name="evil.exe", config=config)
+        assert isinstance(result, bool)
+        assert result is False
+
+    # -- Signature has only app_name (no window_title) --
+
+    def test_signature_has_no_window_title(self) -> None:
+        """should_allow_screenshot does not accept window_title (F4)."""
+        import inspect
+
+        sig = inspect.signature(should_allow_screenshot)
+        assert "window_title" not in sig.parameters
