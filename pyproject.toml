@@ -36,11 +36,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Mikenahh92/Guidewire"
-Documentation = "https://github.com/Mikenahh92/Guidewire#readme"
-Changelog = "https://github.com/Mikenahh92/Guidewire/blob/main/CHANGELOG.md"
-"Bug Tracker" = "https://github.com/Mikenahh92/Guidewire/issues"
-"Source Code" = "https://github.com/Mikenahh92/Guidewire"
+Homepage = "https://github.com/Mikenahh92/Pathlight-mcp"
+Documentation = "https://github.com/Mikenahh92/Pathlight-mcp#readme"
+Changelog = "https://github.com/Mikenahh92/Pathlight-mcp/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Mikenahh92/Pathlight-mcp/issues"
+"Source Code" = "https://github.com/Mikenahh92/Pathlight-mcp"
 
 [project.optional-dependencies]
 dev = [

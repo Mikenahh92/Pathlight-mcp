@@ -3,10 +3,10 @@
 **Desktop + web accessibility for AI agents.** Pathlight MCP exposes native applications and web browsers as navigable accessibility trees that any MCP-compatible AI agent can interact with — no screenshots or vision models needed.
 
 [![PyPI Version](https://img.shields.io/pypi/v/pathlight-mcp.svg?label=pypi)](https://pypi.org/project/pathlight-mcp/)
-[![CI](https://github.com/Mikenahh92/Guidewire/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Mikenahh92/Guidewire/actions/workflows/ci.yml)
+[![CI](https://github.com/Mikenahh92/Pathlight-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Mikenahh92/Pathlight-mcp/actions/workflows/ci.yml)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/pathlight-mcp.svg?label=downloads)](https://pypi.org/project/pathlight-mcp/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pathlight-mcp.svg)](https://pypi.org/project/pathlight-mcp/)
-[![License: MIT](https://img.shields.io/github/license/Mikenahh92/Guidewire)](LICENSE)
+[![License: MIT](https://img.shields.io/github/license/Mikenahh92/Pathlight-mcp)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-stdio-purple.svg)](https://modelcontextprotocol.io/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20Web-lightgrey.svg)](#supported-platforms)
 
