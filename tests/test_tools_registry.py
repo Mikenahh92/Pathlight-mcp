@@ -44,6 +44,8 @@ EXPECTED_TOOL_NAMES = [
     "desktop.web_frame_tree",
     "desktop.web_wait_for",
     "desktop.web_screenshot",
+    "desktop.click_xy",
+    "desktop.mouse_move",
 ]
 
 

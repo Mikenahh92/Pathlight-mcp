@@ -255,6 +255,18 @@ EXPECTED_TOOLS = [
             "max_size_kb",
         ],
     },
+    {
+        "name": "desktop.click_xy",
+        "description_pattern": "Click at absolute screen coordinates",
+        "required_params": ["x", "y"],
+        "optional_params": ["button", "click_count"],
+    },
+    {
+        "name": "desktop.mouse_move",
+        "description_pattern": "Move the mouse cursor to absolute screen coordinates",
+        "required_params": ["x", "y"],
+        "optional_params": ["duration"],
+    },
 ]
 
 

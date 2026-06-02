@@ -105,3 +105,5 @@ class DesktopAction(StrEnum):
     INCREMENT = "increment"
     DECREMENT = "decrement"
     GET_TABLE_INFO = "get_table_info"
+    CLICK_XY = "click_xy"
+    MOUSE_MOVE = "mouse_move"

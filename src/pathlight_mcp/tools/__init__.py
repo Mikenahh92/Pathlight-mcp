@@ -36,6 +36,8 @@ Tool set (architecture v2 §3.1):
     desktop.web_frame_tree — inspect iframe hierarchy (GW-124)
     desktop.web_wait_for   — async auto-wait for web page conditions (GW-125)
     desktop.web_screenshot — capture web page screenshots (GW-125)
+    desktop.click_xy     — click at absolute screen coordinates (GW-151)
+    desktop.mouse_move   — move cursor to absolute screen coordinates (GW-151)
 """
 
 import importlib
@@ -82,6 +84,8 @@ _TOOL_MODULES = [
     ".web_frame_tree",
     ".web_wait_for",
     ".web_screenshot",
+    ".click_xy",
+    ".mouse_move",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.
@@ -102,6 +106,8 @@ _BACKEND_TOOL_MODULES: frozenset[str] = frozenset(
         ".scroll_to_item",
         ".multi_action",
         ".wait_for",
+        ".click_xy",
+        ".mouse_move",
     }
 )
 

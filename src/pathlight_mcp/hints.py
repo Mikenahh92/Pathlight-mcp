@@ -115,6 +115,17 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Capture a specific element instead of the full page",
         "Increase max_size_kb to allow larger screenshots",
     ],
+    "click_xy_failed": [
+        "Use desktop.snapshot to verify the target coordinates are within the screen bounds",
+        "Ensure the target window is focused before clicking",
+        "Try an accessibility-based click via desktop.click instead of coordinate-based fallback",
+        "Check that the coordinates correspond to a visible UI element",
+    ],
+    "mouse_move_failed": [
+        "Use desktop.snapshot to verify the target coordinates are within the screen bounds",
+        "Ensure the target window is focused before moving the cursor",
+        "The coordinates may be outside the visible screen area",
+    ],
 }
 
 

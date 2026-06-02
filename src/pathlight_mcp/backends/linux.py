@@ -880,6 +880,10 @@ class LinuxBackend(DesktopBackend):
                 return self._action_decrement(accessible)
             if action == DesktopAction.GET_TABLE_INFO:
                 return self._dispatch_table_info(accessible, **kwargs)
+            if action == DesktopAction.CLICK_XY:
+                return self._action_click_xy(**kwargs)
+            if action == DesktopAction.MOUSE_MOVE:
+                return self._action_mouse_move(**kwargs)
         except (ActionNotSupportedError, StaleElementReferenceError):
             raise
         except Exception as exc:
@@ -1328,6 +1332,92 @@ class LinuxBackend(DesktopBackend):
             ActionNotSupportedError: If decrement action is not available.
         """
         self._do_action_by_name(accessible, "decrement")
+
+    @staticmethod
+    def _action_click_xy(**kwargs: Any) -> None:
+        """Handle CLICK_XY action via XTest coordinate-based click.
+
+        Uses XTest ``fake_input`` to move the cursor and dispatch a button
+        press/release at the given ``x``, ``y`` screen coordinates.  Supports
+        ``button`` (left/right/middle) and ``click_count`` (1 or 2).
+
+        Args:
+            **kwargs: Must contain ``x`` (int) and ``y`` (int).  Optional
+                ``button`` (str, default ``"left"``) and ``click_count``
+                (int, default ``1``).
+
+        Raises:
+            ActionNotSupportedError: If coordinates are missing or XTest fails.
+        """
+        x = kwargs.get("x")
+        y = kwargs.get("y")
+        if x is None or y is None:
+            raise ActionNotSupportedError("CLICK_XY requires 'x' and 'y' parameters")
+
+        button = kwargs.get("button", "left")
+        click_count = int(kwargs.get("click_count", 1))
+
+        _button_map: dict[str, int] = {
+            "left": 1,
+            "middle": 2,
+            "right": 3,
+        }
+        xtest_button = _button_map.get(button, 1)
+
+        from Xlib import X  # type: ignore[import-untyped]
+        from Xlib.display import Display  # type: ignore[import-untyped]
+        from Xlib.ext.xtest import fake_input  # type: ignore[import-untyped]
+
+        display = Display()
+        try:
+            fake_input(display, X.MotionNotify, x=int(x), y=int(y))
+            display.sync()
+            for _ in range(click_count):
+                fake_input(display, X.ButtonPress, xtest_button)
+                display.sync()
+                fake_input(display, X.ButtonRelease, xtest_button)
+                display.sync()
+        except Exception as exc:
+            raise ActionNotSupportedError(
+                f"XTest coordinate click failed at ({x}, {y}): {exc}"
+            ) from exc
+        finally:
+            display.close()
+
+    @staticmethod
+    def _action_mouse_move(**kwargs: Any) -> None:
+        """Handle MOUSE_MOVE action via XTest cursor repositioning.
+
+        Uses XTest ``XTestFakeMotionEvent`` to move the cursor to the given
+        ``x``, ``y`` screen coordinates.  The optional ``duration`` kwarg is
+        acknowledged but not animated on Linux — the move is instant.
+
+        Args:
+            **kwargs: Must contain ``x`` (int) and ``y`` (int).  Optional
+                ``duration`` (float, ignored on Linux).
+
+        Raises:
+            ActionNotSupportedError: If coordinates are missing or XTest fails.
+        """
+        x = kwargs.get("x")
+        y = kwargs.get("y")
+        if x is None or y is None:
+            raise ActionNotSupportedError("MOUSE_MOVE requires 'x' and 'y' parameters")
+
+        from Xlib import X  # type: ignore[import-untyped]
+        from Xlib.display import Display  # type: ignore[import-untyped]
+        from Xlib.ext.xtest import fake_input  # type: ignore[import-untyped]
+
+        display = Display()
+        try:
+            fake_input(display, X.MotionNotify, x=int(x), y=int(y))
+            display.sync()
+        except Exception as exc:
+            raise ActionNotSupportedError(
+                f"XTest cursor move failed to ({x}, {y}): {exc}"
+            ) from exc
+        finally:
+            display.close()
 
     # -- Keyboard simulation helpers -------------------------------------------
 

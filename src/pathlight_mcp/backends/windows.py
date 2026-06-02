@@ -934,6 +934,10 @@ class WindowsBackend(DesktopBackend):
                 return self._action_decrement(element)
             if action == DesktopAction.GET_TABLE_INFO:
                 return self._dispatch_table_info(element, **kwargs)
+            if action == DesktopAction.CLICK_XY:
+                return self._action_click_xy(**kwargs)
+            if action == DesktopAction.MOUSE_MOVE:
+                return self._action_mouse_move(**kwargs)
         except ActionNotSupportedError:
             raise
         except StaleElementReferenceError:
@@ -1125,6 +1129,112 @@ class WindowsBackend(DesktopBackend):
         up_inp.union.mi.dy = norm_y
         up_inp.union.mi.dwFlags = _mouseeventf_absolute | _mouseeventf_leftup
         user32.SendInput(1, ctypes.byref(up_inp), ctypes.sizeof(input_cls))
+
+    @staticmethod
+    def _action_click_xy(**kwargs: Any) -> None:
+        """Handle CLICK_XY action via SendInput coordinate-based click.
+
+        Supports ``button`` (left/right/middle) and ``click_count`` (1 or 2)
+        parameters from the tool layer.  Moves the cursor and dispatches
+        the requested button press/release at the given ``x``, ``y``.
+
+        Args:
+            **kwargs: Must contain ``x`` (int) and ``y`` (int).  Optional
+                ``button`` (str, default ``"left"``) and ``click_count``
+                (int, default ``1``).
+
+        Raises:
+            ActionNotSupportedError: If coordinates are missing.
+        """
+        x = kwargs.get("x")
+        y = kwargs.get("y")
+        if x is None or y is None:
+            raise ActionNotSupportedError("CLICK_XY requires 'x' and 'y' parameters")
+
+        button = kwargs.get("button", "left")
+        click_count = int(kwargs.get("click_count", 1))
+
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        structs = _get_sendinput_structs()
+        input_cls = structs["INPUT"]
+
+        # Convert pixel coordinates to normalized absolute coordinates (0-65535)
+        screen_w = user32.GetSystemMetrics(0)
+        screen_h = user32.GetSystemMetrics(1)
+        norm_x = int(x * 65535 / screen_w) if screen_w else 0
+        norm_y = int(y * 65535 / screen_h) if screen_h else 0
+
+        _mouseeventf_absolute = 0x8000
+        _mouseeventf_move = 0x0001
+
+        # Map button name to down/up flags
+        _button_flags: dict[str, tuple[int, int]] = {
+            "left": (0x0002, 0x0004),      # MOUSEEVENTF_LEFTDOWN / LEFTUP
+            "right": (0x0008, 0x0010),     # MOUSEEVENTF_RIGHTDOWN / RIGHTUP
+            "middle": (0x0020, 0x0040),    # MOUSEEVENTF_MIDDLEDOWN / MIDDLEUP
+        }
+        down_flag, up_flag = _button_flags.get(button, (0x0002, 0x0004))
+
+        # Move cursor to target position
+        move_inp = input_cls(type=0)
+        move_inp.union.mi.dx = norm_x
+        move_inp.union.mi.dy = norm_y
+        move_inp.union.mi.dwFlags = _mouseeventf_absolute | _mouseeventf_move
+        user32.SendInput(1, ctypes.byref(move_inp), ctypes.sizeof(input_cls))
+
+        for _ in range(click_count):
+            # Button down
+            down_inp = input_cls(type=0)
+            down_inp.union.mi.dx = norm_x
+            down_inp.union.mi.dy = norm_y
+            down_inp.union.mi.dwFlags = _mouseeventf_absolute | down_flag
+            user32.SendInput(1, ctypes.byref(down_inp), ctypes.sizeof(input_cls))
+
+            # Button up
+            up_inp = input_cls(type=0)
+            up_inp.union.mi.dx = norm_x
+            up_inp.union.mi.dy = norm_y
+            up_inp.union.mi.dwFlags = _mouseeventf_absolute | up_flag
+            user32.SendInput(1, ctypes.byref(up_inp), ctypes.sizeof(input_cls))
+
+    @staticmethod
+    def _action_mouse_move(**kwargs: Any) -> None:
+        """Handle MOUSE_MOVE action via SendInput cursor repositioning.
+
+        Moves the cursor to the given ``x``, ``y`` screen coordinates using
+        the Win32 ``SendInput`` API.  The optional ``duration`` kwarg is
+        acknowledged but not animated on Windows — the move is instant.
+
+        Args:
+            **kwargs: Must contain ``x`` (int) and ``y`` (int).  Optional
+                ``duration`` (float, ignored on Windows).
+
+        Raises:
+            ActionNotSupportedError: If coordinates are missing.
+        """
+        x = kwargs.get("x")
+        y = kwargs.get("y")
+        if x is None or y is None:
+            raise ActionNotSupportedError("MOUSE_MOVE requires 'x' and 'y' parameters")
+
+        user32 = ctypes.windll.user32  # type: ignore[attr-defined]
+        structs = _get_sendinput_structs()
+        input_cls = structs["INPUT"]
+
+        # Convert pixel coordinates to normalized absolute coordinates (0-65535)
+        screen_w = user32.GetSystemMetrics(0)
+        screen_h = user32.GetSystemMetrics(1)
+        norm_x = int(x * 65535 / screen_w) if screen_w else 0
+        norm_y = int(y * 65535 / screen_h) if screen_h else 0
+
+        _mouseeventf_absolute = 0x8000
+        _mouseeventf_move = 0x0001
+
+        move_inp = input_cls(type=0)
+        move_inp.union.mi.dx = norm_x
+        move_inp.union.mi.dy = norm_y
+        move_inp.union.mi.dwFlags = _mouseeventf_absolute | _mouseeventf_move
+        user32.SendInput(1, ctypes.byref(move_inp), ctypes.sizeof(input_cls))
 
     def _action_click(self, element: Any) -> None:
         """Click an element via InvokePattern, with coordinate-based fallback.

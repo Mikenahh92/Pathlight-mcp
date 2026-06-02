@@ -671,6 +671,10 @@ class WebBackend(DesktopBackend):
                 return self._action_click(node, dom, inp)
             if action == DesktopAction.SCROLL:
                 return self._action_scroll(node, dom, inp, **kwargs)
+            if action == DesktopAction.CLICK_XY:
+                return self._action_click_xy(inp, **kwargs)
+            if action == DesktopAction.MOUSE_MOVE:
+                return self._action_mouse_move(inp, **kwargs)
             if action == "focus":
                 return self._action_focus(node, dom)
         except (ActionNotSupportedError, StaleElementReferenceError, ElementNotFoundError):
@@ -1497,6 +1501,63 @@ class WebBackend(DesktopBackend):
         inp.dispatch_mouse_event(
             "mouseWheel", x, y, button="none", delta_x=delta_x, delta_y=delta_y
         )
+
+    @staticmethod
+    def _action_click_xy(inp: InputDomain, **kwargs: Any) -> None:
+        """Handle CLICK_XY action via CDP Input.dispatchMouseEvent.
+
+        Dispatches a mouse press/release at the given ``x``, ``y`` viewport
+        coordinates.  Supports ``button`` (left/right/middle) and
+        ``click_count`` (1 or 2) from the tool layer.
+
+        Args:
+            inp: :class:`InputDomain` for mouse event dispatch.
+            **kwargs: Must contain ``x`` (int/float) and ``y`` (int/float).
+                Optional ``button`` (str, default ``"left"``) and
+                ``click_count`` (int, default ``1``).
+
+        Raises:
+            ActionNotSupportedError: If coordinates are missing.
+        """
+        x = kwargs.get("x")
+        y = kwargs.get("y")
+        if x is None or y is None:
+            raise ActionNotSupportedError("CLICK_XY requires 'x' and 'y' parameters")
+
+        button = str(kwargs.get("button", "left"))
+        click_count = int(kwargs.get("click_count", 1))
+
+        inp.dispatch_mouse_event(
+            "mousePressed", float(x), float(y),
+            button=button, click_count=click_count,
+        )
+        inp.dispatch_mouse_event(
+            "mouseReleased", float(x), float(y),
+            button=button, click_count=click_count,
+        )
+
+    @staticmethod
+    def _action_mouse_move(inp: InputDomain, **kwargs: Any) -> None:
+        """Handle MOUSE_MOVE action via CDP Input.dispatchMouseEvent.
+
+        Dispatches a ``mouseMoved`` event to reposition the cursor at the
+        given ``x``, ``y`` viewport coordinates.  The optional ``duration``
+        kwarg is acknowledged but not animated — the move is instant.
+
+        Args:
+            inp: :class:`InputDomain` for mouse event dispatch.
+            **kwargs: Must contain ``x`` (int/float) and ``y`` (int/float).
+                Optional ``duration`` (float, ignored).
+
+        Raises:
+            ActionNotSupportedError: If coordinates are missing.
+        """
+        x = kwargs.get("x")
+        y = kwargs.get("y")
+        if x is None or y is None:
+            raise ActionNotSupportedError("MOUSE_MOVE requires 'x' and 'y' parameters")
+
+        inp.dispatch_mouse_event("mouseMoved", float(x), float(y), button="none")
 
     @staticmethod
     def _action_focus(node: AXNode, dom: DOMDomain) -> None:
