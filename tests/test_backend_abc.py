@@ -63,6 +63,7 @@ class TestAbstractMethodsPresent:
             "move_window",
             "resize_window",
             "dispose",
+            "screenshot",
         }
     )
 
@@ -80,7 +81,7 @@ class TestAbstractMethodsPresent:
             for name, method in inspect.getmembers(DesktopBackend, predicate=inspect.isfunction)
             if getattr(method, "__isabstractmethod__", False)
         ]
-        assert len(abstracts) == 17
+        assert len(abstracts) == 18
 
 
 # -- TC-04: list_windows signature ------------------------------------------
@@ -240,6 +241,9 @@ class TestMinimalSubclass:
 
             def dispose(self) -> None:
                 pass
+
+            def screenshot(self, window) -> bytes:
+                return b"\x89PNG"
 
         backend = MinimalBackend()
         assert isinstance(backend, DesktopBackend)

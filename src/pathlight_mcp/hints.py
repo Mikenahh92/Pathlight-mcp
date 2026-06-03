@@ -126,6 +126,12 @@ _HINT_REGISTRY: dict[str, list[str]] = {
         "Ensure the target window is focused before moving the cursor",
         "The coordinates may be outside the visible screen area",
     ],
+    "desktop_screenshot_error": [
+        "Ensure the target window is visible and not minimized",
+        "Use desktop.list_windows to verify the window exists",
+        "The window may have been closed — try desktop.snapshot first to confirm",
+        "For web pages, use desktop.web_screenshot instead",
+    ],
 }
 
 

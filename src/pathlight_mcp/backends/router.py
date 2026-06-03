@@ -265,6 +265,11 @@ class BackendRouter(DesktopBackend):
             except Exception:
                 logger.debug("Error disposing backend", exc_info=True)
 
+    def screenshot(self, window: NativeHandle) -> bytes:
+        """Delegate screenshot to the owning backend."""
+        inner, backend_id = _untag(window)
+        return self._require_backend(backend_id).screenshot(inner)
+
     def scroll_to_item(
         self,
         container: NativeHandle,

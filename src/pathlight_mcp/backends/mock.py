@@ -623,6 +623,33 @@ class MockBackend(DesktopBackend):
         self._windows.clear()
         self._elements.clear()
 
+    def screenshot(self, window: NativeHandle) -> bytes:
+        """Return a small dummy PNG image for testing.
+
+        Produces a minimal valid 1×1 white PNG so tests can verify base64
+        output without depending on ``mss`` or a display server.
+
+        Args:
+            window: Opaque native window handle.
+
+        Returns:
+            Raw PNG image bytes.
+
+        Raises:
+            WindowNotFoundError: If the handle is invalid.
+        """
+        if window not in self._windows:
+            raise WindowNotFoundError(f"Window handle {window!r} not found")
+        # Minimal 1×1 white PNG (67 bytes)
+        return (
+            b"\x89PNG\r\n\x1a\n"
+            b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x02\x00\x00\x00\x90wS\xde"
+            b"\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05"
+            b"\x18\xd8N"
+            b"\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+
     # -- Inspection helpers for tests ----------------------------------------
 
     @property

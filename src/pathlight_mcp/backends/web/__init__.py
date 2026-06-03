@@ -837,6 +837,29 @@ class WebBackend(DesktopBackend):
         self._connected = False
         self._disposed = True
 
+    def screenshot(self, window: NativeHandle) -> bytes:
+        """Capture a screenshot of the given web page target (GW-149).
+
+        For web targets, screenshots should be taken via the
+        ``desktop.web_screenshot`` tool which uses CDP directly.
+        This backend method raises ``ActionNotSupportedError`` to guide
+        callers toward the proper web screenshot path.
+
+        Args:
+            window: Opaque native window handle (web target).
+
+        Returns:
+            Raw PNG image bytes.
+
+        Raises:
+            ActionNotSupportedError: Always — use web_screenshot instead.
+        """
+        from pathlight_mcp.errors import ActionNotSupportedError
+
+        raise ActionNotSupportedError(
+            "Use desktop.web_screenshot for web page screenshots instead"
+        )
+
     # -- Window state management -----------------------------------------------
 
     def minimize_window(self, window: NativeHandle) -> None:

@@ -461,6 +461,7 @@ class TestArchitectureDecision:
             "move_window",
             "resize_window",
             "dispose",
+            "screenshot",
         }
         assert abstract_methods == expected_methods
 
