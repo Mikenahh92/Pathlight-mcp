@@ -39,6 +39,7 @@ Tool set (architecture v2 §3.1):
     desktop.click_xy     — click at absolute screen coordinates (GW-151)
     desktop.mouse_move   — move cursor to absolute screen coordinates (GW-151)
     desktop.screenshot   — capture a screenshot of a native window (GW-149)
+    desktop.ocr_extract  — extract text from a window via OCR (GW-150)
 """
 
 import importlib
@@ -88,6 +89,7 @@ _TOOL_MODULES = [
     ".click_xy",
     ".mouse_move",
     ".screenshot",
+    ".ocr_extract",
 ]
 
 # Modules whose ``register()`` accepts an optional backend argument.
@@ -111,6 +113,7 @@ _BACKEND_TOOL_MODULES: frozenset[str] = frozenset(
         ".click_xy",
         ".mouse_move",
         ".screenshot",
+        ".ocr_extract",
     }
 )
 
