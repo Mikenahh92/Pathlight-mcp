@@ -18,7 +18,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # needed for setuptools-scm
       - uses: actions/setup-python@v5
@@ -40,7 +40,7 @@ jobs:
         os: [ubuntu-latest]
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # needed for setuptools-scm
       - uses: actions/setup-python@v5
@@ -55,7 +55,7 @@ jobs:
     name: Web Backend Integration (Headless Chrome)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
@@ -91,7 +91,7 @@ jobs:
     name: Build Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
