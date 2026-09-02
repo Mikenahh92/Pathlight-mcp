@@ -29,6 +29,8 @@ pip install "pathlight-mcp[windows]"    # Windows UI Automation
 # Linux X11 support is included automatically on Linux
 ```
 
+Run 'pathlight --version' to print the version.
+
 ---
 
 ## Connect Your Agent
