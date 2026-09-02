@@ -46,6 +46,8 @@ EXPECTED_TOOL_NAMES = [
     "desktop.web_screenshot",
     "desktop.click_xy",
     "desktop.mouse_move",
+    "desktop.screenshot",
+    "desktop.ocr_extract",
 ]
 
 

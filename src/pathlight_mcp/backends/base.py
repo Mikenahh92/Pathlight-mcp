@@ -23,7 +23,7 @@ __all__ = [
 class DesktopBackend(ABC):
     """Abstract base class for platform accessibility backends.
 
-    Every method is synchronous.  The 16 methods form the complete contract
+    Every method is synchronous.  The 17 methods form the complete contract
     that the MCP tool layer calls.  Subclasses must implement all of them.
 
     Method mapping (architecture v2 §4.1):
@@ -304,6 +304,25 @@ class DesktopBackend(ABC):
             BackendUnavailableError: If the clipboard cannot be accessed.
 
         Maps to: ``desktop.clipboard_write`` (PRD §6).
+        """
+
+    @abstractmethod
+    def screenshot(self, window: NativeHandle) -> bytes:
+        """Capture a screenshot of the given window as PNG bytes.
+
+        Uses the ``mss`` library for cross-platform screen capture.
+
+        Args:
+            window: Opaque native window handle.
+
+        Returns:
+            Raw PNG image bytes.
+
+        Raises:
+            WindowNotFoundError: If the handle is invalid.
+            BackendUnavailableError: If screen capture fails.
+
+        Maps to: ``desktop.screenshot`` (GW-149).
         """
 
     @abstractmethod

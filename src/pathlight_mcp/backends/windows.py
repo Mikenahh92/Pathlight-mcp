@@ -2199,6 +2199,41 @@ class WindowsBackend(DesktopBackend):
             self._com_initialized = False
         self._disposed = True
 
+    def screenshot(self, window: NativeHandle) -> bytes:
+        """Capture a screenshot of the given window using mss (GW-149).
+
+        Uses ``mss`` to grab the region matching the window's bounding box.
+
+        Args:
+            window: Opaque native window handle.
+
+        Returns:
+            Raw PNG image bytes.
+
+        Raises:
+            WindowNotFoundError: If the handle is invalid.
+            BackendUnavailableError: If screen capture fails.
+        """
+        import mss
+
+        info = self.get_window_info(window)
+        bounds = info.get("bounds")
+        if bounds is None:
+            raise BackendUnavailableError("Window has no bounds — cannot capture screenshot")
+
+        monitor = {
+            "left": bounds["x"],
+            "top": bounds["y"],
+            "width": bounds["width"],
+            "height": bounds["height"],
+        }
+        try:
+            with mss.mss() as sct:
+                shot = sct.grab(monitor)
+                return mss.tools.to_png(shot.rgb, shot.size)
+        except Exception as exc:
+            raise BackendUnavailableError(f"Screenshot capture failed: {exc}") from exc
+
     # -- Window state management (GW-055) ------------------------------------
 
     # Win32 ShowWindow constants

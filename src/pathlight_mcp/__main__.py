@@ -5,6 +5,7 @@ server over the standard input/output streams::
 
     python -m pathlight_mcp
     python -m pathlight_mcp --backend=mock
+    python -m pathlight_mcp --version
 """
 
 import argparse
@@ -13,10 +14,40 @@ from pathlight_mcp.server import PathlightMCPServer
 
 __all__ = ["main"]
 
+_VERSION_FALLBACK = "0.0.0.dev0"
+
+
+def _get_version() -> str:
+    """Return the installed package version, with a safe fallback.
+
+    Resolves the version from installed distribution metadata via
+    ``importlib.metadata`` so it matches the installed build (including
+    editable installs). Falls back to ``_VERSION_FALLBACK`` when metadata
+    is unavailable (e.g. a raw source checkout) so ``--version`` never
+    crashes.
+
+    Returns:
+        The package version string, or the fallback when metadata is
+        missing.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("pathlight-mcp")
+    except PackageNotFoundError:
+        return _VERSION_FALLBACK
+
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(prog="pathlight_mcp")
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"pathlight-mcp {_get_version()}\n",
+        help="Print the package version and exit.",
+    )
     parser.add_argument(
         "--backend",
         choices=["mock", "auto"],

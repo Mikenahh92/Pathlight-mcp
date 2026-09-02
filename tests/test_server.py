@@ -267,6 +267,12 @@ EXPECTED_TOOLS = [
         "required_params": ["x", "y"],
         "optional_params": ["duration"],
     },
+    {
+        "name": "desktop.screenshot",
+        "description_pattern": "Capture a screenshot of a native desktop window",
+        "required_params": ["window_ref"],
+        "optional_params": ["max_size_kb"],
+    },
 ]
 
 

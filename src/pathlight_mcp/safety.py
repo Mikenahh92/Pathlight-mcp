@@ -270,6 +270,7 @@ SystemAction = Literal[
     "ocr_extract",
     "click_xy",
     "mouse_move",
+    "desktop_screenshot",
 ]
 
 # ---------------------------------------------------------------------------
@@ -306,6 +307,7 @@ SYSTEM_ACTION_RISK_MAP: dict[SystemAction, RiskLevel] = {
     "ocr_extract": "READ_ONLY",
     "click_xy": "SENSITIVE",
     "mouse_move": "INTERACTION",
+    "desktop_screenshot": "READ_ONLY",
 }
 
 
