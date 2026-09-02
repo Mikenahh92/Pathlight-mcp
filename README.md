@@ -29,6 +29,7 @@ pip install "pathlight-mcp[windows]"    # Windows UI Automation
 # Linux X11 support is included automatically on Linux
 ```
 
+Pathlight needs Node 18+.
 Run 'pathlight --version' to print the version.
 
 ---
