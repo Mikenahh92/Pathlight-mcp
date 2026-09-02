@@ -157,3 +157,4 @@ For release and rollback procedures, see [RELEASING.md](RELEASING.md).
 ## License
 
 [MIT](LICENSE) — Copyright 2025–2026 Mikenahh92
+License: MIT.
