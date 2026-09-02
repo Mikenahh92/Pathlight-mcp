@@ -157,3 +157,6 @@ For release and rollback procedures, see [RELEASING.md](RELEASING.md).
 ## License
 
 [MIT](LICENSE) — Copyright 2025–2026 Mikenahh92
+AM2 TC-03 AM2-110
+AM2 TC-03 AM2-111
+AM2 TC-03 AM2-112
