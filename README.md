@@ -1,4 +1,4 @@
-# Pathlight MCP
+# Pathlight MCP (TC-07 base-side conflicting edit)
 
 **Desktop + web accessibility for AI agents.** Pathlight MCP exposes native applications and web browsers as navigable accessibility trees that any MCP-compatible AI agent can interact with — no screenshots or vision models needed.
 
