@@ -1,0 +1,531 @@
+{
+  "suite": "auto-mode-v2-e2e",
+  "case_id": "TC-08",
+  "title": "Transition lock - rejection matrix",
+  "schema_version": 1,
+  "matrix": [
+    {
+      "case": "tc08-001",
+      "family": "F1-legal-path",
+      "from_status": "idle",
+      "requested_action": "request_transition",
+      "to_status": "standard",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "accept",
+      "expected_error_code": null
+    },
+    {
+      "case": "tc08-002",
+      "family": "F1-legal-path",
+      "from_status": "standard",
+      "requested_action": "request_transition",
+      "to_status": "supervised",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "accept",
+      "expected_error_code": null
+    },
+    {
+      "case": "tc08-003",
+      "family": "F1-legal-path",
+      "from_status": "supervised",
+      "requested_action": "request_transition",
+      "to_status": "autonomous",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "accept",
+      "expected_error_code": null
+    },
+    {
+      "case": "tc08-004",
+      "family": "F1-legal-path",
+      "from_status": "autonomous",
+      "requested_action": "request_transition",
+      "to_status": "standard",
+      "actor": "user",
+      "reason_provided": false,
+      "expected": "accept",
+      "expected_error_code": null
+    },
+    {
+      "case": "tc08-005",
+      "family": "F1-legal-path",
+      "from_status": "error",
+      "requested_action": "request_transition",
+      "to_status": "idle",
+      "actor": "user",
+      "reason_provided": false,
+      "expected": "accept",
+      "expected_error_code": null
+    },
+    {
+      "case": "tc08-006",
+      "family": "F2-illegal-transition",
+      "from_status": "idle",
+      "requested_action": "request_transition",
+      "to_status": "supervised",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "idle",
+        "allowed_next_transitions": [
+          {
+            "to_status": "standard",
+            "label": "Escalate to standard mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from idle to standard mode."
+          },
+          {
+            "to_status": "autonomous",
+            "label": "Escalate directly to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from idle to autonomous mode."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-007",
+      "family": "F2-illegal-transition",
+      "from_status": "standard",
+      "requested_action": "request_transition",
+      "to_status": "error",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "standard",
+        "allowed_next_transitions": [
+          {
+            "to_status": "supervised",
+            "label": "Escalate to supervised mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to supervised mode."
+          },
+          {
+            "to_status": "autonomous",
+            "label": "Escalate to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to autonomous mode."
+          },
+          {
+            "to_status": "idle",
+            "label": "Deactivate auto-mode",
+            "reason_required": false,
+            "hint": "No reason required to return to idle."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-008",
+      "family": "F2-illegal-transition",
+      "from_status": "supervised",
+      "requested_action": "request_transition",
+      "to_status": "error",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "supervised",
+        "allowed_next_transitions": [
+          {
+            "to_status": "autonomous",
+            "label": "Escalate to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from supervised to autonomous mode."
+          },
+          {
+            "to_status": "standard",
+            "label": "De-escalate to standard mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "idle",
+            "label": "Abort to idle",
+            "reason_required": false,
+            "hint": "No reason required to abort to idle."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-009",
+      "family": "F2-illegal-transition",
+      "from_status": "autonomous",
+      "requested_action": "request_transition",
+      "to_status": "error",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "autonomous",
+        "allowed_next_transitions": [
+          {
+            "to_status": "standard",
+            "label": "De-escalate to standard mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "supervised",
+            "label": "De-escalate to supervised mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "idle",
+            "label": "Emergency stop to idle",
+            "reason_required": false,
+            "hint": "No reason required for emergency stop."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-010",
+      "family": "F2-illegal-transition",
+      "from_status": "error",
+      "requested_action": "request_transition",
+      "to_status": "standard",
+      "actor": "user",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "error",
+        "allowed_next_transitions": [
+          {
+            "to_status": "idle",
+            "label": "Reset to idle",
+            "reason_required": false,
+            "hint": "Recovery from error is reason-exempt."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-011",
+      "family": "F3-actor-gated",
+      "from_status": "idle",
+      "requested_action": "request_transition",
+      "to_status": "autonomous",
+      "actor": "agent",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "idle",
+        "allowed_next_transitions": [
+          {
+            "to_status": "standard",
+            "label": "Escalate to standard mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from idle to standard mode."
+          },
+          {
+            "to_status": "autonomous",
+            "label": "Escalate directly to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from idle to autonomous mode."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-012",
+      "family": "F3-actor-gated",
+      "from_status": "standard",
+      "requested_action": "request_transition",
+      "to_status": "supervised",
+      "actor": "agent",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "standard",
+        "allowed_next_transitions": [
+          {
+            "to_status": "supervised",
+            "label": "Escalate to supervised mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to supervised mode."
+          },
+          {
+            "to_status": "autonomous",
+            "label": "Escalate to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to autonomous mode."
+          },
+          {
+            "to_status": "idle",
+            "label": "Deactivate auto-mode",
+            "reason_required": false,
+            "hint": "No reason required to return to idle."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-013",
+      "family": "F3-actor-gated",
+      "from_status": "standard",
+      "requested_action": "request_transition",
+      "to_status": "autonomous",
+      "actor": "agent",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "standard",
+        "allowed_next_transitions": [
+          {
+            "to_status": "supervised",
+            "label": "Escalate to supervised mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to supervised mode."
+          },
+          {
+            "to_status": "autonomous",
+            "label": "Escalate to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to autonomous mode."
+          },
+          {
+            "to_status": "idle",
+            "label": "Deactivate auto-mode",
+            "reason_required": false,
+            "hint": "No reason required to return to idle."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-014",
+      "family": "F3-actor-gated",
+      "from_status": "supervised",
+      "requested_action": "request_transition",
+      "to_status": "standard",
+      "actor": "agent",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "supervised",
+        "allowed_next_transitions": [
+          {
+            "to_status": "autonomous",
+            "label": "Escalate to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from supervised to autonomous mode."
+          },
+          {
+            "to_status": "standard",
+            "label": "De-escalate to standard mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "idle",
+            "label": "Abort to idle",
+            "reason_required": false,
+            "hint": "No reason required to abort to idle."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-015",
+      "family": "F3-actor-gated",
+      "from_status": "autonomous",
+      "requested_action": "request_transition",
+      "to_status": "standard",
+      "actor": "agent",
+      "reason_provided": true,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "autonomous",
+        "allowed_next_transitions": [
+          {
+            "to_status": "standard",
+            "label": "De-escalate to standard mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "supervised",
+            "label": "De-escalate to supervised mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "idle",
+            "label": "Emergency stop to idle",
+            "reason_required": false,
+            "hint": "No reason required for emergency stop."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-016",
+      "family": "F4-reason-required",
+      "from_status": "idle",
+      "requested_action": "request_transition",
+      "to_status": "standard",
+      "actor": "user",
+      "reason_provided": false,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "idle",
+        "allowed_next_transitions": [
+          {
+            "to_status": "standard",
+            "label": "Escalate to standard mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from idle to standard mode."
+          },
+          {
+            "to_status": "autonomous",
+            "label": "Escalate directly to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from idle to autonomous mode."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-017",
+      "family": "F4-reason-required",
+      "from_status": "standard",
+      "requested_action": "request_transition",
+      "to_status": "supervised",
+      "actor": "user",
+      "reason_provided": false,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "standard",
+        "allowed_next_transitions": [
+          {
+            "to_status": "supervised",
+            "label": "Escalate to supervised mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to supervised mode."
+          },
+          {
+            "to_status": "autonomous",
+            "label": "Escalate to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from standard to autonomous mode."
+          },
+          {
+            "to_status": "idle",
+            "label": "Deactivate auto-mode",
+            "reason_required": false,
+            "hint": "No reason required to return to idle."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-018",
+      "family": "F4-reason-required",
+      "from_status": "supervised",
+      "requested_action": "request_transition",
+      "to_status": "autonomous",
+      "actor": "user",
+      "reason_provided": false,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "supervised",
+        "allowed_next_transitions": [
+          {
+            "to_status": "autonomous",
+            "label": "Escalate to autonomous mode",
+            "reason_required": true,
+            "hint": "Provide a reason to escalate from supervised to autonomous mode."
+          },
+          {
+            "to_status": "standard",
+            "label": "De-escalate to standard mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "idle",
+            "label": "Abort to idle",
+            "reason_required": false,
+            "hint": "No reason required to abort to idle."
+          }
+        ]
+      }
+    },
+    {
+      "case": "tc08-019",
+      "family": "F4R-exempt-recovery",
+      "from_status": "supervised",
+      "requested_action": "request_transition",
+      "to_status": "standard",
+      "actor": "user",
+      "reason_provided": false,
+      "expected": "accept",
+      "expected_error_code": null
+    },
+    {
+      "case": "tc08-020",
+      "family": "F4R-exempt-recovery",
+      "from_status": "error",
+      "requested_action": "request_transition",
+      "to_status": "idle",
+      "actor": "user",
+      "reason_provided": false,
+      "expected": "accept",
+      "expected_error_code": null
+    },
+    {
+      "case": "tc08-021",
+      "family": "F5-payload-detail",
+      "from_status": "autonomous",
+      "requested_action": "request_transition",
+      "to_status": "idle",
+      "actor": "agent",
+      "reason_provided": false,
+      "expected": "reject",
+      "expected_error_code": "transition_locked",
+      "expected_rejection": {
+        "current_status": "autonomous",
+        "allowed_next_transitions": [
+          {
+            "to_status": "standard",
+            "label": "De-escalate to standard mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "supervised",
+            "label": "De-escalate to supervised mode",
+            "reason_required": false,
+            "hint": "Recovery de-escalation is reason-exempt."
+          },
+          {
+            "to_status": "idle",
+            "label": "Emergency stop to idle",
+            "reason_required": false,
+            "hint": "No reason required for emergency stop."
+          }
+        ]
+      }
+    }
+  ]
+}
